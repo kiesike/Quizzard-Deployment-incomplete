@@ -599,22 +599,33 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 ],
               ),
             ),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: alreadyTaken
-                    ? Colors.green.withOpacity(0.1)
-                    : const Color(0xFF6C63FF),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                alreadyTaken ? 'Done' : 'Take',
-                style: TextStyle(
-                  color:
-                      alreadyTaken ? Colors.green : Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+            GestureDetector(
+              onTap: alreadyTaken
+                  ? null
+                  : () => Navigator.pushNamed(
+                        context,
+                        '/quiz-taking',
+                        arguments: {
+                          'quiz_id': quiz['id'],
+                          'quiz_title': quiz['title'],
+                        },
+                      ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: alreadyTaken
+                      ? Colors.green.withOpacity(0.1)
+                      : const Color(0xFF6C63FF),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  alreadyTaken ? 'Done' : 'Take',
+                  style: TextStyle(
+                    color: alreadyTaken ? Colors.green : Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ),

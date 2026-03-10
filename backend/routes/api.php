@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\QuestionController;
+use App\Http\Controllers\QuizController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -20,6 +21,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Teacher routes
     Route::get('/teacher/dashboard', [TeacherController::class, 'dashboard']);
+
+    // Quiz routes
+    Route::get('/quizzes/{quizId}', [QuizController::class, 'show']);
+    Route::post('/quizzes/{quizId}/start', [QuizController::class, 'startAttempt']);
 
     // Question routes
     Route::get('/quizzes/{quizId}/questions', [QuestionController::class, 'index']);

@@ -6,6 +6,7 @@ import 'screens/teacher_dashboard_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'screens/question_preview_screen.dart';
 import 'services/auth_service.dart';
+import 'screens/quiz_taking_screen.dart';
 
 void main() {
   runApp(const QuizzardApp());
@@ -33,6 +34,15 @@ class QuizzardApp extends StatelessWidget {
         '/teacher-dashboard': (context) => const TeacherDashboardScreen(),
         '/admin-dashboard': (context) => const AdminDashboardScreen(),
         '/question-preview': (context) => const QuestionPreviewScreen(),
+        '/quiz-taking': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments
+              as Map<String, dynamic>;
+          return QuizTakingScreen(
+            quizId: args['quiz_id'],
+            quizTitle: args['quiz_title'],
+          );
+        },
+        
       },
     );
   }

@@ -25,6 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/quizzes/{quizId}/questions', [QuestionController::class, 'index']);
     Route::post('/quizzes/{quizId}/questions/multiple-choice', [QuestionController::class, 'storeMultipleChoice']);
     Route::post('/quizzes/{quizId}/questions/true-false', [QuestionController::class, 'storeTrueFalse']);
+    Route::post('/quizzes/{quizId}/questions/identification', [QuestionController::class, 'storeIdentification']);
     Route::put('/quizzes/{quizId}/questions/{questionId}', [QuestionController::class, 'update']);
     Route::delete('/quizzes/{quizId}/questions/{questionId}', [QuestionController::class, 'destroy']);
 });

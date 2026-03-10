@@ -220,5 +220,43 @@ class QuestionController extends Controller
     }
 
 
+    // Create an identification question
+    public function storeIdentification(Request $request, $quizId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+
+        if ($quiz->teacher_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $request->validate([
+            'question_text'  => 'required|string',
+            'correct_answer' => 'required|string',
+            'points'         => 'integer|min:1',
+        ]);
+
+        // Create the question
+        $question = Question::create([
+            'quiz_id'       => $quizId,
+            'question_text' => $request->question_text,
+            'question_type' => 'identification',
+            'points'        => $request->points ?? 1,
+            'order'         => Question::where('quiz_id', $quizId)->count() + 1,
+        ]);
+
+        // Store the correct answer as an answer option
+        AnswerOption::create([
+            'question_id' => $question->id,
+            'option_text' => $request->correct_answer,
+            'is_correct'  => true,
+            'order'       => 1,
+        ]);
+
+        return response()->json([
+            'message'  => 'Identification question created successfully.',
+            'question' => $question->load('answerOptions'),
+        ], 201);
+    }
+
 
 }

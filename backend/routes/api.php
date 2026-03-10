@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\StudentController;
+use App\Http\Controllers\TeacherController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -15,4 +16,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Student routes
     Route::get('/student/dashboard', [StudentController::class, 'dashboard']);
+
+    // Teacher routes
+    Route::get('/teacher/dashboard', [TeacherController::class, 'dashboard']);
 });

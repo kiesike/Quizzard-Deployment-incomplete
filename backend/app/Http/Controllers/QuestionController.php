@@ -173,4 +173,52 @@ class QuestionController extends Controller
             'message' => 'Question deleted successfully.'
         ]);
     }
+
+    // Create a true or false question
+    public function storeTrueFalse(Request $request, $quizId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+
+        if ($quiz->teacher_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $request->validate([
+            'question_text' => 'required|string',
+            'points'        => 'integer|min:1',
+            'correct_answer' => 'required|boolean',
+        ]);
+
+        // Create the question
+        $question = Question::create([
+            'quiz_id'       => $quizId,
+            'question_text' => $request->question_text,
+            'question_type' => 'true_false',
+            'points'        => $request->points ?? 1,
+            'order'         => Question::where('quiz_id', $quizId)->count() + 1,
+        ]);
+
+        // Create True and False options
+        AnswerOption::create([
+            'question_id' => $question->id,
+            'option_text' => 'True',
+            'is_correct'  => $request->correct_answer === true,
+            'order'       => 1,
+        ]);
+
+        AnswerOption::create([
+            'question_id' => $question->id,
+            'option_text' => 'False',
+            'is_correct'  => $request->correct_answer === false,
+            'order'       => 2,
+        ]);
+
+        return response()->json([
+            'message'  => 'True or False question created successfully.',
+            'question' => $question->load('answerOptions'),
+        ], 201);
+    }
+
+
+
 }

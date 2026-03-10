@@ -259,4 +259,47 @@ class QuestionController extends Controller
     }
 
 
+    // Create a matching type question
+    public function storeMatching(Request $request, $quizId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+
+        if ($quiz->teacher_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $request->validate([
+            'question_text'        => 'required|string',
+            'points'               => 'integer|min:1',
+            'pairs'                => 'required|array|min:2',
+            'pairs.*.option_text'  => 'required|string',
+            'pairs.*.match_pair'   => 'required|string',
+        ]);
+
+        // Create the question
+        $question = Question::create([
+            'quiz_id'       => $quizId,
+            'question_text' => $request->question_text,
+            'question_type' => 'matching',
+            'points'        => $request->points ?? 1,
+            'order'         => Question::where('quiz_id', $quizId)->count() + 1,
+        ]);
+
+        // Create the pairs as answer options
+        foreach ($request->pairs as $index => $pair) {
+            AnswerOption::create([
+                'question_id' => $question->id,
+                'option_text' => $pair['option_text'], // Column A item
+                'match_pair'  => $pair['match_pair'],  // Column B item
+                'is_correct'  => true,
+                'order'       => $index + 1,
+            ]);
+        }
+
+        return response()->json([
+            'message'  => 'Matching type question created successfully.',
+            'question' => $question->load('answerOptions'),
+        ], 201);
+    }
+
 }

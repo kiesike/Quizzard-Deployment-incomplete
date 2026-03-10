@@ -5,21 +5,27 @@ import '../widgets/true_false_widget.dart';
 import '../widgets/true_false_result_widget.dart';
 import '../widgets/identification_widget.dart';
 import '../widgets/identification_result_widget.dart';
+import '../widgets/matching_widget.dart';
+import '../widgets/matching_result_widget.dart';
 
 class QuestionPreviewScreen extends StatefulWidget {
   const QuestionPreviewScreen({super.key});
 
   @override
-  State<QuestionPreviewScreen> createState() => _QuestionPreviewScreenState();
+  State<QuestionPreviewScreen> createState() =>
+      _QuestionPreviewScreenState();
 }
 
-class _QuestionPreviewScreenState extends State<QuestionPreviewScreen> {
+class _QuestionPreviewScreenState
+    extends State<QuestionPreviewScreen> {
   int? _mcSelectedId;
   int? _tfSelectedId;
   String _idAnswer = '';
+  Map<String, String> _matchAnswers = {};
   bool _mcSubmitted = false;
   bool _tfSubmitted = false;
   bool _idSubmitted = false;
+  bool _matchSubmitted = false;
 
   final Map<String, dynamic> _mcQuestion = {
     'id': 1,
@@ -52,6 +58,43 @@ class _QuestionPreviewScreenState extends State<QuestionPreviewScreen> {
     'points': 2,
     'answer_options': [
       {'id': 7, 'option_text': 'Filipino', 'is_correct': true, 'order': 1},
+    ],
+  };
+
+  final Map<String, dynamic> _matchQuestion = {
+    'id': 4,
+    'question_text': 'Match the Filipino heroes to their contributions.',
+    'question_type': 'matching',
+    'points': 4,
+    'answer_options': [
+      {
+        'id': 8,
+        'option_text': 'Jose Rizal',
+        'match_pair': 'Wrote Noli Me Tangere',
+        'is_correct': true,
+        'order': 1
+      },
+      {
+        'id': 9,
+        'option_text': 'Andres Bonifacio',
+        'match_pair': 'Founded the Katipunan',
+        'is_correct': true,
+        'order': 2
+      },
+      {
+        'id': 10,
+        'option_text': 'Emilio Aguinaldo',
+        'match_pair': 'First President of the Philippines',
+        'is_correct': true,
+        'order': 3
+      },
+      {
+        'id': 11,
+        'option_text': 'Apolinario Mabini',
+        'match_pair': 'Brains of the Revolution',
+        'is_correct': true,
+        'order': 4
+      },
     ],
   };
 
@@ -195,6 +238,37 @@ class _QuestionPreviewScreenState extends State<QuestionPreviewScreen> {
               onReset: () => setState(() {
                 _idSubmitted = false;
                 _idAnswer = '';
+              }),
+            ),
+
+            const Divider(height: 40),
+
+            // ── Matching Type ──
+            const Text('Matching Type',
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF333333))),
+            const SizedBox(height: 12),
+            _matchSubmitted
+                ? MatchingResultWidget(
+                    question: _matchQuestion,
+                    studentAnswers: _matchAnswers)
+                : MatchingWidget(
+                    question: _matchQuestion,
+                    currentAnswers: _matchAnswers,
+                    onAnswerChanged: (answers) =>
+                        setState(() => _matchAnswers = answers)),
+            const SizedBox(height: 12),
+            _buildSubmitButton(
+              submitted: _matchSubmitted,
+              hasAnswer: _matchAnswers.length ==
+                  (_matchQuestion['answer_options'] as List).length,
+              onSubmit: () =>
+                  setState(() => _matchSubmitted = true),
+              onReset: () => setState(() {
+                _matchSubmitted = false;
+                _matchAnswers = {};
               }),
             ),
 

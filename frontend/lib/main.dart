@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
 import 'screens/student_dashboard_screen.dart';
 import 'screens/teacher_dashboard_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
@@ -26,6 +27,7 @@ class QuizzardApp extends StatelessWidget {
       home: const SplashScreen(),
       routes: {
         '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
         '/student-dashboard': (context) => const StudentDashboardScreen(),
         '/teacher-dashboard': (context) => const TeacherDashboardScreen(),
         '/admin-dashboard': (context) => const AdminDashboardScreen(),

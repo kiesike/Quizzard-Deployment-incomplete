@@ -4,85 +4,57 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
 class AuthController extends Controller
 {
-    // Maximum failed attempts before lockout
     const MAX_ATTEMPTS = 5;
-    // Lockout duration in minutes
     const LOCKOUT_MINUTES = 15;
 
+    // ─── LOGIN ───────────────────────────────────────────────
     public function login(Request $request)
     {
-        // Validate the incoming request
         $request->validate([
             'email'    => 'required|email',
             'password' => 'required|string',
         ]);
 
-        // Find the user by email
         $user = User::where('email', $request->email)->first();
 
-        // Check if user exists
         if (!$user) {
-            return response()->json([
-                'message' => 'Invalid credentials.'
-            ], 401);
+            return response()->json(['message' => 'Invalid credentials.'], 401);
         }
 
-        // Check if account is deactivated
         if ($user->status === 'deactivated') {
-            return response()->json([
-                'message' => 'Your account has been deactivated. Please contact the administrator.'
-            ], 403);
+            return response()->json(['message' => 'Your account has been deactivated. Please contact the administrator.'], 403);
         }
 
-        // Check if account is pending approval
         if ($user->status === 'pending') {
-            return response()->json([
-                'message' => 'Your account is pending approval. Please wait for an administrator to activate your account.'
-            ], 403);
+            return response()->json(['message' => 'Your account is pending approval. Please wait for an administrator to activate your account.'], 403);
         }
 
-        // Check if account is locked
         if ($user->locked_until && Carbon::now()->lessThan($user->locked_until)) {
             $minutesLeft = Carbon::now()->diffInMinutes($user->locked_until, false);
-            return response()->json([
-                'message' => "Your account is locked. Please try again in {$minutesLeft} minute(s)."
-            ], 423);
+            return response()->json(['message' => "Your account is locked. Please try again in {$minutesLeft} minute(s)."], 423);
         }
 
-        // Check password
         if (!Hash::check($request->password, $user->password)) {
-            // Increment failed attempts
             $user->failed_login_attempts += 1;
-
-            // Lock account if max attempts reached
             if ($user->failed_login_attempts >= self::MAX_ATTEMPTS) {
                 $user->locked_until = Carbon::now()->addMinutes(self::LOCKOUT_MINUTES);
                 $user->save();
-                return response()->json([
-                    'message' => 'Too many failed attempts. Your account has been locked for 15 minutes.'
-                ], 423);
+                return response()->json(['message' => 'Too many failed attempts. Your account has been locked for 15 minutes.'], 423);
             }
-
             $user->save();
             $remaining = self::MAX_ATTEMPTS - $user->failed_login_attempts;
-            return response()->json([
-                'message' => "Invalid credentials. {$remaining} attempt(s) remaining before lockout."
-            ], 401);
+            return response()->json(['message' => "Invalid credentials. {$remaining} attempt(s) remaining before lockout."], 401);
         }
 
-        // Successful login — reset failed attempts
         $user->failed_login_attempts = 0;
         $user->locked_until = null;
         $user->save();
 
-        // Create and return token
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -98,16 +70,58 @@ class AuthController extends Controller
         ], 200);
     }
 
-    public function logout(Request $request)
+    // ─── REGISTER ────────────────────────────────────────────
+    public function register(Request $request)
     {
-        // Delete the current token
-        $request->user()->currentAccessToken()->delete();
+        $request->validate([
+            'name'                  => 'required|string|max:255',
+            'email'                 => 'required|email|unique:users,email',
+            'password'              => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+                'regex:/[A-Z]/',      // must have uppercase
+                'regex:/[a-z]/',      // must have lowercase
+                'regex:/[0-9]/',      // must have number
+                'regex:/[@$!%*#?&]/', // must have special character
+            ],
+            'role'                  => 'required|in:teacher,student',
+        ], [
+            'password.regex'        => 'Password must contain uppercase, lowercase, number, and special character (@$!%*#?&).',
+            'password.min'          => 'Password must be at least 8 characters.',
+            'password.confirmed'    => 'Passwords do not match.',
+            'email.unique'          => 'This email is already registered.',
+        ]);
+
+        $user = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => Hash::make($request->password),
+            'role'     => $request->role,
+            'status'   => 'pending', // All new accounts need admin approval
+        ]);
 
         return response()->json([
-            'message' => 'Logged out successfully.'
-        ], 200);
+            'message' => 'Registration successful! Please wait for an administrator to approve your account.',
+            'user'    => [
+                'id'     => $user->id,
+                'name'   => $user->name,
+                'email'  => $user->email,
+                'role'   => $user->role,
+                'status' => $user->status,
+            ]
+        ], 201);
     }
 
+    // ─── LOGOUT ──────────────────────────────────────────────
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+        return response()->json(['message' => 'Logged out successfully.'], 200);
+    }
+
+    // ─── ME ──────────────────────────────────────────────────
     public function me(Request $request)
     {
         return response()->json($request->user());

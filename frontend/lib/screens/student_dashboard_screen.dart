@@ -416,6 +416,27 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             ),
           ),
           const SizedBox(height: 30),
+
+          // TEMPORARY - Remove after testing
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/question-preview'),
+              icon: const Icon(Icons.quiz, color: Colors.white),
+              label: const Text(
+                'Test Multiple Choice',
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6C63FF),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           // Logout button
           SizedBox(
             width: double.infinity,

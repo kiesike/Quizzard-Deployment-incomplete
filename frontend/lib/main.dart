@@ -4,6 +4,7 @@ import 'screens/register_screen.dart';
 import 'screens/student_dashboard_screen.dart';
 import 'screens/teacher_dashboard_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
+import 'screens/question_preview_screen.dart';
 import 'services/auth_service.dart';
 
 void main() {
@@ -31,6 +32,7 @@ class QuizzardApp extends StatelessWidget {
         '/student-dashboard': (context) => const StudentDashboardScreen(),
         '/teacher-dashboard': (context) => const TeacherDashboardScreen(),
         '/admin-dashboard': (context) => const AdminDashboardScreen(),
+        '/question-preview': (context) => const QuestionPreviewScreen(),
       },
     );
   }

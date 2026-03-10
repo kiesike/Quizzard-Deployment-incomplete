@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TeacherController;
+use App\Http\Controllers\QuestionController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -19,4 +20,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Teacher routes
     Route::get('/teacher/dashboard', [TeacherController::class, 'dashboard']);
+
+    // Question routes
+    Route::get('/quizzes/{quizId}/questions', [QuestionController::class, 'index']);
+    Route::post('/quizzes/{quizId}/questions/multiple-choice', [QuestionController::class, 'storeMultipleChoice']);
+    Route::put('/quizzes/{quizId}/questions/{questionId}', [QuestionController::class, 'update']);
+    Route::delete('/quizzes/{quizId}/questions/{questionId}', [QuestionController::class, 'destroy']);
 });

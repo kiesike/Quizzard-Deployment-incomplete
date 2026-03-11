@@ -7,6 +7,7 @@ import 'screens/admin_dashboard_screen.dart';
 import 'screens/question_preview_screen.dart';
 import 'services/auth_service.dart';
 import 'screens/quiz_taking_screen.dart';
+import 'screens/quiz_result_screen.dart';
 
 void main() {
   runApp(const QuizzardApp());
@@ -42,6 +43,7 @@ class QuizzardApp extends StatelessWidget {
             quizTitle: args['quiz_title'],
           );
         },
+        '/quiz-result': (context) => const QuizResultScreen(),
         
       },
     );

@@ -98,4 +98,171 @@ class QuizController extends Controller
             'attempt' => $attempt,
         ], 201);
     }
+
+
+    // Submit a quiz and auto-score it
+    public function submitQuiz(Request $request, $quizId)
+    {
+        $request->validate([
+            'attempt_id' => 'required|integer',
+            'answers'    => 'required|array',
+        ]);
+
+        // Find the attempt
+        $attempt = QuizAttempt::where('id', $request->attempt_id)
+            ->where('student_id', $request->user()->id)
+            ->where('quiz_id', $quizId)
+            ->where('status', 'in_progress')
+            ->firstOrFail();
+
+        $totalScore = 0;
+        $answersToSave = [];
+
+        foreach ($request->answers as $answerData) {
+            $questionId = $answerData['question_id'];
+            $answerType = $answerData['answer_type'];
+
+            $question = Question::with('answerOptions')
+                ->findOrFail($questionId);
+
+            $isCorrect    = false;
+            $pointsEarned = 0;
+            $answerGiven  = '';
+
+            // ── Multiple Choice / True False ──────────────
+            if ($answerType === 'multiple_choice' ||
+                $answerType === 'true_false') {
+                $selectedOptionId =
+                    $answerData['selected_option_id'] ?? null;
+                $answerGiven = (string) $selectedOptionId;
+
+                if ($selectedOptionId) {
+                    $correctOption = $question->answerOptions
+                        ->where('is_correct', true)
+                        ->first();
+
+                    if ($correctOption &&
+                        $correctOption->id == $selectedOptionId) {
+                        $isCorrect    = true;
+                        $pointsEarned = $question->points;
+                    }
+                }
+            }
+
+            // ── Identification ────────────────────────────
+            elseif ($answerType === 'identification') {
+                $answerText  =
+                    trim($answerData['answer_text'] ?? '');
+                $answerGiven = $answerText;
+
+                $correctOption = $question->answerOptions
+                    ->where('is_correct', true)
+                    ->first();
+
+                if ($correctOption &&
+                    strtolower($answerText) ===
+                    strtolower(trim($correctOption->option_text))) {
+                    $isCorrect    = true;
+                    $pointsEarned = $question->points;
+                }
+            }
+
+            // ── Matching ──────────────────────────────────
+            elseif ($answerType === 'matching') {
+                $matches     = $answerData['matches'] ?? [];
+                $answerGiven = json_encode($matches);
+
+                $correctPairs  = $question->answerOptions;
+                $totalPairs    = $correctPairs->count();
+                $correctCount  = 0;
+                $pointsPerPair = $totalPairs > 0
+                    ? $question->points / $totalPairs
+                    : 0;
+
+                foreach ($correctPairs as $pair) {
+                    $columnA       = $pair->option_text;
+                    $correctB      = $pair->match_pair;
+                    $studentB      = $matches[$columnA] ?? '';
+
+                    if (strtolower(trim($studentB)) ===
+                        strtolower(trim($correctB))) {
+                        $correctCount++;
+                    }
+                }
+
+                $pointsEarned = round($correctCount * $pointsPerPair);
+                $isCorrect    = $correctCount === $totalPairs;
+            }
+
+            $totalScore += $pointsEarned;
+
+            $answersToSave[] = [
+                'attempt_id'    => $attempt->id,
+                'question_id'   => $questionId,
+                'answer_given'  => $answerGiven,
+                'is_correct'    => $isCorrect,
+                'points_earned' => $pointsEarned,
+                'created_at'    => now(),
+                'updated_at'    => now(),
+            ];
+        }
+
+        // Save all answers
+        StudentAnswer::insert($answersToSave);
+
+        // Update attempt as completed
+        $attempt->update([
+            'score'        => $totalScore,
+            'status'       => 'completed',
+            'completed_at' => now(),
+        ]);
+
+        // Load questions with correct answers for result screen
+        $quiz = Quiz::with(['questions' => function ($q) {
+            $q->orderBy('order')->with('answerOptions');
+        }])->findOrFail($quizId);
+
+        // Build detailed results
+        $questionResults = [];
+        foreach ($quiz->questions as $question) {
+            $savedAnswer = StudentAnswer::where('attempt_id', $attempt->id)
+                ->where('question_id', $question->id)
+                ->first();
+
+            $questionResults[] = [
+                'id'             => $question->id,
+                'question_text'  => $question->question_text,
+                'question_type'  => $question->question_type,
+                'points'         => $question->points,
+                'points_earned'  => $savedAnswer?->points_earned ?? 0,
+                'is_correct'     => $savedAnswer?->is_correct ?? false,
+                'answer_given'   => $savedAnswer?->answer_given ?? '',
+                'answer_options' => $question->answerOptions->map(function ($opt) {
+                    return [
+                        'id'          => $opt->id,
+                        'option_text' => $opt->option_text,
+                        'is_correct'  => $opt->is_correct,
+                        'match_pair'  => $opt->match_pair,
+                        'order'       => $opt->order,
+                    ];
+                }),
+            ];
+        }
+
+        $percentage = $attempt->total_points > 0
+            ? round(($totalScore / $attempt->total_points) * 100)
+            : 0;
+
+        return response()->json([
+            'message'          => 'Quiz submitted successfully!',
+            'attempt_id'       => $attempt->id,
+            'score'            => $totalScore,
+            'total_points'     => $attempt->total_points,
+            'percentage'       => $percentage,
+            'quiz_title'       => $quiz->title,
+            'question_results' => $questionResults,
+        ]);
+    }
+
+
 }

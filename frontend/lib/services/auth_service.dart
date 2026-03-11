@@ -5,9 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   static const String baseUrl = 'http://172.21.22.155:8000/api';
 
-  // ─── LOGIN ───────────────────────────────────────────────
-  static Future<Map<String, dynamic>> login(
-      String email, String password) async {
+  static Future<Map> login(String email, String password) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
@@ -26,42 +24,37 @@ class AuthService {
         return {'success': false, 'message': data['message']};
       }
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Cannot connect to server. Please check your connection.'
-      };
+      return {'success': false, 'message': 'Cannot connect to server. Please check your connection.'};
     }
   }
 
-  // ─── LOGOUT ──────────────────────────────────────────────
-  static Future<void> logout() async {
+  static Future logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
   }
 
-  // ─── GETTERS ─────────────────────────────────────────────
-  static Future<String?> getToken() async {
+  static Future getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
   }
 
-  static Future<String?> getRole() async {
+  static Future getRole() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('role');
   }
 
-  static Future<String?> getName() async {
+  static Future getName() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('name');
   }
 
-  static Future<bool> isLoggedIn() async {
+  static Future isLoggedIn() async {
     final token = await getToken();
     return token != null;
   }
 
-  // ─── AUTHENTICATED GET REQUEST ───────────────────────────
-  static Future<Map<String, dynamic>> authGet(String endpoint) async {
+  // ─── GET ──────────────────────────────────────────────────────
+  static Future<Map> authGet(String endpoint) async {
     try {
       final token = await getToken();
       final response = await http.get(
@@ -75,19 +68,15 @@ class AuthService {
       if (response.statusCode == 200) {
         return {'success': true, 'data': data};
       } else {
-        return {'success': false, 'message': data['message']};
+        return {'success': false, 'message': data['message'] ?? 'Error'};
       }
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Cannot connect to server. Please check your connection.'
-      };
+      return {'success': false, 'message': 'Cannot connect to server. Please check your connection.'};
     }
   }
 
-  // ─── AUTHENTICATED POST REQUEST ──────────────────────────
-  static Future<Map<String, dynamic>> authPost(
-      String endpoint, Map<String, dynamic> body) async {
+  // ─── POST ─────────────────────────────────────────────────────
+  static Future<Map> authPost(String endpoint, Map body) async {
     try {
       final token = await getToken();
       final response = await http.post(
@@ -102,20 +91,38 @@ class AuthService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return {'success': true, 'data': data};
       } else {
-        return {'success': false, 'message': data['message']};
+        return {'success': false, 'message': data['message'] ?? 'Error'};
       }
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Cannot connect to server. Please check your connection.'
-      };
+      return {'success': false, 'message': 'Cannot connect to server. Please check your connection.'};
     }
   }
 
+  // ─── PUT ──────────────────────────────────────────────────────
+  static Future<Map> authPut(String endpoint, Map body) async {
+    try {
+      final token = await getToken();
+      final response = await http.put(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      );
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {'success': true, 'data': data};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Error'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Cannot connect to server. Please check your connection.'};
+    }
+  }
 
-// ─── AUTHENTICATED PATCH REQUEST ─────────────────────────
-  static Future<Map<String, dynamic>> authPatch(
-      String endpoint, Map<String, dynamic> body) async {
+  // ─── PATCH ────────────────────────────────────────────────────
+  static Future<Map> authPatch(String endpoint, Map body) async {
     try {
       final token = await getToken();
       final response = await http.patch(
@@ -130,22 +137,32 @@ class AuthService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'success': true, 'data': data['data'], 'message': data['message'] ?? ''};
       } else {
-        return {'success': false, 'message': data['message']};
+        return {'success': false, 'message': data['message'] ?? 'Error'};
       }
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Cannot connect to server. Please check your connection.'
-      };
+      return {'success': false, 'message': 'Cannot connect to server. Please check your connection.'};
     }
   }
-  // ============================================================
-  // ALSO ensure clearToken() exists in AuthService.
-  // If it doesn't exist, add:
-  // ============================================================
 
-  static Future<void> clearToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
+  // ─── DELETE ───────────────────────────────────────────────────
+  static Future<Map> authDelete(String endpoint) async {
+    try {
+      final token = await getToken();
+      final response = await http.delete(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'Deleted'};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Error'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Cannot connect to server. Please check your connection.'};
+    }
   }
 }

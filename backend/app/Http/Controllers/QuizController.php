@@ -3,61 +3,143 @@
 namespace App\Http\Controllers;
 
 use App\Models\Quiz;
+use App\Models\Question;
 use App\Models\QuizAttempt;
 use App\Models\StudentAnswer;
-use App\Models\Question;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class QuizController extends Controller
 {
-    // Get a single quiz with all questions for taking
-    public function show($quizId)
+    // ─── GET /api/quizzes ─────────────────────────────────────────
+    public function index()
     {
-        $quiz = Quiz::where('id', $quizId)
-            ->where('is_published', true)
-            ->with(['questions' => function ($q) {
-                $q->orderBy('order')->with('answerOptions');
-            }])
-            ->firstOrFail();
+        $quizzes = Quiz::where('teacher_id', Auth::id())
+            ->withCount('questions')
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         return response()->json([
-            'quiz' => [
-                'id'          => $quiz->id,
-                'title'       => $quiz->title,
-                'description' => $quiz->description,
-                'questions'   => $quiz->questions->map(function ($question) {
-                    return [
-                        'id'             => $question->id,
-                        'question_text'  => $question->question_text,
-                        'question_type'  => $question->question_type,
-                        'points'         => $question->points,
-                        'order'          => $question->order,
-                        'media_path'     => $question->media_path,
-                        'media_type'     => $question->media_type,
-                        'answer_options' => $question->answerOptions
-                            ->map(function ($option) {
-                                return [
-                                    'id'          => $option->id,
-                                    'option_text' => $option->option_text,
-                                    'match_pair'  => $option->match_pair,
-                                    'order'       => $option->order,
-                                    // NOTE: is_correct is NOT sent to student
-                                ];
-                            }),
-                    ];
-                }),
-            ],
+            'success' => true,
+            'data'    => $quizzes,
         ]);
     }
 
-    // Start a quiz attempt
+    // ─── POST /api/quizzes ────────────────────────────────────────
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'title'       => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        $quiz = Quiz::create([
+            'teacher_id'   => Auth::id(),
+            'title'        => $validated['title'],
+            'description'  => $validated['description'] ?? null,
+            'is_published' => false,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Quiz created successfully.',
+            'data'    => $quiz,
+        ], 201);
+    }
+
+    // ─── GET /api/quizzes/{quizId} ────────────────────────────────
+    public function show($quizId)
+    {
+        $quiz = Quiz::with(['questions' => function ($q) {
+            $q->orderBy('order')->with(['answerOptions' => function ($ao) {
+                $ao->orderBy('order');
+            }]);
+        }])->findOrFail($quizId);
+
+        $user = Auth::user();
+        if ($user->role === 'student') {
+            $quiz->questions->each(function ($question) {
+                $question->answerOptions->each(function ($option) {
+                    unset($option->is_correct);
+                });
+            });
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => $quiz,
+        ]);
+    }
+
+    // ─── PUT /api/quizzes/{quizId} ────────────────────────────────
+    public function update(Request $request, $quizId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+
+        if ($quiz->teacher_id !== Auth::id()) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $validated = $request->validate([
+            'title'       => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        $quiz->update([
+            'title'       => $validated['title'],
+            'description' => $validated['description'] ?? $quiz->description,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Quiz updated successfully.',
+            'data'    => $quiz,
+        ]);
+    }
+
+    // ─── DELETE /api/quizzes/{quizId} ─────────────────────────────
+    public function destroy($quizId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+
+        if ($quiz->teacher_id !== Auth::id()) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $quiz->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Quiz deleted successfully.',
+        ]);
+    }
+
+    // ─── PATCH /api/quizzes/{quizId}/publish-toggle ───────────────
+    public function publishToggle($quizId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+
+        if ($quiz->teacher_id !== Auth::id()) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $quiz->is_published = !$quiz->is_published;
+        $quiz->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => $quiz->is_published ? 'Quiz published.' : 'Quiz unpublished.',
+            'data'    => $quiz,
+        ]);
+    }
+
+    // ─── POST /api/quizzes/{quizId}/start ─────────────────────────
     public function startAttempt(Request $request, $quizId)
     {
         $quiz = Quiz::where('id', $quizId)
             ->where('is_published', true)
             ->firstOrFail();
 
-        // Check if student already has a completed attempt
         $existingAttempt = QuizAttempt::where('student_id', $request->user()->id)
             ->where('quiz_id', $quizId)
             ->where('status', 'completed')
@@ -70,7 +152,6 @@ class QuizController extends Controller
             ], 409);
         }
 
-        // Check for in-progress attempt
         $inProgressAttempt = QuizAttempt::where('student_id', $request->user()->id)
             ->where('quiz_id', $quizId)
             ->where('status', 'in_progress')
@@ -83,14 +164,13 @@ class QuizController extends Controller
             ]);
         }
 
-        // Create new attempt
         $attempt = QuizAttempt::create([
-            'student_id' => $request->user()->id,
-            'quiz_id'    => $quizId,
-            'score'      => 0,
+            'student_id'   => $request->user()->id,
+            'quiz_id'      => $quizId,
+            'score'        => 0,
             'total_points' => $quiz->questions()->sum('points'),
-            'status'     => 'in_progress',
-            'started_at' => now(),
+            'status'       => 'in_progress',
+            'started_at'   => now(),
         ]);
 
         return response()->json([
@@ -99,8 +179,7 @@ class QuizController extends Controller
         ], 201);
     }
 
-
-    // Submit a quiz and auto-score it
+    // ─── POST /api/quizzes/{quizId}/submit ────────────────────────
     public function submitQuiz(Request $request, $quizId)
     {
         $request->validate([
@@ -108,84 +187,57 @@ class QuizController extends Controller
             'answers'    => 'required|array',
         ]);
 
-        // Find the attempt
         $attempt = QuizAttempt::where('id', $request->attempt_id)
             ->where('student_id', $request->user()->id)
             ->where('quiz_id', $quizId)
             ->where('status', 'in_progress')
             ->firstOrFail();
 
-        $totalScore = 0;
+        $totalScore    = 0;
         $answersToSave = [];
 
         foreach ($request->answers as $answerData) {
             $questionId = $answerData['question_id'];
             $answerType = $answerData['answer_type'];
 
-            $question = Question::with('answerOptions')
-                ->findOrFail($questionId);
+            $question = Question::with('answerOptions')->findOrFail($questionId);
 
             $isCorrect    = false;
             $pointsEarned = 0;
             $answerGiven  = '';
 
-            // ── Multiple Choice / True False ──────────────
-            if ($answerType === 'multiple_choice' ||
-                $answerType === 'true_false') {
-                $selectedOptionId =
-                    $answerData['selected_option_id'] ?? null;
-                $answerGiven = (string) $selectedOptionId;
+            if ($answerType === 'multiple_choice' || $answerType === 'true_false') {
+                $selectedOptionId = $answerData['selected_option_id'] ?? null;
+                $answerGiven      = (string) $selectedOptionId;
 
                 if ($selectedOptionId) {
-                    $correctOption = $question->answerOptions
-                        ->where('is_correct', true)
-                        ->first();
-
-                    if ($correctOption &&
-                        $correctOption->id == $selectedOptionId) {
+                    $correctOption = $question->answerOptions->where('is_correct', true)->first();
+                    if ($correctOption && $correctOption->id == $selectedOptionId) {
                         $isCorrect    = true;
                         $pointsEarned = $question->points;
                     }
                 }
-            }
-
-            // ── Identification ────────────────────────────
-            elseif ($answerType === 'identification') {
-                $answerText  =
-                    trim($answerData['answer_text'] ?? '');
+            } elseif ($answerType === 'identification') {
+                $answerText  = trim($answerData['answer_text'] ?? '');
                 $answerGiven = $answerText;
 
-                $correctOption = $question->answerOptions
-                    ->where('is_correct', true)
-                    ->first();
-
-                if ($correctOption &&
-                    strtolower($answerText) ===
-                    strtolower(trim($correctOption->option_text))) {
+                $correctOption = $question->answerOptions->where('is_correct', true)->first();
+                if ($correctOption && strtolower($answerText) === strtolower(trim($correctOption->option_text))) {
                     $isCorrect    = true;
                     $pointsEarned = $question->points;
                 }
-            }
-
-            // ── Matching ──────────────────────────────────
-            elseif ($answerType === 'matching') {
+            } elseif ($answerType === 'matching') {
                 $matches     = $answerData['matches'] ?? [];
                 $answerGiven = json_encode($matches);
 
                 $correctPairs  = $question->answerOptions;
                 $totalPairs    = $correctPairs->count();
                 $correctCount  = 0;
-                $pointsPerPair = $totalPairs > 0
-                    ? $question->points / $totalPairs
-                    : 0;
+                $pointsPerPair = $totalPairs > 0 ? $question->points / $totalPairs : 0;
 
                 foreach ($correctPairs as $pair) {
-                    $columnA       = $pair->option_text;
-                    $correctB      = $pair->match_pair;
-                    $studentB      = $matches[$columnA] ?? '';
-
-                    if (strtolower(trim($studentB)) ===
-                        strtolower(trim($correctB))) {
+                    $studentB = $matches[$pair->option_text] ?? '';
+                    if (strtolower(trim($studentB)) === strtolower(trim($pair->match_pair))) {
                         $correctCount++;
                     }
                 }
@@ -207,22 +259,25 @@ class QuizController extends Controller
             ];
         }
 
-        // Save all answers
         StudentAnswer::insert($answersToSave);
 
-        // Update attempt as completed
+        $quiz = Quiz::with(['questions' => function ($q) {
+            $q->orderBy('order')->with('answerOptions');
+        }])->findOrFail($quizId);
+    
+
+        // Recalculate total_points from actual questions at submit time
+        $actualTotalPoints = $quiz->questions()->sum('points');
+
         $attempt->update([
             'score'        => $totalScore,
+            'total_points' => $actualTotalPoints,
             'status'       => 'completed',
             'completed_at' => now(),
         ]);
 
-        // Load questions with correct answers for result screen
-        $quiz = Quiz::with(['questions' => function ($q) {
-            $q->orderBy('order')->with('answerOptions');
-        }])->findOrFail($quizId);
+        
 
-        // Build detailed results
         $questionResults = [];
         foreach ($quiz->questions as $question) {
             $savedAnswer = StudentAnswer::where('attempt_id', $attempt->id)
@@ -249,50 +304,20 @@ class QuizController extends Controller
             ];
         }
 
-        $percentage = $attempt->total_points > 0
-            ? round(($totalScore / $attempt->total_points) * 100)
+
+        $percentage = $actualTotalPoints > 0
+            ? round(($totalScore / $actualTotalPoints) * 100)
             : 0;
+
 
         return response()->json([
             'message'          => 'Quiz submitted successfully!',
             'attempt_id'       => $attempt->id,
             'score'            => $totalScore,
-            'total_points'     => $attempt->total_points,
+            'total_points'     => $actualTotalPoints,
             'percentage'       => $percentage,
             'quiz_title'       => $quiz->title,
             'question_results' => $questionResults,
         ]);
     }
-
-    public function publishToggle(Request $request, $quizId)
-    {
-        $user = $request->user();
-        $quiz = Quiz::find($quizId);
-
-        if (!$quiz) {
-            return response()->json(['success' => false, 'message' => 'Quiz not found.'], 404);
-        }
-
-        if ($quiz->teacher_id !== $user->id) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
-        }
-
-        $quiz->is_published = !$quiz->is_published;
-        $quiz->save();
-
-        return response()->json([
-            'success' => true,
-            'message' => $quiz->is_published ? 'Quiz published.' : 'Quiz unpublished.',
-            'data'    => [
-                'id'           => $quiz->id,
-                'title'        => $quiz->title,
-                'description'  => $quiz->description,
-                'is_published' => (bool) $quiz->is_published,
-                'cover_image'  => $quiz->cover_image,
-                'updated_at'   => $quiz->updated_at,
-            ],
-        ], 200);
-    }
-
-
 }

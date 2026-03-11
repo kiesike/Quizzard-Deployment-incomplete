@@ -58,7 +58,7 @@ class _QuizTakingScreenState extends State<QuizTakingScreen> {
       return;
     }
 
-    _attemptId = attemptResult['data']['attempt']['id'];
+    _attemptId = int.parse(attemptResult['data']['attempt']['id'].toString());
 
     // Load quiz questions
     final quizResult =
@@ -68,7 +68,7 @@ class _QuizTakingScreenState extends State<QuizTakingScreen> {
       _isLoading = false;
       if (quizResult['success']) {
         _questions =
-            quizResult['data']['quiz']['questions'] as List;
+            quizResult['data']['data']['questions'] as List;
       } else {
         _errorMessage = quizResult['message'];
       }

@@ -5,9 +5,14 @@ import 'screens/student_dashboard_screen.dart';
 import 'screens/teacher_dashboard_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'screens/question_preview_screen.dart';
-import 'services/auth_service.dart';
 import 'screens/quiz_taking_screen.dart';
 import 'screens/quiz_result_screen.dart';
+import 'screens/create_quiz_screen.dart';
+import 'screens/edit_quiz_screen.dart';
+import 'screens/quiz_detail_screen.dart';
+import 'screens/add_question_screen.dart';
+import 'services/auth_service.dart';
+import 'screens/edit_question_screen.dart';
 
 void main() {
   runApp(const QuizzardApp());
@@ -29,12 +34,14 @@ class QuizzardApp extends StatelessWidget {
       ),
       home: const SplashScreen(),
       routes: {
-        '/login': (context) => const LoginScreen(),
-        '/register': (context) => const RegisterScreen(),
-        '/student-dashboard': (context) => const StudentDashboardScreen(),
-        '/teacher-dashboard': (context) => const TeacherDashboardScreen(),
-        '/admin-dashboard': (context) => const AdminDashboardScreen(),
-        '/question-preview': (context) => const QuestionPreviewScreen(),
+        '/login':              (context) => const LoginScreen(),
+        '/register':           (context) => const RegisterScreen(),
+        '/student-dashboard':  (context) => const StudentDashboardScreen(),
+        '/teacher-dashboard':  (context) => const TeacherDashboardScreen(),
+        '/admin-dashboard':    (context) => const AdminDashboardScreen(),
+        '/question-preview':   (context) => const QuestionPreviewScreen(),
+        '/create-quiz':        (context) => const CreateQuizScreen(),
+        '/quiz-result':        (context) => const QuizResultScreen(),
         '/quiz-taking': (context) {
           final args = ModalRoute.of(context)!.settings.arguments
               as Map<String, dynamic>;
@@ -43,8 +50,36 @@ class QuizzardApp extends StatelessWidget {
             quizTitle: args['quiz_title'],
           );
         },
-        '/quiz-result': (context) => const QuizResultScreen(),
-        
+        '/quiz-detail': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments
+              as Map<String, dynamic>;
+          return QuizDetailScreen(
+            quizId: args['quiz_id'],
+            quizTitle: args['quiz_title'],
+          );
+        },
+        '/edit-quiz': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments
+              as Map<String, dynamic>;
+          return EditQuizScreen(
+            quizId: args['quiz_id'],
+            initialTitle: args['title'],
+            initialDescription: args['description'] ?? '',
+          );
+        },
+        '/add-question': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments
+              as Map<String, dynamic>;
+          return AddQuestionScreen(quizId: args['quiz_id']);
+        },
+        '/edit-question': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments
+              as Map<String, dynamic>;
+          return EditQuestionScreen(
+            quizId: args['quiz_id'],
+            question: args['question'],
+          );
+        },
       },
     );
   }

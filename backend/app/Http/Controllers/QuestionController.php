@@ -103,6 +103,7 @@ class QuestionController extends Controller
     }
 
     // Update a question
+    // Update a question (handles all question types)
     public function update(Request $request, $quizId, $questionId)
     {
         $quiz = Quiz::findOrFail($quizId);
@@ -111,45 +112,95 @@ class QuestionController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $question = Question::where('quiz_id', $quizId)
-            ->findOrFail($questionId);
+        $question = Question::where('quiz_id', $quizId)->findOrFail($questionId);
 
         $request->validate([
-            'question_text'         => 'required|string',
-            'points'                => 'integer|min:1',
-            'options'               => 'required|array|min:2|max:4',
-            'options.*.option_text' => 'required|string',
-            'options.*.is_correct'  => 'required|boolean',
+            'question_text' => 'required|string',
+            'points'        => 'integer|min:1',
         ]);
 
-        $correctCount = collect($request->options)
-            ->where('is_correct', true)
-            ->count();
-
-        if ($correctCount !== 1) {
-            return response()->json([
-                'message' => 'Multiple choice questions must have exactly one correct answer.'
-            ], 422);
-        }
-
-        // Update question
         $question->update([
             'question_text' => $request->question_text,
             'points'        => $request->points ?? 1,
         ]);
 
-        // Delete old options and recreate
+        // Delete old options — we always recreate them
         $question->answerOptions()->delete();
-        foreach ($request->options as $index => $option) {
-            AnswerOption::create([
-                'question_id' => $question->id,
-                'option_text' => $option['option_text'],
-                'is_correct'  => $option['is_correct'],
-                'order'       => $index + 1,
-            ]);
+
+        switch ($question->question_type) {
+
+            case 'multiple_choice':
+                $request->validate([
+                    'options'               => 'required|array|min:2|max:4',
+                    'options.*.option_text' => 'required|string',
+                    'options.*.is_correct'  => 'required|boolean',
+                ]);
+                $correctCount = collect($request->options)->where('is_correct', true)->count();
+                if ($correctCount !== 1) {
+                    return response()->json([
+                        'message' => 'Multiple choice must have exactly one correct answer.'
+                    ], 422);
+                }
+                foreach ($request->options as $index => $option) {
+                    AnswerOption::create([
+                        'question_id' => $question->id,
+                        'option_text' => $option['option_text'],
+                        'is_correct'  => $option['is_correct'],
+                        'order'       => $index + 1,
+                    ]);
+                }
+                break;
+
+            case 'true_false':
+                $request->validate([
+                    'correct_answer' => 'required|boolean',
+                ]);
+                AnswerOption::create([
+                    'question_id' => $question->id,
+                    'option_text' => 'True',
+                    'is_correct'  => $request->correct_answer === true,
+                    'order'       => 1,
+                ]);
+                AnswerOption::create([
+                    'question_id' => $question->id,
+                    'option_text' => 'False',
+                    'is_correct'  => $request->correct_answer === false,
+                    'order'       => 2,
+                ]);
+                break;
+
+            case 'identification':
+                $request->validate([
+                    'answer' => 'required|string',
+                ]);
+                AnswerOption::create([
+                    'question_id' => $question->id,
+                    'option_text' => $request->answer,
+                    'is_correct'  => true,
+                    'order'       => 1,
+                ]);
+                break;
+
+            case 'matching':
+                $request->validate([
+                    'pairs'              => 'required|array|min:2',
+                    'pairs.*.left'       => 'required|string',
+                    'pairs.*.right'      => 'required|string',
+                ]);
+                foreach ($request->pairs as $index => $pair) {
+                    AnswerOption::create([
+                        'question_id' => $question->id,
+                        'option_text' => $pair['left'],
+                        'match_pair'  => $pair['right'],
+                        'is_correct'  => true,
+                        'order'       => $index + 1,
+                    ]);
+                }
+                break;
         }
 
         return response()->json([
+            'success'  => true,
             'message'  => 'Question updated successfully.',
             'question' => $question->load('answerOptions'),
         ]);
@@ -230,12 +281,11 @@ class QuestionController extends Controller
         }
 
         $request->validate([
-            'question_text'  => 'required|string',
-            'correct_answer' => 'required|string',
-            'points'         => 'integer|min:1',
+            'question_text' => 'required|string',
+            'answer'        => 'required|string',
+            'points'        => 'integer|min:1',
         ]);
 
-        // Create the question
         $question = Question::create([
             'quiz_id'       => $quizId,
             'question_text' => $request->question_text,
@@ -244,10 +294,9 @@ class QuestionController extends Controller
             'order'         => Question::where('quiz_id', $quizId)->count() + 1,
         ]);
 
-        // Store the correct answer as an answer option
         AnswerOption::create([
             'question_id' => $question->id,
-            'option_text' => $request->correct_answer,
+            'option_text' => $request->answer,
             'is_correct'  => true,
             'order'       => 1,
         ]);
@@ -269,14 +318,13 @@ class QuestionController extends Controller
         }
 
         $request->validate([
-            'question_text'        => 'required|string',
-            'points'               => 'integer|min:1',
-            'pairs'                => 'required|array|min:2',
-            'pairs.*.option_text'  => 'required|string',
-            'pairs.*.match_pair'   => 'required|string',
+            'question_text'  => 'required|string',
+            'points'         => 'integer|min:1',
+            'pairs'          => 'required|array|min:2',
+            'pairs.*.left'   => 'required|string',
+            'pairs.*.right'  => 'required|string',
         ]);
 
-        // Create the question
         $question = Question::create([
             'quiz_id'       => $quizId,
             'question_text' => $request->question_text,
@@ -285,12 +333,11 @@ class QuestionController extends Controller
             'order'         => Question::where('quiz_id', $quizId)->count() + 1,
         ]);
 
-        // Create the pairs as answer options
         foreach ($request->pairs as $index => $pair) {
             AnswerOption::create([
                 'question_id' => $question->id,
-                'option_text' => $pair['option_text'], // Column A item
-                'match_pair'  => $pair['match_pair'],  // Column B item
+                'option_text' => $pair['left'],
+                'match_pair'  => $pair['right'],
                 'is_correct'  => true,
                 'order'       => $index + 1,
             ]);

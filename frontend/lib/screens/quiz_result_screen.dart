@@ -12,9 +12,9 @@ class QuizResultScreen extends StatelessWidget {
     final data = ModalRoute.of(context)!.settings.arguments
         as Map<String, dynamic>;
 
-    final score = data['score'] as int;
-    final totalPoints = data['total_points'] as int;
-    final percentage = data['percentage'] as int;
+    final score = int.parse(data['score'].toString());
+    final totalPoints = int.parse(data['total_points'].toString());
+    final percentage = int.parse(data['percentage'].toString());
     final quizTitle = data['quiz_title'] as String;
     final questionResults = data['question_results'] as List;
 

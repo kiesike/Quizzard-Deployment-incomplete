@@ -15,7 +15,6 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
-    Route::patch('/quizzes/{quizId}/publish-toggle', [QuizController::class, 'publishToggle']);
 
     // Student routes
     Route::get('/student/dashboard', [StudentController::class, 'dashboard']);
@@ -23,17 +22,24 @@ Route::middleware('auth:sanctum')->group(function () {
     // Teacher routes
     Route::get('/teacher/dashboard', [TeacherController::class, 'dashboard']);
 
-    // Quiz routes
-    Route::get('/quizzes/{quizId}', [QuizController::class, 'show']);
-    Route::post('/quizzes/{quizId}/start', [QuizController::class, 'startAttempt']);
+    // Quiz CRUD
+    Route::get('/quizzes',                           [QuizController::class, 'index']);
+    Route::post('/quizzes',                          [QuizController::class, 'store']);
+    Route::get('/quizzes/{quizId}',                  [QuizController::class, 'show']);
+    Route::put('/quizzes/{quizId}',                  [QuizController::class, 'update']);
+    Route::delete('/quizzes/{quizId}',               [QuizController::class, 'destroy']);
+    Route::patch('/quizzes/{quizId}/publish-toggle', [QuizController::class, 'publishToggle']);
+
+    // Quiz taking
+    Route::post('/quizzes/{quizId}/start',  [QuizController::class, 'startAttempt']);
     Route::post('/quizzes/{quizId}/submit', [QuizController::class, 'submitQuiz']);
 
     // Question routes
-    Route::get('/quizzes/{quizId}/questions', [QuestionController::class, 'index']);
-    Route::post('/quizzes/{quizId}/questions/multiple-choice', [QuestionController::class, 'storeMultipleChoice']);
-    Route::post('/quizzes/{quizId}/questions/true-false', [QuestionController::class, 'storeTrueFalse']);
-    Route::post('/quizzes/{quizId}/questions/identification', [QuestionController::class, 'storeIdentification']);
-    Route::post('/quizzes/{quizId}/questions/matching', [QuestionController::class, 'storeMatching']);
-    Route::put('/quizzes/{quizId}/questions/{questionId}', [QuestionController::class, 'update']);
-    Route::delete('/quizzes/{quizId}/questions/{questionId}', [QuestionController::class, 'destroy']);
+    Route::get('/quizzes/{quizId}/questions',                         [QuestionController::class, 'index']);
+    Route::post('/quizzes/{quizId}/questions/multiple-choice',        [QuestionController::class, 'storeMultipleChoice']);
+    Route::post('/quizzes/{quizId}/questions/true-false',             [QuestionController::class, 'storeTrueFalse']);
+    Route::post('/quizzes/{quizId}/questions/identification',         [QuestionController::class, 'storeIdentification']);
+    Route::post('/quizzes/{quizId}/questions/matching',               [QuestionController::class, 'storeMatching']);
+    Route::put('/quizzes/{quizId}/questions/{questionId}',            [QuestionController::class, 'update']);
+    Route::delete('/quizzes/{quizId}/questions/{questionId}',         [QuestionController::class, 'destroy']);
 });

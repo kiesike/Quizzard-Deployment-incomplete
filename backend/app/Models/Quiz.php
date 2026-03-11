@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Quiz extends Model
 {
@@ -21,21 +21,13 @@ class Quiz extends Model
         'is_published' => 'boolean',
     ];
 
-    // A quiz belongs to a teacher
     public function teacher()
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
-    // A quiz has many questions
     public function questions()
     {
-        return $this->hasMany(Question::class);
-    }
-
-    // A quiz has many attempts
-    public function attempts()
-    {
-        return $this->hasMany(QuizAttempt::class);
+        return $this->hasMany(Question::class)->orderBy('order');
     }
 }

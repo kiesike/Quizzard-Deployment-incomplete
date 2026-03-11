@@ -1,6 +1,3 @@
-// frontend/lib/screens/teacher_dashboard_screen.dart
-// QZ-17: Added publish/unpublish toggle with badge, confirmation dialog, and dashboard refresh.
-
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 
@@ -21,19 +18,17 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   bool   _isLoading     = true;
   String _teacherName   = '';
   String _teacherEmail  = '';
-  List<Map<String, dynamic>> _quizzes     = [];
-  Map<String, dynamic>       _stats       = {};
-  // Track which quiz ids are currently being toggled (to show per-card loader)
+  List<Map<String, dynamic>> _quizzes = [];
+  Map<String, dynamic>       _stats   = {};
   final Set<int> _togglingIds = {};
 
-  // ─── Lifecycle ────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
     _loadDashboard();
   }
 
-  // ─── API calls ────────────────────────────────────────────
+  // ─── API ──────────────────────────────────────────────────
 
   Future<void> _loadDashboard() async {
     setState(() => _isLoading = true);
@@ -57,18 +52,15 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     }
   }
 
-  /// QZ-17: Toggle publish status for a single quiz.
   Future<void> _togglePublish(Map<String, dynamic> quiz) async {
     final int    quizId      = quiz['id'];
     final bool   isPublished = quiz['is_published'] == true || quiz['is_published'] == 1;
     final String quizTitle   = quiz['title'] ?? 'this quiz';
 
-    // Confirmation dialog
     final confirmed = await _showPublishConfirmation(quizTitle, isPublished);
     if (!confirmed) return;
 
     setState(() => _togglingIds.add(quizId));
-
     try {
       final response = await AuthService.authPatch('/quizzes/$quizId/publish-toggle', {});
       if (response['success'] == true) {
@@ -84,13 +76,51 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
         });
         _showSnackbar(response['message'] ?? 'Status updated.');
       } else {
-        _showSnackbar(response['message'] ?? 'Failed to toggle publish status.', isError: true);
+        _showSnackbar(response['message'] ?? 'Failed to toggle.', isError: true);
       }
     } catch (e) {
       _showSnackbar('Network error: $e', isError: true);
     } finally {
       setState(() => _togglingIds.remove(quizId));
     }
+  }
+
+  Future<void> _deleteQuiz(Map<String, dynamic> quiz) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Quiz'),
+        content: Text('Are you sure you want to delete "${quiz['title']}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final result = await AuthService.authDelete('/quizzes/${quiz['id']}');
+    if (result['success']) {
+      setState(() => _quizzes.removeWhere((q) => q['id'] == quiz['id']));
+      _showSnackbar('Quiz deleted.');
+    } else {
+      _showSnackbar(result['message'], isError: true);
+    }
+  }
+
+  Future<void> _logout() async {
+    await AuthService.authPost('/logout', {});
+    await AuthService.logout();
+    if (mounted) Navigator.pushReplacementNamed(context, '/login');
   }
 
   // ─── Helpers ──────────────────────────────────────────────
@@ -137,12 +167,6 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     return result ?? false;
   }
 
-  Future<void> _logout() async {
-    await AuthService.authPost('/logout', {});
-    await AuthService.clearToken();
-    if (mounted) Navigator.pushReplacementNamed(context, '/login');
-  }
-
   // ─── Build ────────────────────────────────────────────────
 
   @override
@@ -169,6 +193,17 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
           ),
         ],
       ),
+      floatingActionButton: _selectedIndex == 0
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                final result = await Navigator.pushNamed(context, '/create-quiz');
+                if (result == true) _loadDashboard();
+              },
+              backgroundColor: _purple,
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text('New Quiz', style: TextStyle(color: Colors.white)),
+            )
+          : null,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : IndexedStack(
@@ -204,7 +239,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
             const SliverFillRemaining(
               child: Center(
                 child: Text(
-                  'No quizzes yet.\nCreate your first quiz!',
+                  'No quizzes yet.\nTap "New Quiz" to get started!',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
@@ -223,9 +258,10 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   }
 
   Widget _buildStatsBar() {
-    final totalQuizzes      = _stats['total_quizzes']      ?? _quizzes.length;
-    final publishedQuizzes  = _stats['published_quizzes']  ?? _quizzes.where((q) => q['is_published'] == true || q['is_published'] == 1).length;
-    final totalStudents     = _stats['total_students']     ?? 0;
+    final totalQuizzes     = _stats['total_quizzes']     ?? _quizzes.length;
+    final publishedQuizzes = _stats['published_quizzes'] ??
+        _quizzes.where((q) => q['is_published'] == true || q['is_published'] == 1).length;
+    final totalStudents    = _stats['total_students']    ?? 0;
 
     return Container(
       color: _green,
@@ -240,11 +276,11 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _statChip(Icons.quiz_outlined,    '$totalQuizzes',     'Total Quizzes'),
+              _statChip(Icons.quiz_outlined, '$totalQuizzes',     'Total Quizzes'),
               const SizedBox(width: 10),
-              _statChip(Icons.publish,           '$publishedQuizzes', 'Published'),
+              _statChip(Icons.publish,        '$publishedQuizzes', 'Published'),
               const SizedBox(width: 10),
-              _statChip(Icons.people_outline,    '$totalStudents',    'Students'),
+              _statChip(Icons.people_outline, '$totalStudents',    'Students'),
             ],
           ),
         ],
@@ -265,7 +301,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
             Icon(icon, color: Colors.white, size: 20),
             const SizedBox(height: 4),
             Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            Text(label,  style: const TextStyle(color: Colors.white70, fontSize: 11)),
           ],
         ),
       ),
@@ -276,93 +312,128 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     final int    quizId      = quiz['id'];
     final bool   isPublished = quiz['is_published'] == true || quiz['is_published'] == 1;
     final bool   isToggling  = _togglingIds.contains(quizId);
-    final String title       = quiz['title']       ?? 'Untitled Quiz';
-    final String description = quiz['description'] ?? '';
+    final String title       = quiz['title']          ?? 'Untitled Quiz';
+    final String description = quiz['description']    ?? '';
     final int    questions   = quiz['questions_count'] ?? 0;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 3,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Title row + published badge ──────────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () async {
+          final result = await Navigator.pushNamed(
+            context,
+            '/quiz-detail',
+            arguments: {
+              'quiz_id':   quizId,
+              'quiz_title': title,
+            },
+          );
+          if (result == true) _loadDashboard();
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Title + badge ──────────────────────────────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    ),
                   ),
+                  const SizedBox(width: 8),
+                  _buildPublishedBadge(isPublished),
+                ],
+              ),
+              if (description.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
                 ),
-                const SizedBox(width: 8),
-                _buildPublishedBadge(isPublished),
               ],
-            ),
-            if (description.isNotEmpty) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
-                description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
+                '$questions question${questions != 1 ? 's' : ''}',
+                style: const TextStyle(color: Colors.blueGrey, fontSize: 13),
+              ),
+              const Divider(height: 20),
+              // ── Action row ────────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Edit button
+                  TextButton.icon(
+                    onPressed: () async {
+                      final result = await Navigator.pushNamed(
+                        context,
+                        '/edit-quiz',
+                        arguments: {
+                          'quiz_id':     quizId,
+                          'title':       title,
+                          'description': description,
+                        },
+                      );
+                      if (result == true) _loadDashboard();
+                    },
+                    icon: const Icon(Icons.edit, size: 16, color: Color(0xFF6C63FF)),
+                    label: const Text('Edit', style: TextStyle(color: Color(0xFF6C63FF))),
+                  ),
+                  const SizedBox(width: 4),
+                  // Delete button
+                  TextButton.icon(
+                    onPressed: () => _deleteQuiz(quiz),
+                    icon: const Icon(Icons.delete, size: 16, color: Colors.red),
+                    label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                  ),
+                  const SizedBox(width: 4),
+                  // Publish toggle
+                  isToggling
+                      ? const SizedBox(
+                          width: 24, height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : OutlinedButton.icon(
+                          onPressed: () => _togglePublish(quiz),
+                          icon: Icon(
+                            isPublished ? Icons.unpublished_outlined : Icons.publish,
+                            size: 18,
+                            color: isPublished ? Colors.orange : _green,
+                          ),
+                          label: Text(
+                            isPublished ? 'Unpublish' : 'Publish',
+                            style: TextStyle(color: isPublished ? Colors.orange : _green),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: isPublished ? Colors.orange : _green),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                ],
               ),
             ],
-            const SizedBox(height: 8),
-            Text(
-              '$questions question${questions != 1 ? 's' : ''}',
-              style: const TextStyle(color: Colors.blueGrey, fontSize: 13),
-            ),
-            const Divider(height: 20),
-            // ── Action row ───────────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // Publish / Unpublish toggle button
-                isToggling
-                    ? const SizedBox(
-                        width: 24, height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : OutlinedButton.icon(
-                        onPressed: () => _togglePublish(quiz),
-                        icon: Icon(
-                          isPublished ? Icons.unpublished_outlined : Icons.publish,
-                          size: 18,
-                          color: isPublished ? Colors.orange : _green,
-                        ),
-                        label: Text(
-                          isPublished ? 'Unpublish' : 'Publish',
-                          style: TextStyle(color: isPublished ? Colors.orange : _green),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: isPublished ? Colors.orange : _green),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  /// QZ-17: Visual badge showing Published (green) or Draft (grey).
   Widget _buildPublishedBadge(bool isPublished) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: isPublished ? _green.withOpacity(0.15) : Colors.grey.withOpacity(0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isPublished ? _green : Colors.grey,
-          width: 1,
-        ),
+        border: Border.all(color: isPublished ? _green : Colors.grey, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -404,16 +475,12 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
         ),
         const SizedBox(height: 16),
         Center(
-          child: Text(
-            _teacherName,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
+          child: Text(_teacherName,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         ),
         Center(
-          child: Text(
-            _teacherEmail,
-            style: const TextStyle(color: Colors.grey, fontSize: 14),
-          ),
+          child: Text(_teacherEmail,
+              style: const TextStyle(color: Colors.grey, fontSize: 14)),
         ),
         const SizedBox(height: 8),
         Center(
@@ -424,17 +491,16 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: _green),
             ),
-            child: const Text('Teacher', style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.w600)),
+            child: const Text('Teacher',
+                style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.w600)),
           ),
         ),
         const SizedBox(height: 32),
         ListTile(
           leading: const Icon(Icons.quiz_outlined, color: Color(0xFF4CAF50)),
           title: const Text('Total Quizzes'),
-          trailing: Text(
-            '${_quizzes.length}',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
+          trailing: Text('${_quizzes.length}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         ),
         ListTile(
           leading: const Icon(Icons.publish, color: Color(0xFF4CAF50)),

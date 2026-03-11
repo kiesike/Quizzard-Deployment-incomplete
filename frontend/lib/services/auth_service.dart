@@ -111,4 +111,41 @@ class AuthService {
       };
     }
   }
+
+
+// ─── AUTHENTICATED PATCH REQUEST ─────────────────────────
+  static Future<Map<String, dynamic>> authPatch(
+      String endpoint, Map<String, dynamic> body) async {
+    try {
+      final token = await getToken();
+      final response = await http.patch(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      );
+      final data = jsonDecode(response.body);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': data['data'], 'message': data['message'] ?? ''};
+      } else {
+        return {'success': false, 'message': data['message']};
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Cannot connect to server. Please check your connection.'
+      };
+    }
+  }
+  // ============================================================
+  // ALSO ensure clearToken() exists in AuthService.
+  // If it doesn't exist, add:
+  // ============================================================
+
+  static Future<void> clearToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+  }
 }

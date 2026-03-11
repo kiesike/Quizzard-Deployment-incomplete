@@ -264,5 +264,35 @@ class QuizController extends Controller
         ]);
     }
 
+    public function publishToggle(Request $request, $quizId)
+    {
+        $user = $request->user();
+        $quiz = Quiz::find($quizId);
+
+        if (!$quiz) {
+            return response()->json(['success' => false, 'message' => 'Quiz not found.'], 404);
+        }
+
+        if ($quiz->teacher_id !== $user->id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        $quiz->is_published = !$quiz->is_published;
+        $quiz->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => $quiz->is_published ? 'Quiz published.' : 'Quiz unpublished.',
+            'data'    => [
+                'id'           => $quiz->id,
+                'title'        => $quiz->title,
+                'description'  => $quiz->description,
+                'is_published' => (bool) $quiz->is_published,
+                'cover_image'  => $quiz->cover_image,
+                'updated_at'   => $quiz->updated_at,
+            ],
+        ], 200);
+    }
+
 
 }

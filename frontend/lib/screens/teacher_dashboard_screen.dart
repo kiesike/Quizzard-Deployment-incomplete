@@ -1,3 +1,6 @@
+// frontend/lib/screens/teacher_dashboard_screen.dart
+// QZ-17: Added publish/unpublish toggle with badge, confirmation dialog, and dashboard refresh.
+
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 
@@ -9,469 +12,250 @@ class TeacherDashboardScreen extends StatefulWidget {
 }
 
 class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
-  bool _isLoading = true;
-  Map<String, dynamic>? _dashboardData;
-  String? _errorMessage;
-  int _currentIndex = 0;
+  // ─── Theme ────────────────────────────────────────────────
+  static const Color _purple = Color(0xFF6C63FF);
+  static const Color _green  = Color(0xFF4CAF50);
 
+  // ─── State ────────────────────────────────────────────────
+  int    _selectedIndex = 0;
+  bool   _isLoading     = true;
+  String _teacherName   = '';
+  String _teacherEmail  = '';
+  List<Map<String, dynamic>> _quizzes     = [];
+  Map<String, dynamic>       _stats       = {};
+  // Track which quiz ids are currently being toggled (to show per-card loader)
+  final Set<int> _togglingIds = {};
+
+  // ─── Lifecycle ────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
     _loadDashboard();
   }
 
+  // ─── API calls ────────────────────────────────────────────
+
   Future<void> _loadDashboard() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    final result = await AuthService.authGet('/teacher/dashboard');
-
-    setState(() {
-      _isLoading = false;
-      if (result['success']) {
-        _dashboardData = result['data'];
+    setState(() => _isLoading = true);
+    try {
+      final response = await AuthService.authGet('/teacher/dashboard');
+      if (response['success'] == true) {
+        final data = response['data'];
+        setState(() {
+          _teacherName  = data['teacher']['name']  ?? '';
+          _teacherEmail = data['teacher']['email'] ?? '';
+          _quizzes = List<Map<String, dynamic>>.from(data['quizzes'] ?? []);
+          _stats   = Map<String, dynamic>.from(data['stats']   ?? {});
+        });
       } else {
-        _errorMessage = result['message'];
+        _showSnackbar(response['message'] ?? 'Failed to load dashboard', isError: true);
       }
-    });
+    } catch (e) {
+      _showSnackbar('Network error: $e', isError: true);
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  /// QZ-17: Toggle publish status for a single quiz.
+  Future<void> _togglePublish(Map<String, dynamic> quiz) async {
+    final int    quizId      = quiz['id'];
+    final bool   isPublished = quiz['is_published'] == true || quiz['is_published'] == 1;
+    final String quizTitle   = quiz['title'] ?? 'this quiz';
+
+    // Confirmation dialog
+    final confirmed = await _showPublishConfirmation(quizTitle, isPublished);
+    if (!confirmed) return;
+
+    setState(() => _togglingIds.add(quizId));
+
+    try {
+      final response = await AuthService.authPatch('/quizzes/$quizId/publish-toggle', {});
+      if (response['success'] == true) {
+        final updatedQuiz = response['data'];
+        setState(() {
+          final idx = _quizzes.indexWhere((q) => q['id'] == quizId);
+          if (idx != -1) {
+            _quizzes[idx] = {
+              ..._quizzes[idx],
+              'is_published': updatedQuiz['is_published'],
+            };
+          }
+        });
+        _showSnackbar(response['message'] ?? 'Status updated.');
+      } else {
+        _showSnackbar(response['message'] ?? 'Failed to toggle publish status.', isError: true);
+      }
+    } catch (e) {
+      _showSnackbar('Network error: $e', isError: true);
+    } finally {
+      setState(() => _togglingIds.remove(quizId));
+    }
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────
+
+  void _showSnackbar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red.shade700 : _green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<bool> _showPublishConfirmation(String quizTitle, bool isCurrentlyPublished) async {
+    final action      = isCurrentlyPublished ? 'unpublish' : 'publish';
+    final actionLabel = isCurrentlyPublished ? 'Unpublish'  : 'Publish';
+    final color       = isCurrentlyPublished ? Colors.orange : _green;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('$actionLabel Quiz?'),
+        content: Text(
+          isCurrentlyPublished
+              ? 'Are you sure you want to unpublish "$quizTitle"? Students will no longer be able to access it.'
+              : 'Are you sure you want to publish "$quizTitle"? Students will be able to see and take it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: color),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(actionLabel, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   Future<void> _logout() async {
-    await AuthService.logout();
-    if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/login');
+    await AuthService.authPost('/logout', {});
+    await AuthService.clearToken();
+    if (mounted) Navigator.pushReplacementNamed(context, '/login');
   }
+
+  // ─── Build ────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      body: _buildBody(),
+      appBar: AppBar(
+        backgroundColor: _green,
+        elevation: 0,
+        title: const Text(
+          'Teacher Dashboard',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _loadDashboard,
+            tooltip: 'Refresh',
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: _logout,
+            tooltip: 'Logout',
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : IndexedStack(
+              index: _selectedIndex,
+              children: [
+                _buildQuizzesTab(),
+                _buildProfileTab(),
+              ],
+            ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        selectedItemColor: const Color(0xFF4CAF50),
+        currentIndex: _selectedIndex,
+        selectedItemColor: _green,
         unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
+        onTap: (i) => setState(() => _selectedIndex = i),
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.quiz),
-            label: 'My Quizzes',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: 'Results',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.quiz),   label: 'My Quizzes'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF4CAF50)),
-      );
-    }
+  // ─── Quizzes Tab ──────────────────────────────────────────
 
-    if (_errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 60, color: Colors.red),
-            const SizedBox(height: 16),
-            Text(_errorMessage!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadDashboard,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    switch (_currentIndex) {
-      case 0:
-        return _buildHomeTab();
-      case 1:
-        return _buildQuizzesTab();
-      case 2:
-        return _buildResultsTab();
-      case 3:
-        return _buildProfileTab();
-      default:
-        return _buildHomeTab();
-    }
-  }
-
-  // ─── HOME TAB ────────────────────────────────────────────
-  Widget _buildHomeTab() {
-    final teacher = _dashboardData!['teacher'];
-    final quizzes = _dashboardData!['quizzes'] as List;
-    final totalQuizzes = _dashboardData!['total_quizzes'];
-    final publishedQuizzes = _dashboardData!['published_quizzes'];
-    final totalStudents = _dashboardData!['total_students'];
-
+  Widget _buildQuizzesTab() {
     return RefreshIndicator(
       onRefresh: _loadDashboard,
-      color: const Color(0xFF4CAF50),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 50, 20, 30),
-              decoration: const BoxDecoration(
-                color: Color(0xFF4CAF50),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
+      color: _green,
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: _buildStatsBar()),
+          if (_quizzes.isEmpty)
+            const SliverFillRemaining(
+              child: Center(
+                child: Text(
+                  'No quizzes yet.\nCreate your first quiz!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Welcome back,',
-                            style: TextStyle(
-                                color: Colors.white70, fontSize: 14),
-                          ),
-                          Text(
-                            teacher['name'],
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      GestureDetector(
-                        onTap: _logout,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.logout,
-                              color: Colors.white, size: 20),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  // Stats row
-                  Row(
-                    children: [
-                      _buildStatCard(
-                        icon: Icons.quiz,
-                        label: 'Total Quizzes',
-                        value: '$totalQuizzes',
-                      ),
-                      const SizedBox(width: 12),
-                      _buildStatCard(
-                        icon: Icons.publish,
-                        label: 'Published',
-                        value: '$publishedQuizzes',
-                      ),
-                      const SizedBox(width: 12),
-                      _buildStatCard(
-                        icon: Icons.people,
-                        label: 'Students',
-                        value: '$totalStudents',
-                      ),
-                    ],
-                  ),
-                ],
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildQuizCard(_quizzes[index]),
+                childCount: _quizzes.length,
               ),
             ),
-
-            const SizedBox(height: 24),
-
-            // Quick Actions
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Quick Actions',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF333333),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildActionCard(
-                      icon: Icons.add_circle,
-                      label: 'Create Quiz',
-                      color: const Color(0xFF4CAF50),
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Quiz creation coming soon!'),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildActionCard(
-                      icon: Icons.bar_chart,
-                      label: 'View Results',
-                      color: const Color(0xFF2196F3),
-                      onTap: () =>
-                          setState(() => _currentIndex = 2),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // My Quizzes
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'My Quizzes',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF333333),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            quizzes.isEmpty
-                ? _buildEmptyState(
-                    icon: Icons.quiz_outlined,
-                    message:
-                        'No quizzes yet.\nTap "Create Quiz" to get started!',
-                  )
-                : ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: quizzes.length,
-                    itemBuilder: (context, index) =>
-                        _buildQuizCard(quizzes[index]),
-                  ),
-            const SizedBox(height: 20),
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  // ─── QUIZZES TAB ─────────────────────────────────────────
-  Widget _buildQuizzesTab() {
-    final quizzes = _dashboardData!['quizzes'] as List;
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Quiz creation coming soon!')),
-          );
-        },
-        backgroundColor: const Color(0xFF4CAF50),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('New Quiz',
-            style: TextStyle(color: Colors.white)),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadDashboard,
-        color: const Color(0xFF4CAF50),
-        child: quizzes.isEmpty
-            ? _buildEmptyState(
-                icon: Icons.quiz_outlined,
-                message: 'No quizzes yet.\nCreate your first quiz!',
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: quizzes.length,
-                itemBuilder: (context, index) =>
-                    _buildQuizCard(quizzes[index]),
-              ),
-      ),
-    );
-  }
+  Widget _buildStatsBar() {
+    final totalQuizzes      = _stats['total_quizzes']      ?? _quizzes.length;
+    final publishedQuizzes  = _stats['published_quizzes']  ?? _quizzes.where((q) => q['is_published'] == true || q['is_published'] == 1).length;
+    final totalStudents     = _stats['total_students']     ?? 0;
 
-  // ─── RESULTS TAB ─────────────────────────────────────────
-  Widget _buildResultsTab() {
-    final quizzes = _dashboardData!['quizzes'] as List;
-    final quizzesWithAttempts =
-        quizzes.where((q) => q['attempts_count'] > 0).toList();
-
-    return quizzesWithAttempts.isEmpty
-        ? _buildEmptyState(
-            icon: Icons.bar_chart,
-            message:
-                'No results yet.\nStudents haven\'t taken any quizzes.',
-          )
-        : ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: quizzesWithAttempts.length,
-            itemBuilder: (context, index) {
-              final quiz = quizzesWithAttempts[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        quiz['title'],
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          _buildResultStat(
-                            icon: Icons.people,
-                            label: 'Students',
-                            value: '${quiz['attempts_count']}',
-                            color: const Color(0xFF2196F3),
-                          ),
-                          const SizedBox(width: 16),
-                          _buildResultStat(
-                            icon: Icons.star,
-                            label: 'Avg Score',
-                            value: quiz['average_score'] != null
-                                ? '${quiz['average_score']}'
-                                : 'N/A',
-                            color: const Color(0xFF4CAF50),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-  }
-
-  // ─── PROFILE TAB ─────────────────────────────────────────
-  Widget _buildProfileTab() {
-    final teacher = _dashboardData!['teacher'];
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+    return Container(
+      color: _green,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 20),
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(50),
-            ),
-            child: const Icon(Icons.person,
-                size: 60, color: Color(0xFF4CAF50)),
-          ),
-          const SizedBox(height: 16),
           Text(
-            teacher['name'],
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF333333),
-            ),
+            'Welcome, $_teacherName 👋',
+            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 4),
-          Text(
-            teacher['email'],
-            style: const TextStyle(color: Colors.grey, fontSize: 14),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              'Teacher',
-              style: TextStyle(
-                color: Color(0xFF4CAF50),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(height: 30),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton.icon(
-              onPressed: _logout,
-              icon: const Icon(Icons.logout, color: Colors.white),
-              label: const Text(
-                'Logout',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _statChip(Icons.quiz_outlined,    '$totalQuizzes',     'Total Quizzes'),
+              const SizedBox(width: 10),
+              _statChip(Icons.publish,           '$publishedQuizzes', 'Published'),
+              const SizedBox(width: 10),
+              _statChip(Icons.people_outline,    '$totalStudents',    'Students'),
+            ],
           ),
         ],
       ),
     );
   }
 
-  // ─── HELPER WIDGETS ──────────────────────────────────────
-
-  Widget _buildStatCard({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
+  Widget _statChip(IconData icon, String value, String label) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.2),
           borderRadius: BorderRadius.circular(12),
@@ -480,52 +264,8 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
           children: [
             Icon(icon, color: Colors.white, size: 20),
             const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            Text(
-              label,
-              style: const TextStyle(
-                  color: Colors.white70, fontSize: 11),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionCard({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
           ],
         ),
       ),
@@ -533,64 +273,78 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   }
 
   Widget _buildQuizCard(Map<String, dynamic> quiz) {
-    final isPublished = quiz['is_published'] as bool;
+    final int    quizId      = quiz['id'];
+    final bool   isPublished = quiz['is_published'] == true || quiz['is_published'] == 1;
+    final bool   isToggling  = _togglingIds.contains(quizId);
+    final String title       = quiz['title']       ?? 'Untitled Quiz';
+    final String description = quiz['description'] ?? '';
+    final int    questions   = quiz['questions_count'] ?? 0;
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 3,
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.quiz,
-                  color: Color(0xFF4CAF50), size: 28),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    quiz['title'],
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
+            // ── Title row + published badge ──────────────────
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${quiz['questions_count']} questions • ${quiz['attempts_count']} attempts',
-                    style: const TextStyle(
-                        color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: isPublished
-                    ? Colors.green.withOpacity(0.1)
-                    : Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                isPublished ? 'Published' : 'Draft',
-                style: TextStyle(
-                  color: isPublished ? Colors.green : Colors.orange,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
                 ),
+                const SizedBox(width: 8),
+                _buildPublishedBadge(isPublished),
+              ],
+            ),
+            if (description.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              '$questions question${questions != 1 ? 's' : ''}',
+              style: const TextStyle(color: Colors.blueGrey, fontSize: 13),
+            ),
+            const Divider(height: 20),
+            // ── Action row ───────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Publish / Unpublish toggle button
+                isToggling
+                    ? const SizedBox(
+                        width: 24, height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : OutlinedButton.icon(
+                        onPressed: () => _togglePublish(quiz),
+                        icon: Icon(
+                          isPublished ? Icons.unpublished_outlined : Icons.publish,
+                          size: 18,
+                          color: isPublished ? Colors.orange : _green,
+                        ),
+                        label: Text(
+                          isPublished ? 'Unpublish' : 'Publish',
+                          style: TextStyle(color: isPublished ? Colors.orange : _green),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: isPublished ? Colors.orange : _green),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+              ],
             ),
           ],
         ),
@@ -598,51 +352,105 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     );
   }
 
-  Widget _buildResultStat({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Row(
-      children: [
-        Icon(icon, color: color, size: 16),
-        const SizedBox(width: 4),
-        Text(
-          '$label: ',
-          style: const TextStyle(color: Colors.grey, fontSize: 13),
+  /// QZ-17: Visual badge showing Published (green) or Draft (grey).
+  Widget _buildPublishedBadge(bool isPublished) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isPublished ? _green.withOpacity(0.15) : Colors.grey.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isPublished ? _green : Colors.grey,
+          width: 1,
         ),
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isPublished ? Icons.visibility : Icons.visibility_off,
+            size: 13,
+            color: isPublished ? _green : Colors.grey,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            isPublished ? 'Published' : 'Draft',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isPublished ? _green : Colors.grey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Profile Tab ──────────────────────────────────────────
+
+  Widget _buildProfileTab() {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Center(
+          child: CircleAvatar(
+            radius: 48,
+            backgroundColor: _green,
+            child: Text(
+              _teacherName.isNotEmpty ? _teacherName[0].toUpperCase() : 'T',
+              style: const TextStyle(fontSize: 36, color: Colors.white, fontWeight: FontWeight.bold),
+            ),
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyState(
-      {required IconData icon, required String message}) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 80, color: Colors.grey.shade300),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Colors.grey.shade500, fontSize: 16),
-            ),
-          ],
+        const SizedBox(height: 16),
+        Center(
+          child: Text(
+            _teacherName,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
         ),
-      ),
+        Center(
+          child: Text(
+            _teacherEmail,
+            style: const TextStyle(color: Colors.grey, fontSize: 14),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            decoration: BoxDecoration(
+              color: _green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _green),
+            ),
+            child: const Text('Teacher', style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.w600)),
+          ),
+        ),
+        const SizedBox(height: 32),
+        ListTile(
+          leading: const Icon(Icons.quiz_outlined, color: Color(0xFF4CAF50)),
+          title: const Text('Total Quizzes'),
+          trailing: Text(
+            '${_quizzes.length}',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.publish, color: Color(0xFF4CAF50)),
+          title: const Text('Published'),
+          trailing: Text(
+            '${_quizzes.where((q) => q['is_published'] == true || q['is_published'] == 1).length}',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ),
+        const Divider(height: 32),
+        ListTile(
+          leading: const Icon(Icons.logout, color: Colors.red),
+          title: const Text('Logout', style: TextStyle(color: Colors.red)),
+          onTap: _logout,
+        ),
+      ],
     );
   }
 }

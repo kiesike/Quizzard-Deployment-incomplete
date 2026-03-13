@@ -72,7 +72,7 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
     if (!result['success']) return;
 
     final data = result['data'];
-    final allQuizzes = (data['quizzes'] ?? data['data'] ?? []) as List;
+    final allQuizzes = (data is List ? data : (data['quizzes'] ?? data['data'] ?? [])) as List;
     final assignedIds = (_classData!['quizzes'] as List)
         .map((q) => q['id'])
         .toSet();
@@ -141,6 +141,7 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
       '/classes/${widget.classId}/assign-quiz',
       {'quiz_id': selectedQuiz['id']},
     );
+    
 
     if (assignResult['success']) {
       _loadClassDetail();
@@ -432,10 +433,10 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _assignQuiz,
+        onPressed: _showQuizOptions,
         backgroundColor: const Color(0xFF4CAF50),
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Assign Quiz',
+        label: const Text('Add Quiz',
             style: TextStyle(color: Colors.white)),
       ),
       body: quizzes.isEmpty
@@ -449,15 +450,13 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
                   Text(
                     'No quizzes assigned yet.',
                     style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade600),
+                        fontSize: 16, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Tap the button below to assign a quiz!',
+                    'Tap the button below to add a quiz!',
                     textAlign: TextAlign.center,
-                    style:
-                        TextStyle(color: Colors.grey.shade500),
+                    style: TextStyle(color: Colors.grey.shade500),
                   ),
                 ],
               ),
@@ -471,108 +470,328 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
                 itemBuilder: (context, index) {
                   final quiz =
                       Map<String, dynamic>.from(quizzes[index]);
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4CAF50)
-                                .withOpacity(0.1),
-                            borderRadius:
-                                BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.quiz,
-                              color: Color(0xFF4CAF50)),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                quiz['title'],
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                  color: Color(0xFF333333),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets
-                                        .symmetric(
-                                        horizontal: 8,
-                                        vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: quiz[
-                                                  'is_published'] ==
-                                              true
-                                          ? Colors.green
-                                              .withOpacity(0.1)
-                                          : Colors.grey
-                                              .withOpacity(0.1),
-                                      borderRadius:
-                                          BorderRadius.circular(
-                                              8),
-                                    ),
-                                    child: Text(
-                                      quiz['is_published'] == true
-                                          ? 'Published'
-                                          : 'Draft',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: quiz['is_published'] ==
-                                                true
-                                            ? Colors.green
-                                            : Colors.grey,
-                                        fontWeight:
-                                            FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '${quiz['questions_count'] ?? 0} questions',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => _unassignQuiz(quiz),
-                          icon: const Icon(Icons.remove_circle,
-                              color: Colors.red),
-                          tooltip: 'Remove quiz',
-                        ),
-                      ],
-                    ),
-                  );
+                  return _buildQuizCard(quiz);
                 },
               ),
             ),
     );
   }
+
+  Widget _buildQuizCard(Map<String, dynamic> quiz) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16)),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () async {
+          await Navigator.pushNamed(
+            context,
+            '/quiz-detail',
+            arguments: {
+              'quiz_id': quiz['id'],
+              'quiz_title': quiz['title'],
+            },
+          );
+          _loadClassDetail();
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4CAF50).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.quiz,
+                        color: Color(0xFF4CAF50)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          quiz['title'],
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: Color(0xFF333333),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: quiz['is_published'] == true
+                                    ? Colors.green.withOpacity(0.1)
+                                    : Colors.grey.withOpacity(0.1),
+                                borderRadius:
+                                    BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                quiz['is_published'] == true
+                                    ? 'Published'
+                                    : 'Draft',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: quiz['is_published'] == true
+                                      ? Colors.green
+                                      : Colors.grey,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${quiz['questions_count'] ?? 0} questions',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right,
+                      color: Colors.grey),
+                ],
+              ),
+              const Divider(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => _unassignQuiz(quiz),
+                    icon: const Icon(Icons.remove_circle,
+                        size: 16, color: Colors.red),
+                    label: const Text('Remove',
+                        style: TextStyle(color: Colors.red)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showQuizOptions() async {
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Add Quiz to Class',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF333333),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Choose how you want to add a quiz to this class.',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 24),
+
+            // Create new quiz option
+            ListTile(
+              onTap: () async {
+                Navigator.pop(context);
+                await _createAndAssignQuiz();
+              },
+              leading: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6C63FF).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.add_circle,
+                    color: Color(0xFF6C63FF)),
+              ),
+              title: const Text(
+                'Create New Quiz',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text(
+                  'Create a brand new quiz and assign it to this class'),
+              trailing: const Icon(Icons.chevron_right),
+            ),
+
+            const Divider(),
+
+            // Assign existing quiz option
+            ListTile(
+              onTap: () async {
+                Navigator.pop(context);
+                await _assignQuiz();
+              },
+              leading: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4CAF50).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.playlist_add,
+                    color: Color(0xFF4CAF50)),
+              ),
+              title: const Text(
+                'Assign Existing Quiz',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text(
+                  'Pick from your existing quizzes and assign to this class'),
+              trailing: const Icon(Icons.chevron_right),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Future<void> _createAndAssignQuiz() async {
+    final nameController = TextEditingController();
+    final descController = TextEditingController();
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        title: const Text('Create New Quiz'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: 'Quiz Title',
+                hintText: 'e.g. Chapter 1 Quiz',
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: descController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'Description (optional)',
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6C63FF),
+            ),
+            child: const Text('Create',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    if (nameController.text.trim().isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Quiz title is required!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Step 1 — Create the quiz
+    final createResult = await AuthService.authPost('/quizzes', {
+      'title': nameController.text.trim(),
+      'description': descController.text.trim(),
+    });
+
+    if (!createResult['success']) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(createResult['message']),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final newQuizId = createResult['data']['data']['id'];
+    final assignResult = await AuthService.authPost(
+      '/classes/${widget.classId}/assign-quiz',
+      {'quiz_id': newQuizId},
+    );
+    
+    
+
+    if (assignResult['success']) {
+      _loadClassDetail();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Quiz created and assigned to class!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Navigate to quiz detail to add questions
+      await Navigator.pushNamed(
+        context,
+        '/quiz-detail',
+        arguments: {
+          'quiz_id': newQuizId,
+          'quiz_title': nameController.text.trim(),
+        },
+      );
+      _loadClassDetail();
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(assignResult['message']),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
 }

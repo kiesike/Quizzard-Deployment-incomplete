@@ -210,6 +210,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
               index: _selectedIndex,
               children: [
                 _buildQuizzesTab(),
+                _buildClassesTab(),
                 _buildProfileTab(),
               ],
             ),
@@ -219,10 +220,68 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
         unselectedItemColor: Colors.grey,
         onTap: (i) => setState(() => _selectedIndex = i),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.quiz),   label: 'My Quizzes'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.quiz),    label: 'My Quizzes'),
+          BottomNavigationBarItem(icon: Icon(Icons.class_),  label: 'Classes'),
+          BottomNavigationBarItem(icon: Icon(Icons.person),  label: 'Profile'),
         ],
       ),
+    );
+  }
+
+  Widget _buildClassesTab() {
+    return Column(
+      children: [
+        // Header
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          color: _green,
+          child: const Text(
+            'My Classes',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+
+        // Go to Classes button
+        Expanded(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.class_, size: 80, color: Colors.grey.shade400),
+                const SizedBox(height: 16),
+                Text(
+                  'Manage your classes',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pushNamed(context, '/class-list'),
+                  icon: const Icon(Icons.class_, color: Colors.white),
+                  label: const Text(
+                    'View My Classes',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _green,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

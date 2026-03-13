@@ -6,6 +6,7 @@ use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\QuizController;
+use App\Http\Controllers\ClassController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -23,6 +24,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/teacher/dashboard', [TeacherController::class, 'dashboard']);
     Route::get('/teacher/quizzes/{quizId}/results', [TeacherController::class, 'quizResults']);
     Route::get('/teacher/quizzes/{quizId}/results/{attemptId}', [TeacherController::class, 'attemptDetail']);
+
+    // Class routes
+    Route::get('/classes', [ClassController::class, 'index']);
+    Route::post('/classes', [ClassController::class, 'store']);
+    Route::get('/classes/{classId}', [ClassController::class, 'show']);
+    Route::put('/classes/{classId}', [ClassController::class, 'update']);
+    Route::delete('/classes/{classId}', [ClassController::class, 'destroy']);
+    Route::post('/classes/{classId}/assign-quiz', [ClassController::class, 'assignQuiz']);
+    Route::delete('/classes/{classId}/quizzes/{quizId}', [ClassController::class, 'unassignQuiz']);
 
     // Quiz CRUD
     Route::get('/quizzes',                           [QuizController::class, 'index']);

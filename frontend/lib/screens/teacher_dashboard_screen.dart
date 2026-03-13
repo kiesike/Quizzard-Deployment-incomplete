@@ -368,57 +368,73 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
               ),
               const Divider(height: 20),
               // ── Action row ────────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // Edit button
-                  TextButton.icon(
-                    onPressed: () async {
-                      final result = await Navigator.pushNamed(
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child:Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    // Edit button
+                    TextButton.icon(
+                      onPressed: () async {
+                        final result = await Navigator.pushNamed(
+                          context,
+                          '/edit-quiz',
+                          arguments: {
+                            'quiz_id':     quizId,
+                            'title':       title,
+                            'description': description,
+                          },
+                        );
+                        if (result == true) _loadDashboard();
+                      },
+                      icon: const Icon(Icons.edit, size: 16, color: Color(0xFF6C63FF)),
+                      label: const Text('Edit', style: TextStyle(color: Color(0xFF6C63FF))),
+                    ),
+                    const SizedBox(width: 4),
+                    // Delete button
+                    TextButton.icon(
+                      onPressed: () => _deleteQuiz(quiz),
+                      icon: const Icon(Icons.delete, size: 16, color: Colors.red),
+                      label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                    ),
+                    // View Results button
+                    TextButton.icon(
+                      onPressed: () => Navigator.pushNamed(
                         context,
-                        '/edit-quiz',
+                        '/quiz-results',
                         arguments: {
-                          'quiz_id':     quizId,
-                          'title':       title,
-                          'description': description,
+                          'quiz_id': quizId,
+                          'quiz_title': title,
                         },
-                      );
-                      if (result == true) _loadDashboard();
-                    },
-                    icon: const Icon(Icons.edit, size: 16, color: Color(0xFF6C63FF)),
-                    label: const Text('Edit', style: TextStyle(color: Color(0xFF6C63FF))),
-                  ),
-                  const SizedBox(width: 4),
-                  // Delete button
-                  TextButton.icon(
-                    onPressed: () => _deleteQuiz(quiz),
-                    icon: const Icon(Icons.delete, size: 16, color: Colors.red),
-                    label: const Text('Delete', style: TextStyle(color: Colors.red)),
-                  ),
-                  const SizedBox(width: 4),
-                  // Publish toggle
-                  isToggling
-                      ? const SizedBox(
-                          width: 24, height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : OutlinedButton.icon(
-                          onPressed: () => _togglePublish(quiz),
-                          icon: Icon(
-                            isPublished ? Icons.unpublished_outlined : Icons.publish,
-                            size: 18,
-                            color: isPublished ? Colors.orange : _green,
+                      ),
+                      icon: const Icon(Icons.bar_chart, size: 16, color: Color(0xFF4CAF50)),
+                      label: const Text('Results', style: TextStyle(color: Color(0xFF4CAF50))),
+                    ),
+                    const SizedBox(width: 4),
+                    // Publish toggle
+                    isToggling
+                        ? const SizedBox(
+                            width: 24, height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : OutlinedButton.icon(
+                            onPressed: () => _togglePublish(quiz),
+                            icon: Icon(
+                              isPublished ? Icons.unpublished_outlined : Icons.publish,
+                              size: 18,
+                              color: isPublished ? Colors.orange : _green,
+                            ),
+                            label: Text(
+                              isPublished ? 'Unpublish' : 'Publish',
+                              style: TextStyle(color: isPublished ? Colors.orange : _green),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: isPublished ? Colors.orange : _green),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
                           ),
-                          label: Text(
-                            isPublished ? 'Unpublish' : 'Publish',
-                            style: TextStyle(color: isPublished ? Colors.orange : _green),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: isPublished ? Colors.orange : _green),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),

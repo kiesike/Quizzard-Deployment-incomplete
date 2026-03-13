@@ -21,6 +21,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Teacher routes
     Route::get('/teacher/dashboard', [TeacherController::class, 'dashboard']);
+    Route::get('/teacher/quizzes/{quizId}/results', [TeacherController::class, 'quizResults']);
+    Route::get('/teacher/quizzes/{quizId}/results/{attemptId}', [TeacherController::class, 'attemptDetail']);
 
     // Quiz CRUD
     Route::get('/quizzes',                           [QuizController::class, 'index']);

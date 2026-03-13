@@ -3,7 +3,9 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  static const String baseUrl = 'http://172.21.22.155:8000/api';
+  // static const String baseUrl = 'http://172.21.22.155:8000/api';
+  static const String baseUrl = 'http://10.100.132.155:8000/api';
+
 
   static Future<Map> login(String email, String password) async {
     try {

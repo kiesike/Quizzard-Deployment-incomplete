@@ -13,6 +13,8 @@ import 'screens/quiz_detail_screen.dart';
 import 'screens/add_question_screen.dart';
 import 'services/auth_service.dart';
 import 'screens/edit_question_screen.dart';
+import 'screens/quiz_results_screen.dart';
+import 'screens/student_attempt_detail_screen.dart';
 
 void main() {
   runApp(const QuizzardApp());
@@ -78,6 +80,24 @@ class QuizzardApp extends StatelessWidget {
           return EditQuestionScreen(
             quizId: args['quiz_id'],
             question: args['question'],
+          );
+        },
+        '/quiz-results': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments
+              as Map<String, dynamic>;
+          return QuizResultsScreen(
+            quizId: args['quiz_id'],
+            quizTitle: args['quiz_title'],
+          );
+        },
+        '/student-attempt-detail': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments
+              as Map<String, dynamic>;
+          return StudentAttemptDetailScreen(
+            quizId: args['quiz_id'],
+            quizTitle: args['quiz_title'],
+            attemptId: args['attempt_id'],
+            studentName: args['student_name'],
           );
         },
       },

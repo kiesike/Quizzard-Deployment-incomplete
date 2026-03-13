@@ -126,4 +126,57 @@ class AuthController extends Controller
     {
         return response()->json($request->user());
     }
+
+
+
+    // Update profile
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $request->validate([
+            'name'             => 'sometimes|string|max:255',
+            'current_password' => 'required_with:new_password|string',
+            'new_password'     => 'sometimes|string|min:8|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&]).+$/',
+            'profile_picture'  => 'sometimes|string',
+        ]);
+
+        // Update name
+        if ($request->has('name')) {
+            $user->name = $request->name;
+        }
+
+        // Update profile picture (base64 string)
+        if ($request->has('profile_picture')) {
+            $user->profile_picture = $request->profile_picture;
+        }
+
+        // Update password
+        if ($request->has('new_password')) {
+            if (!\Illuminate\Support\Facades\Hash::check(
+                $request->current_password,
+                $user->password
+            )) {
+                return response()->json([
+                    'message' => 'Current password is incorrect.',
+                ], 422);
+            }
+            $user->password = \Illuminate\Support\Facades\Hash::make(
+                $request->new_password
+            );
+        }
+
+        $user->save();
+
+        return response()->json([
+            'message' => 'Profile updated successfully.',
+            'user'    => [
+                'id'              => $user->id,
+                'name'            => $user->name,
+                'email'           => $user->email,
+                'role'            => $user->role,
+                'profile_picture' => $user->profile_picture,
+            ],
+        ]);
+    }
 }

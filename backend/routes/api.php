@@ -16,7 +16,7 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
-
+    Route::put('/profile', [AuthController::class, 'updateProfile']);
     // Student routes
     Route::get('/student/dashboard', [StudentController::class, 'dashboard']);
 

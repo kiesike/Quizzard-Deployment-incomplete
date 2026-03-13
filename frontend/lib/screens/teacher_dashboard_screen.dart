@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../widgets/profile_widget.dart';
 
 class TeacherDashboardScreen extends StatefulWidget {
   const TeacherDashboardScreen({super.key});
@@ -535,63 +536,9 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   // ─── Profile Tab ──────────────────────────────────────────
 
   Widget _buildProfileTab() {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        Center(
-          child: CircleAvatar(
-            radius: 48,
-            backgroundColor: _green,
-            child: Text(
-              _teacherName.isNotEmpty ? _teacherName[0].toUpperCase() : 'T',
-              style: const TextStyle(fontSize: 36, color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Center(
-          child: Text(_teacherName,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        ),
-        Center(
-          child: Text(_teacherEmail,
-              style: const TextStyle(color: Colors.grey, fontSize: 14)),
-        ),
-        const SizedBox(height: 8),
-        Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-            decoration: BoxDecoration(
-              color: _green.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _green),
-            ),
-            child: const Text('Teacher',
-                style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.w600)),
-          ),
-        ),
-        const SizedBox(height: 32),
-        ListTile(
-          leading: const Icon(Icons.quiz_outlined, color: Color(0xFF4CAF50)),
-          title: const Text('Total Quizzes'),
-          trailing: Text('${_quizzes.length}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        ),
-        ListTile(
-          leading: const Icon(Icons.publish, color: Color(0xFF4CAF50)),
-          title: const Text('Published'),
-          trailing: Text(
-            '${_quizzes.where((q) => q['is_published'] == true || q['is_published'] == 1).length}',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-        ),
-        const Divider(height: 32),
-        ListTile(
-          leading: const Icon(Icons.logout, color: Colors.red),
-          title: const Text('Logout', style: TextStyle(color: Colors.red)),
-          onTap: _logout,
-        ),
-      ],
-    );
+    return ProfileWidget(onLogout: _logout);
   }
+
+
+
 }

@@ -66,8 +66,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             label: 'Quizzes',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: 'Scores',
+            icon: Icon(Icons.class_),
+            label: 'Classes',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
@@ -105,18 +105,28 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       );
     }
 
+
+
+    Widget _buildClassesTab() {
+      return _StudentClassesTab(
+        onRefresh: _loadDashboard,
+      );
+    }
+
     switch (_currentIndex) {
       case 0:
         return _buildHomeTab();
       case 1:
         return _buildQuizzesTab();
       case 2:
-        return _buildScoresTab();
+        return _buildClassesTab();
       case 3:
         return _buildProfileTab();
       default:
         return _buildHomeTab();
     }
+
+
   }
 
   // ─── HOME TAB ────────────────────────────────────────────
@@ -569,5 +579,364 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     if (percentage >= 80) return Colors.green;
     if (percentage >= 60) return Colors.orange;
     return Colors.red;
+  }
+}
+
+
+
+class _StudentClassesTab extends StatefulWidget {
+  final VoidCallback onRefresh;
+
+  const _StudentClassesTab({required this.onRefresh});
+
+  @override
+  State<_StudentClassesTab> createState() => _StudentClassesTabState();
+}
+
+class _StudentClassesTabState extends State<_StudentClassesTab> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<dynamic> _classes = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClasses();
+  }
+
+  Future<void> _loadClasses() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final result = await AuthService.authGet('/student/classes');
+
+    setState(() {
+      _isLoading = false;
+      if (result['success']) {
+        _classes = result['data']['classes'] as List;
+      } else {
+        _errorMessage = result['message'];
+      }
+    });
+  }
+
+  Future<void> _joinClass() async {
+    final codeController = TextEditingController();
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        title: const Text('Join a Class'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Enter the class code provided by your teacher.',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: codeController,
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(
+                labelText: 'Class Code',
+                hintText: 'e.g. Y9ZJAV',
+                prefixIcon: const Icon(Icons.key,
+                    color: Color(0xFF6C63FF)),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                      color: Color(0xFF6C63FF), width: 2),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6C63FF),
+            ),
+            child: const Text('Join',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    if (codeController.text.trim().isEmpty) return;
+
+    final result = await AuthService.authPost(
+      '/student/classes/join',
+      {'class_code': codeController.text.trim()},
+    );
+
+    if (result['success']) {
+      _loadClasses();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['data']['message'] ??
+              'Successfully joined the class!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message']),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _leaveClass(Map<String, dynamic> cls) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        title: const Text('Leave Class'),
+        content: Text(
+            'Are you sure you want to leave "${cls['name']}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red),
+            child: const Text('Leave',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final result = await AuthService.authDelete(
+      '/student/classes/${cls['id']}/leave',
+    );
+
+    if (result['success']) {
+      _loadClasses();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You have left the class.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _joinClass,
+        backgroundColor: const Color(0xFF6C63FF),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('Join Class',
+            style: TextStyle(color: Colors.white)),
+      ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(
+                  color: Color(0xFF6C63FF)),
+            )
+          : _errorMessage != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          size: 60, color: Colors.red),
+                      const SizedBox(height: 16),
+                      Text(_errorMessage!,
+                          textAlign: TextAlign.center,
+                          style:
+                              const TextStyle(color: Colors.red)),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadClasses,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              : _classes.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment:
+                            MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.class_outlined,
+                              size: 80,
+                              color: Colors.grey.shade400),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No classes yet.',
+                            style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey.shade600),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Ask your teacher for a class code\nand tap "Join Class"!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Colors.grey.shade500),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadClasses,
+                      color: const Color(0xFF6C63FF),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(
+                            16, 16, 16, 80),
+                        itemCount: _classes.length,
+                        itemBuilder: (context, index) {
+                          final cls = Map<String, dynamic>.from(
+                              _classes[index]);
+                          return _buildClassCard(cls);
+                        },
+                      ),
+                    ),
+    );
+  }
+
+  Widget _buildClassCard(Map<String, dynamic> cls) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16)),
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Class name and icon
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6C63FF)
+                        .withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.class_,
+                      color: Color(0xFF6C63FF), size: 28),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        cls['name'],
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF333333),
+                        ),
+                      ),
+                      if (cls['description'] != null &&
+                          cls['description'].isNotEmpty)
+                        Text(
+                          cls['description'],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Teacher info
+            Row(
+              children: [
+                Icon(Icons.school,
+                    size: 16, color: Colors.grey.shade500),
+                const SizedBox(width: 6),
+                Text(
+                  cls['teacher_name'],
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Stats
+            Row(
+              children: [
+                _buildStat(Icons.people,
+                    '${cls['students_count']} students'),
+                const SizedBox(width: 16),
+                _buildStat(Icons.quiz,
+                    '${cls['quizzes_count']} quizzes'),
+              ],
+            ),
+            const Divider(height: 20),
+
+            // Actions
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _leaveClass(cls),
+                  icon: const Icon(Icons.exit_to_app,
+                      size: 16, color: Colors.red),
+                  label: const Text('Leave',
+                      style: TextStyle(color: Colors.red)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStat(IconData icon, String label) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey),
+        const SizedBox(width: 4),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 13, color: Colors.grey)),
+      ],
+    );
   }
 }

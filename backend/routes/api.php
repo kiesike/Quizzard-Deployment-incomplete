@@ -19,6 +19,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile', [AuthController::class, 'updateProfile']);
     // Student routes
     Route::get('/student/dashboard', [StudentController::class, 'dashboard']);
+    Route::get('/student/classes', [StudentController::class, 'myClasses']);
+    Route::post('/student/classes/join', [StudentController::class, 'joinClass']);
+    Route::delete('/student/classes/{classId}/leave', [StudentController::class, 'leaveClass']);
 
     // Teacher routes
     Route::get('/teacher/dashboard', [TeacherController::class, 'dashboard']);

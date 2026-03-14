@@ -68,4 +68,94 @@ class StudentController extends Controller
                 ->count(),
         ]);
     }
+
+    // Get all classes student is enrolled in
+    public function myClasses(Request $request)
+    {
+        $student = $request->user();
+
+        $classes = \App\Models\ClassRoom::whereHas('students', function ($q) use ($student) {
+            $q->where('student_id', $student->id);
+        })
+        ->with(['teacher' => function ($q) {
+            $q->select('id', 'name', 'email');
+        }])
+        ->withCount('students')
+        ->withCount('quizzes')
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+        return response()->json([
+            'classes' => $classes->map(function ($class) {
+                return [
+                    'id'             => $class->id,
+                    'name'           => $class->name,
+                    'description'    => $class->description,
+                    'class_code'     => $class->class_code,
+                    'teacher_name'   => $class->teacher->name,
+                    'teacher_email'  => $class->teacher->email,
+                    'students_count' => $class->students_count,
+                    'quizzes_count'  => $class->quizzes_count,
+                ];
+            }),
+        ]);
+    }
+
+    // Join a class using class code
+    public function joinClass(Request $request)
+    {
+        $request->validate([
+            'class_code' => 'required|string',
+        ]);
+
+        $class = \App\Models\ClassRoom::where('class_code', strtoupper(trim($request->class_code)))
+            ->first();
+
+        if (!$class) {
+            return response()->json([
+                'message' => 'Invalid class code. Please check and try again.',
+            ], 404);
+        }
+
+        // Check if already enrolled
+        if ($class->students()->where('student_id', $request->user()->id)->exists()) {
+            return response()->json([
+                'message' => 'You are already enrolled in this class.',
+            ], 409);
+        }
+
+        // Enroll student
+        $class->students()->attach($request->user()->id, [
+            'joined_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Successfully joined the class!',
+            'class'   => [
+                'id'           => $class->id,
+                'name'         => $class->name,
+                'description'  => $class->description,
+                'class_code'   => $class->class_code,
+            ],
+        ]);
+    }
+
+    // Leave a class
+    public function leaveClass(Request $request, $classId)
+    {
+        $class = \App\Models\ClassRoom::findOrFail($classId);
+
+        // Check if enrolled
+        if (!$class->students()->where('student_id', $request->user()->id)->exists()) {
+            return response()->json([
+                'message' => 'You are not enrolled in this class.',
+            ], 404);
+        }
+
+        $class->students()->detach($request->user()->id);
+
+        return response()->json([
+            'message' => 'You have left the class successfully.',
+        ]);
+    }
 }

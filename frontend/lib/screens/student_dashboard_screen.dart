@@ -832,7 +832,17 @@ class _StudentClassesTabState extends State<_StudentClassesTab> {
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16)),
       elevation: 3,
-      child: Padding(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.pushNamed(
+          context,
+          '/student-class-quizzes',
+          arguments: {
+            'class_id': cls['id'],
+            'class_name': cls['name'],
+          },
+        ),
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -923,6 +933,7 @@ class _StudentClassesTabState extends State<_StudentClassesTab> {
               ],
             ),
           ],
+        ),
         ),
       ),
     );

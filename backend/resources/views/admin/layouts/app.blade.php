@@ -6,35 +6,55 @@
     <title>Quizzard Admin</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gray-100 text-gray-900">
-    <div class="min-h-screen flex">
-        <aside class="w-64 bg-slate-900 text-white p-6">
-            <h1 class="text-2xl font-bold mb-8">Quizzard Admin</h1>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+    <div class="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
+        <aside class="bg-slate-900 text-white shadow-2xl">
+            <div class="flex h-full flex-col">
+                <div class="border-b border-slate-800 px-6 py-6">
+                    <h1 class="text-2xl font-bold tracking-wide">Quizzard Admin</h1>
+                    <p class="mt-1 text-sm text-slate-400">Management Panel</p>
+                </div>
 
-            <nav class="space-y-2">
-                <a href="{{ route('admin.dashboard') }}" class="block px-4 py-2 rounded hover:bg-slate-800">Menu</a>
-                <a href="{{ route('admin.profile') }}" class="block px-4 py-2 rounded hover:bg-slate-800">Profile</a>
-                <a href="{{ route('admin.activation.index') }}" class="block px-4 py-2 rounded hover:bg-slate-800">Activation</a>
-                <a href="#" class="block px-4 py-2 rounded hover:bg-slate-800">Quizzes</a>
-            </nav>
+                <nav class="flex-1 space-y-2 px-4 py-6">
+                    <a href="{{ route('admin.dashboard') }}"
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-slate-800">
+                        Menu Dashboard
+                    </a>
 
-            <form action="{{ route('admin.logout') }}" method="POST" class="mt-8">
-                @csrf
-                <button class="w-full bg-red-600 hover:bg-red-700 px-4 py-2 rounded">
-                    Logout
-                </button>
-            </form>
+                    <a href="{{ route('admin.profile') }}"
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-slate-800">
+                        Profile
+                    </a>
+
+                    <a href="{{ route('admin.activation.index') }}"
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-slate-800">
+                        Activation
+                    </a>
+
+                    <a href="#"
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-slate-800">
+                        Quizzes
+                    </a>
+                </nav>
+
+                <div class="border-t border-slate-800 p-4">
+                    <form action="{{ route('admin.logout') }}" method="POST">
+                        @csrf
+                        <button type="submit"
+                                class="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700">
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
         </aside>
 
-        <main class="flex-1 p-8">
-            @if(session('success'))
-                <div class="mb-4 rounded bg-green-100 text-green-800 px-4 py-3">
-                    {{ session('success') }}
-                </div>
-            @endif
-
+        <main class="min-w-0 p-4 sm:p-6 lg:p-8">
             @yield('content')
         </main>
     </div>
+
+    @stack('modals')
+    @stack('scripts')
 </body>
 </html>

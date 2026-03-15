@@ -30,7 +30,7 @@ class AdminUserController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['required', Rule::in(['teacher', 'student'])],
             'status' => ['required', Rule::in(['pending', 'active', 'deactivated'])],
         ]);
@@ -51,6 +51,18 @@ class AdminUserController extends Controller
     public function show(User $user)
     {
         abort_if(!in_array($user->role, ['teacher', 'student']), 404);
+
+        if (request()->ajax()) {
+            return response()->json([
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'status' => $user->status,
+                'created_at' => optional($user->created_at)->format('F d, Y h:i A'),
+                'updated_at' => optional($user->updated_at)->format('F d, Y h:i A'),
+            ]);
+        }
 
         return view('admin.users.show', compact('user'));
     }
@@ -76,7 +88,7 @@ class AdminUserController extends Controller
             ],
             'role' => ['required', Rule::in(['teacher', 'student'])],
             'status' => ['required', Rule::in(['pending', 'active', 'deactivated'])],
-            'password' => ['nullable', 'string', 'min:8'],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ]);
 
         $user->name = $validated['name'];

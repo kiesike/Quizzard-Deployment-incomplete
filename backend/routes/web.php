@@ -5,6 +5,8 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminActivationController;
+use App\Http\Controllers\AdminProfileController;
+use App\Http\Controllers\AdminQuizController;
 
 Route::get('/', function () {
     return redirect()->route('admin.login');
@@ -36,7 +38,19 @@ Route::prefix('admin')->group(function () {
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('admin.users.destroy');
 
         Route::get('/activation', [AdminActivationController::class, 'index'])->name('admin.activation.index');
-        Route::patch('/activation/{user}/approve', [AdminActivationController::class, 'approve'])->name('admin.activation.approve');
+        Route::patch('/activation/{user}/activate', [AdminActivationController::class, 'activate'])->name('admin.activation.activate');
         Route::patch('/activation/{user}/deactivate', [AdminActivationController::class, 'deactivate'])->name('admin.activation.deactivate');
+
+        Route::get('/profile', [AdminProfileController::class, 'index'])->name('admin.profile');
+        Route::post('/profile', [AdminProfileController::class, 'update'])->name('admin.profile.update');
+
+        Route::get('/classes', [AdminQuizController::class, 'index'])
+        ->name('admin.classes');
+
+        Route::get('/classes/{id}', [AdminQuizController::class, 'show']);
+
+        Route::put('/classes/{id}', [AdminQuizController::class, 'update']);
+
+        Route::delete('/classes/{id}', [AdminQuizController::class, 'destroy']);
     });
 });

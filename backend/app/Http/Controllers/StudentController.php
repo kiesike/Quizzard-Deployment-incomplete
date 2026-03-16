@@ -158,4 +158,42 @@ class StudentController extends Controller
             'message' => 'You have left the class successfully.',
         ]);
     }
+
+    // Get all quizzes in a specific class
+    public function classQuizzes(Request $request, $classId)
+    {
+        $student = $request->user();
+
+        // Make sure student is enrolled in this class
+        $class = \App\Models\ClassRoom::whereHas('students', function ($q) use ($student) {
+            $q->where('student_id', $student->id);
+        })->findOrFail($classId);
+
+        $quizzes = $class->quizzes()
+            ->where('is_published', true)
+            ->withCount('questions')
+            ->get();
+
+        // Check which quizzes student has already completed
+        $completedQuizIds = \App\Models\QuizAttempt::where('student_id', $student->id)
+            ->where('status', 'completed')
+            ->pluck('quiz_id')
+            ->toArray();
+
+        return response()->json([
+            'class' => [
+                'id'   => $class->id,
+                'name' => $class->name,
+            ],
+            'quizzes' => $quizzes->map(function ($quiz) use ($completedQuizIds) {
+                return [
+                    'id'              => $quiz->id,
+                    'title'           => $quiz->title,
+                    'description'     => $quiz->description,
+                    'questions_count' => $quiz->questions_count,
+                    'already_taken'   => in_array($quiz->id, $completedQuizIds),
+                ];
+            }),
+        ]);
+    }
 }

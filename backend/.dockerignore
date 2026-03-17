@@ -1,0 +1,6 @@
+@"
+public/storage
+node_modules
+vendor
+storage/logs
+"@ | Set-Content .dockerignore

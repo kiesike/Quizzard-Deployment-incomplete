@@ -22,18 +22,18 @@
                     </a>
 
                     <a href="{{ route('admin.profile') }}"
-                       class="block rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-slate-800">
-                        Profile
-                    </a>
+   class="flex items-center px-4 py-2 rounded-lg hover:bg-slate-700 transition {{ request()->routeIs('admin.profile') ? 'bg-slate-700 text-white' : 'text-slate-200' }}">
+    Profile
+</a>
 
                     <a href="{{ route('admin.activation.index') }}"
                        class="block rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-slate-800">
                         Activation
                     </a>
 
-                    <a href="#"
+                    <a href="{{ route('admin.classes') }}"
                        class="block rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-slate-800">
-                        Quizzes
+                        Classes
                     </a>
                 </nav>
 

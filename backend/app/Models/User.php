@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
@@ -16,7 +17,11 @@ class User extends Authenticatable
         'password',
         'role',
         'status',
+        'failed_login_attempts',
+        'locked_until',
+        'profile_picture',
         'profile_image',
+        'bio',
     ];
 
     protected $hidden = [
@@ -28,7 +33,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'password'          => 'hashed',
+            'locked_until'      => 'datetime',
         ];
     }
 
@@ -37,7 +43,6 @@ class User extends Authenticatable
         if ($this->profile_image) {
             return asset('storage/' . $this->profile_image);
         }
-
         return asset('images/default-avatar.png');
     }
 }

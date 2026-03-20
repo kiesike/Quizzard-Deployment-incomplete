@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -20,6 +20,7 @@ class User extends Authenticatable
         'failed_login_attempts',
         'locked_until',
         'profile_picture',
+        'profile_image',
         'bio',
     ];
 
@@ -32,8 +33,16 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'locked_until' => 'datetime',
-            'password' => 'hashed',
+            'password'          => 'hashed',
+            'locked_until'      => 'datetime',
         ];
+    }
+
+    public function getProfileImageUrlAttribute(): string
+    {
+        if ($this->profile_image) {
+            return asset('storage/' . $this->profile_image);
+        }
+        return asset('images/default-avatar.png');
     }
 }

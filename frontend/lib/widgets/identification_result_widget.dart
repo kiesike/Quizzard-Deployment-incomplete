@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import 'video_player_widget.dart';
 
 class IdentificationResultWidget extends StatelessWidget {
   final Map<String, dynamic> question;
@@ -13,8 +15,9 @@ class IdentificationResultWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final options = question['answer_options'] as List;
+    final mediaPath = question['media_path'];
+    final mediaType = question['media_type'];
 
-    // Get correct answer
     String correctAnswer = '';
     for (var option in options) {
       if (option['is_correct'] == true) {
@@ -23,7 +26,6 @@ class IdentificationResultWidget extends StatelessWidget {
       }
     }
 
-    // Check if correct (case insensitive)
     final isCorrect = studentAnswer != null &&
         studentAnswer!.trim().toLowerCase() ==
             correctAnswer.trim().toLowerCase();
@@ -99,6 +101,39 @@ class IdentificationResultWidget extends StatelessWidget {
                   color: Color(0xFF333333),
                 ),
               ),
+              // Question image
+              if (mediaPath != null &&
+                  mediaPath.toString().isNotEmpty &&
+                  mediaType == 'image') ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    AuthService.fixImageUrl(
+                      mediaPath.toString().startsWith('http')
+                          ? mediaPath
+                          : '${AuthService.storageUrl}/$mediaPath',
+                    ),
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox(),
+                  ),
+                ),
+              ],
+              // Question video
+              if (mediaPath != null &&
+                  mediaPath.toString().isNotEmpty &&
+                  mediaType == 'video') ...[
+                const SizedBox(height: 12),
+                VideoPlayerWidget(
+                  videoUrl: AuthService.fixImageUrl(
+                    mediaPath.toString().startsWith('http')
+                        ? mediaPath
+                        : '${AuthService.storageUrl}/$mediaPath',
+                  ),
+                ),
+              ],
             ],
           ),
         ),

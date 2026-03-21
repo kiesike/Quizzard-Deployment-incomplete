@@ -13,6 +13,7 @@ class AnswerOption extends Model
         'question_id',
         'option_text',
         'image_path',
+        'video_path',
         'is_correct',
         'match_pair',
         'order',

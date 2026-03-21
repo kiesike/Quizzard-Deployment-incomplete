@@ -182,6 +182,10 @@ class AuthService {
         .replaceAll('http://127.0.0.1', 'http://$ip');
   }
 
+  static Map<String, dynamic> parseJson(String body) {
+    return jsonDecode(body) as Map<String, dynamic>;
+  }
+
 
 
 

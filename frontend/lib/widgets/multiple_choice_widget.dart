@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'video_player_widget.dart';
 
 class MultipleChoiceWidget extends StatefulWidget {
   final Map<String, dynamic> question;
@@ -30,6 +31,7 @@ class _MultipleChoiceWidgetState extends State<MultipleChoiceWidget> {
   Widget build(BuildContext context) {
     final options = widget.question['answer_options'] as List;
     final mediaPath = widget.question['media_path'];
+    final mediaType = widget.question['media_type'];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -86,16 +88,35 @@ class _MultipleChoiceWidgetState extends State<MultipleChoiceWidget> {
                 ),
               ),
               // Question image
-              if (mediaPath != null && mediaPath.toString().isNotEmpty) ...[
+              if (mediaPath != null &&
+                  mediaPath.toString().isNotEmpty &&
+                  mediaType == 'image') ...[
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.network(
-                    AuthService.fixImageUrl( mediaPath.toString().startsWith('http') ? mediaPath : '${AuthService.storageUrl}/$mediaPath'),
+                    AuthService.fixImageUrl(
+                      mediaPath.toString().startsWith('http')
+                          ? mediaPath
+                          : '${AuthService.storageUrl}/$mediaPath',
+                    ),
                     width: double.infinity,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) =>
                         const SizedBox(),
+                  ),
+                ),
+              ],
+              // Question video
+              if (mediaPath != null &&
+                  mediaPath.toString().isNotEmpty &&
+                  mediaType == 'video') ...[
+                const SizedBox(height: 12),
+                VideoPlayerWidget(
+                  videoUrl: AuthService.fixImageUrl(
+                    mediaPath.toString().startsWith('http')
+                        ? mediaPath
+                        : '${AuthService.storageUrl}/$mediaPath',
                   ),
                 ),
               ],
@@ -108,6 +129,7 @@ class _MultipleChoiceWidgetState extends State<MultipleChoiceWidget> {
         ...options.map((option) {
           final isSelected = _selectedOptionId == option['id'];
           final optionImage = option['image_path'];
+          final optionVideo = option['video_path'];
 
           return GestureDetector(
             onTap: () {
@@ -119,9 +141,7 @@ class _MultipleChoiceWidgetState extends State<MultipleChoiceWidget> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFF6C63FF)
-                    : Colors.white,
+                color: isSelected ? const Color(0xFF6C63FF) : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isSelected
@@ -197,11 +217,27 @@ class _MultipleChoiceWidgetState extends State<MultipleChoiceWidget> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image.network(
-                        AuthService.fixImageUrl(optionImage.toString().startsWith('http')?optionImage: '${AuthService.storageUrl}/$optionImage'),
+                        AuthService.fixImageUrl(
+                          optionImage.toString().startsWith('http')
+                              ? optionImage
+                              : '${AuthService.storageUrl}/$optionImage',
+                        ),
                         width: double.infinity,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) =>
                             const SizedBox(),
+                      ),
+                    ),
+                  ],
+                  // Option video
+                  if (optionVideo != null &&
+                      optionVideo.toString().isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    VideoPlayerWidget(
+                      videoUrl: AuthService.fixImageUrl(
+                        optionVideo.toString().startsWith('http')
+                            ? optionVideo
+                            : '${AuthService.storageUrl}/$optionVideo',
                       ),
                     ),
                   ],

@@ -25,9 +25,12 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
   String? _imageUrl;
 
   @override
+  @override
   void initState() {
     super.initState();
-    _imageUrl = widget.currentImageUrl;
+    _imageUrl = widget.currentImageUrl != null
+        ? AuthService.fixImageUrl(widget.currentImageUrl!)
+        : null;
   }
 
   Future<void> _pickImage(ImageSource source) async {

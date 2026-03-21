@@ -36,6 +36,9 @@ class QuestionController extends Controller
                             'image_path'  => $option->image_path
                                 ? asset('storage/' . $option->image_path)
                                 : null,
+                            'video_path'  => $option->video_path
+                                ? asset('storage/' . $option->video_path)
+                                : null,
                             'order'       => $option->order,
                         ];
                     }),
@@ -51,27 +54,39 @@ class QuestionController extends Controller
         ]);
     }
 
+    // Determine media_type from request fields
+    private function resolveMediaType(Request $request): ?string
+    {
+        if ($request->filled('media_type')) {
+            return $request->media_type; // trust explicit value from client
+        }
+        if ($request->filled('media_path')) {
+            return 'image'; // legacy fallback
+        }
+        return null;
+    }
+
     // Create a multiple choice question
     public function storeMultipleChoice(Request $request, $quizId)
     {
         $quiz = Quiz::findOrFail($quizId);
 
-        // Make sure this teacher owns the quiz
         if ($quiz->teacher_id !== $request->user()->id) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         $request->validate([
-            'question_text'          => 'required|string',
-            'media_path'             => 'nullable|string',
-            'points'                 => 'integer|min:1',
-            'options'                => 'required|array|min:2',
-            'options.*.option_text'  => 'required|string',
-            'options.*.is_correct'   => 'required|boolean',
-            'options.*.image_path'   => 'nullable|string',
+            'question_text'           => 'required|string',
+            'media_path'              => 'nullable|string',
+            'media_type'              => 'nullable|in:image,video,audio',
+            'points'                  => 'integer|min:1',
+            'options'                 => 'required|array|min:2',
+            'options.*.option_text'   => 'required|string',
+            'options.*.is_correct'    => 'required|boolean',
+            'options.*.image_path'    => 'nullable|string',
+            'options.*.video_path'    => 'nullable|string',
         ]);
 
-        // Make sure exactly one option is correct
         $correctCount = collect($request->options)
             ->where('is_correct', true)
             ->count();
@@ -82,23 +97,22 @@ class QuestionController extends Controller
             ], 422);
         }
 
-        // Create the question
         $question = Question::create([
             'quiz_id'       => $quizId,
             'question_text' => $request->question_text,
             'question_type' => 'multiple_choice',
             'media_path'    => $request->media_path,
-            'media_type'    => $request->media_path ? 'image' : null,
+            'media_type'    => $this->resolveMediaType($request),
             'points'        => $request->points ?? 1,
             'order'         => Question::where('quiz_id', $quizId)->count() + 1,
         ]);
 
-        // Create the answer options
         foreach ($request->options as $index => $option) {
             AnswerOption::create([
                 'question_id' => $question->id,
                 'option_text' => $option['option_text'],
                 'image_path'  => $option['image_path'] ?? null,
+                'video_path'  => $option['video_path'] ?? null,
                 'is_correct'  => $option['is_correct'],
                 'order'       => $index + 1,
             ]);
@@ -110,7 +124,138 @@ class QuestionController extends Controller
         ], 201);
     }
 
-    // Update a question
+    // Create a true or false question
+    public function storeTrueFalse(Request $request, $quizId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+
+        if ($quiz->teacher_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $request->validate([
+            'question_text'  => 'required|string',
+            'media_path'     => 'nullable|string',
+            'media_type'     => 'nullable|in:image,video,audio',
+            'points'         => 'integer|min:1',
+            'correct_answer' => 'required|boolean',
+        ]);
+
+        $question = Question::create([
+            'quiz_id'       => $quizId,
+            'question_text' => $request->question_text,
+            'question_type' => 'true_false',
+            'media_path'    => $request->media_path ?? null,
+            'media_type'    => $this->resolveMediaType($request),
+            'points'        => $request->points ?? 1,
+            'order'         => Question::where('quiz_id', $quizId)->count() + 1,
+        ]);
+
+        AnswerOption::create([
+            'question_id' => $question->id,
+            'option_text' => 'True',
+            'is_correct'  => $request->correct_answer === true,
+            'order'       => 1,
+        ]);
+
+        AnswerOption::create([
+            'question_id' => $question->id,
+            'option_text' => 'False',
+            'is_correct'  => $request->correct_answer === false,
+            'order'       => 2,
+        ]);
+
+        return response()->json([
+            'message'  => 'True or False question created successfully.',
+            'question' => $question->load('answerOptions'),
+        ], 201);
+    }
+
+    // Create an identification question
+    public function storeIdentification(Request $request, $quizId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+
+        if ($quiz->teacher_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $request->validate([
+            'question_text' => 'required|string',
+            'media_path'    => 'nullable|string',
+            'media_type'    => 'nullable|in:image,video,audio',
+            'answer'        => 'required|string',
+            'points'        => 'integer|min:1',
+        ]);
+
+        $question = Question::create([
+            'quiz_id'       => $quizId,
+            'question_text' => $request->question_text,
+            'question_type' => 'identification',
+            'media_path'    => $request->media_path ?? null,
+            'media_type'    => $this->resolveMediaType($request),
+            'points'        => $request->points ?? 1,
+            'order'         => Question::where('quiz_id', $quizId)->count() + 1,
+        ]);
+
+        AnswerOption::create([
+            'question_id' => $question->id,
+            'option_text' => $request->answer,
+            'is_correct'  => true,
+            'order'       => 1,
+        ]);
+
+        return response()->json([
+            'message'  => 'Identification question created successfully.',
+            'question' => $question->load('answerOptions'),
+        ], 201);
+    }
+
+    // Create a matching type question
+    public function storeMatching(Request $request, $quizId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+
+        if ($quiz->teacher_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $request->validate([
+            'question_text' => 'required|string',
+            'media_path'    => 'nullable|string',
+            'media_type'    => 'nullable|in:image,video,audio',
+            'points'        => 'integer|min:1',
+            'pairs'         => 'required|array|min:2',
+            'pairs.*.left'  => 'required|string',
+            'pairs.*.right' => 'required|string',
+        ]);
+
+        $question = Question::create([
+            'quiz_id'       => $quizId,
+            'question_text' => $request->question_text,
+            'question_type' => 'matching',
+            'media_path'    => $request->media_path ?? null,
+            'media_type'    => $this->resolveMediaType($request),
+            'points'        => $request->points ?? 1,
+            'order'         => Question::where('quiz_id', $quizId)->count() + 1,
+        ]);
+
+        foreach ($request->pairs as $index => $pair) {
+            AnswerOption::create([
+                'question_id' => $question->id,
+                'option_text' => $pair['left'],
+                'match_pair'  => $pair['right'],
+                'is_correct'  => true,
+                'order'       => $index + 1,
+            ]);
+        }
+
+        return response()->json([
+            'message'  => 'Matching type question created successfully.',
+            'question' => $question->load('answerOptions'),
+        ], 201);
+    }
+
     // Update a question (handles all question types)
     public function update(Request $request, $quizId, $questionId)
     {
@@ -124,11 +269,17 @@ class QuestionController extends Controller
 
         $request->validate([
             'question_text' => 'required|string',
+            'media_path'    => 'nullable|string',
+            'media_type'    => 'nullable|in:image,video,audio',
             'points'        => 'integer|min:1',
         ]);
 
         $question->update([
             'question_text' => $request->question_text,
+            'media_path'    => $request->media_path ?? $question->media_path,
+            'media_type'    => $request->filled('media_type')
+                                ? $request->media_type
+                                : $question->media_type,
             'points'        => $request->points ?? 1,
         ]);
 
@@ -142,6 +293,8 @@ class QuestionController extends Controller
                     'options'               => 'required|array|min:2|max:4',
                     'options.*.option_text' => 'required|string',
                     'options.*.is_correct'  => 'required|boolean',
+                    'options.*.image_path'  => 'nullable|string',
+                    'options.*.video_path'  => 'nullable|string',
                 ]);
                 $correctCount = collect($request->options)->where('is_correct', true)->count();
                 if ($correctCount !== 1) {
@@ -154,6 +307,8 @@ class QuestionController extends Controller
                         'question_id' => $question->id,
                         'option_text' => $option['option_text'],
                         'is_correct'  => $option['is_correct'],
+                        'image_path'  => $option['image_path'] ?? null,
+                        'video_path'  => $option['video_path'] ?? null,
                         'order'       => $index + 1,
                     ]);
                 }
@@ -191,9 +346,9 @@ class QuestionController extends Controller
 
             case 'matching':
                 $request->validate([
-                    'pairs'              => 'required|array|min:2',
-                    'pairs.*.left'       => 'required|string',
-                    'pairs.*.right'      => 'required|string',
+                    'pairs'        => 'required|array|min:2',
+                    'pairs.*.left' => 'required|string',
+                    'pairs.*.right'=> 'required|string',
                 ]);
                 foreach ($request->pairs as $index => $pair) {
                     AnswerOption::create([
@@ -232,135 +387,4 @@ class QuestionController extends Controller
             'message' => 'Question deleted successfully.'
         ]);
     }
-
-    // Create a true or false question
-    public function storeTrueFalse(Request $request, $quizId)
-    {
-        $quiz = Quiz::findOrFail($quizId);
-
-        if ($quiz->teacher_id !== $request->user()->id) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
-
-        $request->validate([
-            'question_text' => 'required|string',
-            'points'        => 'integer|min:1',
-            'correct_answer' => 'required|boolean',
-        ]);
-
-        // Create the question
-        $question = Question::create([
-            'quiz_id'       => $quizId,
-            'question_text' => $request->question_text,
-            'question_type' => 'true_false',
-            'media_path'    => $request->media_path ?? null,
-            'media_type'    => $request->media_path ? 'image' : null,
-            'points'        => $request->points ?? 1,
-            'order'         => Question::where('quiz_id', $quizId)->count() + 1,
-        ]);
-
-        // Create True and False options
-        AnswerOption::create([
-            'question_id' => $question->id,
-            'option_text' => 'True',
-            'is_correct'  => $request->correct_answer === true,
-            'order'       => 1,
-        ]);
-
-        AnswerOption::create([
-            'question_id' => $question->id,
-            'option_text' => 'False',
-            'is_correct'  => $request->correct_answer === false,
-            'order'       => 2,
-        ]);
-
-        return response()->json([
-            'message'  => 'True or False question created successfully.',
-            'question' => $question->load('answerOptions'),
-        ], 201);
-    }
-
-
-    // Create an identification question
-    public function storeIdentification(Request $request, $quizId)
-    {
-        $quiz = Quiz::findOrFail($quizId);
-
-        if ($quiz->teacher_id !== $request->user()->id) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
-
-        $request->validate([
-            'question_text' => 'required|string',
-            'answer'        => 'required|string',
-            'points'        => 'integer|min:1',
-        ]);
-
-        $question = Question::create([
-            'quiz_id'       => $quizId,
-            'question_text' => $request->question_text,
-            'question_type' => 'identification',
-            'media_path'    => $request->media_path ?? null,
-            'media_type'    => $request->media_path ? 'image' : null,
-            'points'        => $request->points ?? 1,
-            'order'         => Question::where('quiz_id', $quizId)->count() + 1,
-        ]);
-
-        AnswerOption::create([
-            'question_id' => $question->id,
-            'option_text' => $request->answer,
-            'is_correct'  => true,
-            'order'       => 1,
-        ]);
-
-        return response()->json([
-            'message'  => 'Identification question created successfully.',
-            'question' => $question->load('answerOptions'),
-        ], 201);
-    }
-
-
-    // Create a matching type question
-    public function storeMatching(Request $request, $quizId)
-    {
-        $quiz = Quiz::findOrFail($quizId);
-
-        if ($quiz->teacher_id !== $request->user()->id) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
-
-        $request->validate([
-            'question_text'  => 'required|string',
-            'points'         => 'integer|min:1',
-            'pairs'          => 'required|array|min:2',
-            'pairs.*.left'   => 'required|string',
-            'pairs.*.right'  => 'required|string',
-        ]);
-
-        $question = Question::create([
-            'quiz_id'       => $quizId,
-            'question_text' => $request->question_text,
-            'question_type' => 'matching',
-            'media_path'    => $request->media_path ?? null,
-            'media_type'    => $request->media_path ? 'image' : null,
-            'points'        => $request->points ?? 1,
-            'order'         => Question::where('quiz_id', $quizId)->count() + 1,
-        ]);
-
-        foreach ($request->pairs as $index => $pair) {
-            AnswerOption::create([
-                'question_id' => $question->id,
-                'option_text' => $pair['left'],
-                'match_pair'  => $pair['right'],
-                'is_correct'  => true,
-                'order'       => $index + 1,
-            ]);
-        }
-
-        return response()->json([
-            'message'  => 'Matching type question created successfully.',
-            'question' => $question->load('answerOptions'),
-        ], 201);
-    }
-
 }

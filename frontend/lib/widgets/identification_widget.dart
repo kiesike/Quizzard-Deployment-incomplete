@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'video_player_widget.dart';
 
 class IdentificationWidget extends StatefulWidget {
   final Map<String, dynamic> question;
@@ -35,7 +36,8 @@ class _IdentificationWidgetState extends State<IdentificationWidget> {
   @override
   Widget build(BuildContext context) {
     final mediaPath = widget.question['media_path'];
-
+    final mediaType = widget.question['media_type'];
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -91,16 +93,29 @@ class _IdentificationWidgetState extends State<IdentificationWidget> {
                 ),
               ),
               // Question image
-              if (mediaPath != null && mediaPath.toString().isNotEmpty) ...[
+              if (mediaPath != null && mediaPath.toString().isNotEmpty && mediaType == 'image')...[
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.network(
-                    mediaPath.toString().startsWith('http') ? mediaPath : '${AuthService.storageUrl}/$mediaPath',
+                    AuthService.fixImageUrl(
+                      mediaPath.toString().startsWith('http')
+                          ? mediaPath
+                          : '${AuthService.storageUrl}/$mediaPath',
+                    ),
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const SizedBox(),
+                    errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                  ),
+                ),
+              ],
+              if (mediaPath != null && mediaPath.toString().isNotEmpty && mediaType == 'video') ...[
+                const SizedBox(height: 12),
+                VideoPlayerWidget(
+                  videoUrl: AuthService.fixImageUrl(
+                    mediaPath.toString().startsWith('http')
+                        ? mediaPath
+                        : '${AuthService.storageUrl}/$mediaPath',
                   ),
                 ),
               ],

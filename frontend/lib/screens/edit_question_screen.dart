@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../widgets/image_picker_widget.dart';
+import '../widgets/video_picker_widget.dart';
+import '../widgets/video_player_widget.dart';
 
 class EditQuestionScreen extends StatefulWidget {
   final int quizId;
@@ -25,13 +27,17 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
   // Common
   late TextEditingController _questionTextController;
   late TextEditingController _pointsController;
-  String? _questionImagePath;
+  String? _questionMediaPath;
+  String? _questionMediaType;
   String? _questionImageUrl;
+  String? _questionVideoUrl;
 
   // Multiple choice
   late List<TextEditingController> _mcOptions;
   final List<String?> _mcOptionImagePaths = List.generate(4, (_) => null);
-  final List<String?> _mcOptionImageUrls = List.generate(4, (_) => null);
+  final List<String?> _mcOptionImageUrls  = List.generate(4, (_) => null);
+  final List<String?> _mcOptionVideoPaths = List.generate(4, (_) => null);
+  final List<String?> _mcOptionVideoUrls  = List.generate(4, (_) => null);
   int _mcCorrectIndex = 0;
 
   // True/False
@@ -56,13 +62,22 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
       text: '${widget.question['points'] ?? 1}',
     );
 
-    // Load existing question image
+    // Load existing question media
     final existingMediaPath = widget.question['media_path'];
+    final existingMediaType = widget.question['media_type'];
     if (existingMediaPath != null && existingMediaPath.toString().isNotEmpty) {
-      _questionImageUrl = existingMediaPath.toString().startsWith('http')
-          ? existingMediaPath
-          : '${AuthService.storageUrl}/$existingMediaPath';
-      _questionImagePath = existingMediaPath;
+      _questionMediaPath = existingMediaPath;
+      _questionMediaType = existingMediaType;
+      final fullUrl = AuthService.fixImageUrl(
+        existingMediaPath.toString().startsWith('http')
+            ? existingMediaPath
+            : '${AuthService.storageUrl}/$existingMediaPath',
+      );
+      if (existingMediaType == 'image') {
+        _questionImageUrl = fullUrl;
+      } else if (existingMediaType == 'video') {
+        _questionVideoUrl = fullUrl;
+      }
     }
 
     final options = List<Map<String, dynamic>>.from(
@@ -82,10 +97,22 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
       // Load existing option images
       final optionImage = options[i]['image_path'];
       if (optionImage != null && optionImage.toString().isNotEmpty) {
-        _mcOptionImageUrls[i] = optionImage.toString().startsWith('http')
-            ? optionImage
-            : '${AuthService.storageUrl}/$optionImage';
+        _mcOptionImageUrls[i] = AuthService.fixImageUrl(
+          optionImage.toString().startsWith('http')
+              ? optionImage
+              : '${AuthService.storageUrl}/$optionImage',
+        );
         _mcOptionImagePaths[i] = optionImage;
+      }
+      // Load existing option videos
+      final optionVideo = options[i]['video_path'];
+      if (optionVideo != null && optionVideo.toString().isNotEmpty) {
+        _mcOptionVideoUrls[i] = AuthService.fixImageUrl(
+          optionVideo.toString().startsWith('http')
+              ? optionVideo
+              : '${AuthService.storageUrl}/$optionVideo',
+        );
+        _mcOptionVideoPaths[i] = optionVideo;
       }
     }
 
@@ -95,8 +122,8 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
         (o) => (o['option_text'] ?? '').toString().toLowerCase() == 'true',
         orElse: () => {},
       );
-      _tfCorrectAnswer = trueOption['is_correct'] == true ||
-          trueOption['is_correct'] == 1;
+      _tfCorrectAnswer =
+          trueOption['is_correct'] == true || trueOption['is_correct'] == 1;
     }
 
     // Identification
@@ -106,11 +133,11 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
 
     // Matching
     _matchLeft = List.generate(4, (i) => TextEditingController(
-      text: i < options.length ? (options[i]['option_text'] ?? '') : '',
-    ));
+          text: i < options.length ? (options[i]['option_text'] ?? '') : '',
+        ));
     _matchRight = List.generate(4, (i) => TextEditingController(
-      text: i < options.length ? (options[i]['match_pair'] ?? '') : '',
-    ));
+          text: i < options.length ? (options[i]['match_pair'] ?? '') : '',
+        ));
   }
 
   @override
@@ -139,7 +166,8 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
     Map<String, dynamic> body = {
       'question_text': _questionTextController.text.trim(),
       'points': int.tryParse(_pointsController.text) ?? 1,
-      'media_path': _questionImagePath,
+      'media_path': _questionMediaPath,
+      'media_type': _questionMediaType,
     };
 
     switch (_questionType) {
@@ -155,10 +183,11 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
           return;
         }
         body['options'] = List.generate(4, (i) => {
-          'option_text': options[i],
-          'is_correct': i == _mcCorrectIndex,
-          'image_path': _mcOptionImagePaths[i],
-        });
+              'option_text': options[i],
+              'is_correct': i == _mcCorrectIndex,
+              'image_path': _mcOptionImagePaths[i],
+              'video_path': _mcOptionVideoPaths[i],
+            });
         break;
 
       case 'true_false':
@@ -191,9 +220,9 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
           return;
         }
         body['pairs'] = List.generate(4, (i) => {
-          'left': lefts[i],
-          'right': rights[i],
-        });
+              'left': lefts[i],
+              'right': rights[i],
+            });
         break;
     }
 
@@ -251,24 +280,20 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
           children: [
             // Question type label
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
-                border:
-                    Border.all(color: primaryColor.withOpacity(0.3)),
+                border: Border.all(color: primaryColor.withOpacity(0.3)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline,
-                      size: 16, color: primaryColor),
+                  const Icon(Icons.info_outline, size: 16, color: primaryColor),
                   const SizedBox(width: 8),
                   Text(
                     'Type: ${_questionTypeLabel(_questionType)}',
                     style: const TextStyle(
-                        color: primaryColor,
-                        fontWeight: FontWeight.w600),
+                        color: primaryColor, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -281,12 +306,11 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
               maxLines: 3,
               decoration: InputDecoration(
                 labelText: 'Question Text *',
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: primaryColor, width: 2),
+                  borderSide: const BorderSide(color: primaryColor, width: 2),
                 ),
               ),
             ),
@@ -298,15 +322,44 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                     color: Colors.grey)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             ImagePickerWidget(
-              currentImageUrl: _questionImageUrl,
+              currentImageUrl: _questionMediaType == 'image' ? _questionImageUrl : null,
               label: 'Add image to question',
               onImageSelected: (path, url) => setState(() {
-                _questionImagePath = path;
+                _questionMediaPath = path;
+                _questionMediaType = 'image';
                 _questionImageUrl = url;
+                _questionVideoUrl = null;
               }),
             ),
+            const SizedBox(height: 12),
+
+            // Question video
+            const Text('Question Video (optional)',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: Colors.grey)),
+            const SizedBox(height: 4),
+            VideoPickerWidget(
+              initialVideoUrl: _questionMediaType == 'video' ? _questionVideoUrl : null,
+              onVideoUploaded: (videoUrl, videoPath) => setState(() {
+                _questionMediaPath = videoPath;
+                _questionMediaType = 'video';
+                _questionVideoUrl = videoUrl;
+                _questionImageUrl = null;
+              }),
+              onVideoRemoved: () => setState(() {
+                _questionMediaPath = null;
+                _questionMediaType = null;
+                _questionVideoUrl = null;
+              }),
+            ),
+            if (_questionMediaType == 'video' && _questionVideoUrl != null) ...[
+              const SizedBox(height: 8),
+              VideoPlayerWidget(videoUrl: _questionVideoUrl!),
+            ],
             const SizedBox(height: 16),
 
             // Points
@@ -315,14 +368,12 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: 'Points',
-                prefixIcon:
-                    const Icon(Icons.star, color: primaryColor),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.star, color: primaryColor),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: primaryColor, width: 2),
+                  borderSide: const BorderSide(color: primaryColor, width: 2),
                 ),
               ),
             ),
@@ -349,8 +400,7 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
                           color: Colors.white, strokeWidth: 2))
                   : const Text('Save Changes',
                       style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold)),
+                          fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -377,48 +427,73 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
         const Text('Tap the circle to mark the correct answer',
             style: TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 12),
-        ...List.generate(4, (i) => Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+        ...List.generate(
+            4,
+            (i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Radio<int>(
-                        value: i,
-                        groupValue: _mcCorrectIndex,
-                        activeColor: primaryColor,
-                        onChanged: (v) =>
-                            setState(() => _mcCorrectIndex = v!),
-                      ),
-                      Expanded(
-                        child: TextField(
-                          controller: _mcOptions[i],
-                          decoration: InputDecoration(
-                            labelText: 'Option ${i + 1}',
-                            border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(10)),
+                      Row(
+                        children: [
+                          Radio<int>(
+                            value: i,
+                            groupValue: _mcCorrectIndex,
+                            activeColor: primaryColor,
+                            onChanged: (v) =>
+                                setState(() => _mcCorrectIndex = v!),
                           ),
+                          Expanded(
+                            child: TextField(
+                              controller: _mcOptions[i],
+                              decoration: InputDecoration(
+                                labelText: 'Option ${i + 1}',
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 48),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ImagePickerWidget(
+                              currentImageUrl: _mcOptionImageUrls[i],
+                              label: 'Add image to option ${i + 1}',
+                              onImageSelected: (path, url) => setState(() {
+                                _mcOptionImagePaths[i] = path;
+                                _mcOptionImageUrls[i] = url;
+                              }),
+                            ),
+                            const SizedBox(height: 6),
+                            VideoPickerWidget(
+                              initialVideoUrl: _mcOptionVideoUrls[i],
+                              onVideoUploaded: (videoUrl, videoPath) =>
+                                  setState(() {
+                                _mcOptionVideoPaths[i] = videoPath;
+                                _mcOptionVideoUrls[i] = videoUrl;
+                              }),
+                              onVideoRemoved: () => setState(() {
+                                _mcOptionVideoPaths[i] = null;
+                                _mcOptionVideoUrls[i] = null;
+                              }),
+                            ),
+                            if (_mcOptionVideoUrls[i] != null) ...[
+                              const SizedBox(height: 6),
+                              VideoPlayerWidget(
+                                videoUrl: _mcOptionVideoUrls[i]!,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 48),
-                    child: ImagePickerWidget(
-                      currentImageUrl: _mcOptionImageUrls[i],
-                      label: 'Add image to option ${i + 1}',
-                      onImageSelected: (path, url) => setState(() {
-                        _mcOptionImagePaths[i] = path;
-                        _mcOptionImageUrls[i] = url;
-                      }),
-                    ),
-                  ),
-                ],
-              ),
-            )),
+                )),
       ],
     );
   }
@@ -438,8 +513,7 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color:
-                        _tfCorrectAnswer ? primaryColor : Colors.white,
+                    color: _tfCorrectAnswer ? primaryColor : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: primaryColor),
                   ),
@@ -462,8 +536,7 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color:
-                        !_tfCorrectAnswer ? primaryColor : Colors.white,
+                    color: !_tfCorrectAnswer ? primaryColor : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: primaryColor),
                   ),
@@ -496,12 +569,11 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
           controller: _identAnswerController,
           decoration: InputDecoration(
             labelText: 'Answer *',
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12)),
+            border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: primaryColor, width: 2),
+              borderSide: const BorderSide(color: primaryColor, width: 2),
             ),
           ),
         ),
@@ -530,15 +602,13 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
                           decoration: InputDecoration(
                             labelText: 'Left ${i + 1}',
                             border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(10)),
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Icon(Icons.arrow_forward,
-                            color: Colors.grey),
+                        child: Icon(Icons.arrow_forward, color: Colors.grey),
                       ),
                       Expanded(
                         child: TextField(
@@ -546,16 +616,13 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
                           decoration: InputDecoration(
                             labelText: 'Right ${i + 1}',
                             border: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.circular(10)
-                                ),
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ),
                     ],
                   ),
-                )
-              ),
+                )),
       ],
     );
   }

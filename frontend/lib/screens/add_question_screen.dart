@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../widgets/image_picker_widget.dart';
+import '../widgets/video_picker_widget.dart';
+import '../widgets/video_player_widget.dart';
 
 class AddQuestionScreen extends StatefulWidget {
   final int quizId;
@@ -19,12 +21,16 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
   // Common fields
   final _questionTextController = TextEditingController();
   final _pointsController = TextEditingController(text: '1');
-  String? _questionImagePath;
+  String? _questionMediaPath;
+  String? _questionMediaType;
+  String? _questionVideoUrl; // full URL for previewing uploaded question video
 
   // Multiple choice
   final List<TextEditingController> _mcOptions =
       List.generate(4, (_) => TextEditingController());
   final List<String?> _mcOptionImagePaths = List.generate(4, (_) => null);
+  final List<String?> _mcOptionVideoPaths = List.generate(4, (_) => null);
+  final List<String?> _mcOptionVideoUrls  = List.generate(4, (_) => null);
   int _mcCorrectIndex = 0;
 
   // True/False
@@ -79,12 +85,14 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
         }
         body = {
           'question_text': _questionTextController.text.trim(),
-          'media_path': _questionImagePath,
+          'media_path': _questionMediaPath,
+          'media_type': _questionMediaType,
           'points': int.tryParse(_pointsController.text) ?? 1,
           'options': List.generate(4, (i) => {
                 'option_text': options[i],
                 'is_correct': i == _mcCorrectIndex,
                 'image_path': _mcOptionImagePaths[i],
+                'video_path': _mcOptionVideoPaths[i],
               }),
         };
         endpoint = '/quizzes/${widget.quizId}/questions/multiple-choice';
@@ -93,7 +101,8 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
       case 'true_false':
         body = {
           'question_text': _questionTextController.text.trim(),
-          'media_path': _questionImagePath,
+          'media_path': _questionMediaPath,
+          'media_type': _questionMediaType,
           'points': int.tryParse(_pointsController.text) ?? 1,
           'correct_answer': _tfCorrectAnswer,
         };
@@ -112,7 +121,8 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
         }
         body = {
           'question_text': _questionTextController.text.trim(),
-          'media_path': _questionImagePath,
+          'media_path': _questionMediaPath,
+          'media_type': _questionMediaType,
           'points': int.tryParse(_pointsController.text) ?? 1,
           'answer': _identAnswerController.text.trim(),
         };
@@ -133,7 +143,8 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
         }
         body = {
           'question_text': _questionTextController.text.trim(),
-          'media_path': _questionImagePath,
+          'media_path': _questionMediaPath,
+          'media_type': _questionMediaType,
           'points': int.tryParse(_pointsController.text) ?? 1,
           'pairs': List.generate(4, (i) => {
                 'left': lefts[i],
@@ -208,12 +219,40 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                     color: Colors.grey)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             ImagePickerWidget(
               label: 'Add image to question',
-              onImageSelected: (path, url) =>
-                  setState(() => _questionImagePath = path),
+              onImageSelected: (path, url) => setState(() {
+                _questionMediaPath = path;
+                _questionMediaType = 'image';
+                _questionVideoUrl = null;
+              }),
             ),
+            const SizedBox(height: 12),
+
+            // Question video picker
+            const Text('Question Video (optional)',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: Colors.grey)),
+            const SizedBox(height: 4),
+            VideoPickerWidget(
+              onVideoUploaded: (videoUrl, videoPath) => setState(() {
+                _questionMediaPath = videoPath;
+                _questionMediaType = 'video';
+                _questionVideoUrl = videoUrl;
+              }),
+              onVideoRemoved: () => setState(() {
+                _questionMediaPath = null;
+                _questionMediaType = null;
+                _questionVideoUrl = null;
+              }),
+            ),
+            if (_questionMediaType == 'video' && _questionVideoUrl != null) ...[
+              const SizedBox(height: 8),
+              VideoPlayerWidget(videoUrl: _questionVideoUrl!),
+            ],
             const SizedBox(height: 16),
 
             TextField(
@@ -341,10 +380,38 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
                   const SizedBox(height: 6),
                   Padding(
                     padding: const EdgeInsets.only(left: 48),
-                    child: ImagePickerWidget(
-                      label: 'Add image to option ${i + 1}',
-                      onImageSelected: (path, url) => setState(
-                          () => _mcOptionImagePaths[i] = path),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ImagePickerWidget(
+                          label: 'Add image to option ${i + 1}',
+                          onImageSelected: (path, url) => setState(
+                              () => _mcOptionImagePaths[i] = path),
+                        ),
+                        const SizedBox(height: 6),
+                        VideoPickerWidget(
+                          onVideoUploaded: (videoUrl, videoPath) {
+                            final index = i;
+                            setState(() {
+                              _mcOptionVideoPaths[index] = videoPath;
+                              _mcOptionVideoUrls[index] = videoUrl;
+                            });
+                          },
+                          onVideoRemoved: () {
+                            final index = i;
+                            setState(() {
+                              _mcOptionVideoPaths[index] = null;
+                              _mcOptionVideoUrls[index] = null;
+                            });
+                          },
+                        ),
+                        if (_mcOptionVideoUrls[i] != null) ...[
+                          const SizedBox(height: 6),
+                          VideoPlayerWidget(
+                            videoUrl: _mcOptionVideoUrls[i]!,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -465,8 +532,7 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 8),
-                        child:
-                            Icon(Icons.arrow_forward, color: Colors.grey),
+                        child: Icon(Icons.arrow_forward, color: Colors.grey),
                       ),
                       Expanded(
                         child: TextField(

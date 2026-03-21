@@ -8,6 +8,7 @@ use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\QuizController;
 use App\Http\Controllers\ClassController;
 use App\Http\Controllers\ImageController;
+use App\Http\Controllers\VideoController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -19,6 +20,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/profile', [AuthController::class, 'updateProfile']);
     Route::post('/upload-image', [ImageController::class, 'upload']);
+    Route::post('/upload-video', [VideoController::class, 'upload']);
 
     // Student routes
     Route::get('/student/dashboard', [StudentController::class, 'dashboard']);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 
 class MultipleChoiceWidget extends StatefulWidget {
   final Map<String, dynamic> question;
@@ -28,11 +29,12 @@ class _MultipleChoiceWidgetState extends State<MultipleChoiceWidget> {
   @override
   Widget build(BuildContext context) {
     final options = widget.question['answer_options'] as List;
+    final mediaPath = widget.question['media_path'];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Question text
+        // Question container
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -83,6 +85,20 @@ class _MultipleChoiceWidgetState extends State<MultipleChoiceWidget> {
                   color: Color(0xFF333333),
                 ),
               ),
+              // Question image
+              if (mediaPath != null && mediaPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    AuthService.fixImageUrl( mediaPath.toString().startsWith('http') ? mediaPath : '${AuthService.storageUrl}/$mediaPath'),
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox(),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -91,6 +107,8 @@ class _MultipleChoiceWidgetState extends State<MultipleChoiceWidget> {
         // Answer options
         ...options.map((option) {
           final isSelected = _selectedOptionId == option['id'];
+          final optionImage = option['image_path'];
+
           return GestureDetector(
             onTap: () {
               setState(() => _selectedOptionId = option['id']);
@@ -121,50 +139,72 @@ class _MultipleChoiceWidgetState extends State<MultipleChoiceWidget> {
                   ),
                 ],
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? Colors.white
-                          : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isSelected
-                            ? Colors.white
-                            : Colors.grey.shade300,
-                      ),
-                    ),
-                    child: isSelected
-                        ? const Icon(Icons.check,
-                            size: 16, color: Color(0xFF6C63FF))
-                        : Center(
-                            child: Text(
-                              String.fromCharCode(
-                                  65 + options.indexOf(option)),
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.white
+                              : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSelected
+                                ? Colors.white
+                                : Colors.grey.shade300,
                           ),
+                        ),
+                        child: isSelected
+                            ? const Icon(Icons.check,
+                                size: 16, color: Color(0xFF6C63FF))
+                            : Center(
+                                child: Text(
+                                  String.fromCharCode(
+                                      65 + options.indexOf(option)),
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          option['option_text'],
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF333333),
+                            fontSize: 15,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      option['option_text'],
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF333333),
-                        fontSize: 15,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                  // Option image
+                  if (optionImage != null &&
+                      optionImage.toString().isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        AuthService.fixImageUrl(optionImage.toString().startsWith('http')?optionImage: '${AuthService.storageUrl}/$optionImage'),
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox(),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

@@ -6,9 +6,13 @@ class AuthService {
 
   // static const String baseUrl = 'http://localhost:8000/api'; // browser
   // static const String baseUrl = 'http://10.0.2.2:8000/api'; //emulator
-  static const String baseUrl = 'http://10.195.218.155:8000/api';
+  // static const String baseUrl = 'http://192.168.100.31:8000/api';
+  // static const String baseUrl = 'http://172.30.160.1:8000/api';
+  static const String ip = '192.168.100.31';
 
-// static const String baseUrl = 'http://172.30.160.1:8000/api';
+  static const String baseUrl    = 'http://$ip:8000/api';
+  static const String storageUrl = 'http://$ip:8000/storage';
+
 
 
   static Future<Map> login(String email, String password) async {
@@ -171,4 +175,14 @@ class AuthService {
       return {'success': false, 'message': 'Cannot connect to server. Please check your connection.'};
     }
   }
+
+  static String fixImageUrl(String url) {
+    return url
+        .replaceAll('http://localhost', 'http://$ip')
+        .replaceAll('http://127.0.0.1', 'http://$ip');
+  }
+
+
+
+
 }

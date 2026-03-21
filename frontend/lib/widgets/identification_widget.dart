@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 
 class IdentificationWidget extends StatefulWidget {
   final Map<String, dynamic> question;
@@ -33,10 +34,12 @@ class _IdentificationWidgetState extends State<IdentificationWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaPath = widget.question['media_path'];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Question text
+        // Question container
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -87,6 +90,20 @@ class _IdentificationWidgetState extends State<IdentificationWidget> {
                   color: Color(0xFF333333),
                 ),
               ),
+              // Question image
+              if (mediaPath != null && mediaPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    mediaPath.toString().startsWith('http') ? mediaPath : '${AuthService.storageUrl}/$mediaPath',
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox(),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -120,8 +137,8 @@ class _IdentificationWidgetState extends State<IdentificationWidget> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                  color: Color(0xFF6C63FF), width: 2),
+              borderSide:
+                  const BorderSide(color: Color(0xFF6C63FF), width: 2),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -130,7 +147,6 @@ class _IdentificationWidgetState extends State<IdentificationWidget> {
           ),
         ),
         const SizedBox(height: 8),
-        // Hint text
         Row(
           children: [
             Icon(Icons.info_outline,
@@ -138,8 +154,8 @@ class _IdentificationWidgetState extends State<IdentificationWidget> {
             const SizedBox(width: 4),
             Text(
               'Answer is not case-sensitive',
-              style: TextStyle(
-                  fontSize: 12, color: Colors.grey.shade500),
+              style:
+                  TextStyle(fontSize: 12, color: Colors.grey.shade500),
             ),
           ],
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 
 class TrueFalseWidget extends StatefulWidget {
   final Map<String, dynamic> question;
@@ -28,11 +29,12 @@ class _TrueFalseWidgetState extends State<TrueFalseWidget> {
   @override
   Widget build(BuildContext context) {
     final options = widget.question['answer_options'] as List;
+    final mediaPath = widget.question['media_path'];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Question text
+        // Question container
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -83,12 +85,26 @@ class _TrueFalseWidgetState extends State<TrueFalseWidget> {
                   color: Color(0xFF333333),
                 ),
               ),
+              // Question image
+              if (mediaPath != null && mediaPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    mediaPath.toString().startsWith('http') ? mediaPath : '${AuthService.storageUrl}/$mediaPath',
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox(),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
         const SizedBox(height: 24),
 
-        // True and False buttons - side by side
+        // True and False buttons
         Row(
           children: options.map((option) {
             final isTrue = option['option_text'] == 'True';

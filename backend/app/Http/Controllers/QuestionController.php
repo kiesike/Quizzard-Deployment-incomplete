@@ -29,11 +29,14 @@ class QuestionController extends Controller
                     'order'         => $question->order,
                     'answer_options' => $question->answerOptions->map(function ($option) {
                         return [
-                            'id'         => $option->id,
+                            'id'          => $option->id,
                             'option_text' => $option->option_text,
-                            'is_correct' => $option->is_correct,
-                            'match_pair' => $option->match_pair,
-                            'order'      => $option->order,
+                            'is_correct'  => $option->is_correct,
+                            'match_pair'  => $option->match_pair,
+                            'image_path'  => $option->image_path
+                                ? asset('storage/' . $option->image_path)
+                                : null,
+                            'order'       => $option->order,
                         ];
                     }),
                 ];
@@ -60,10 +63,12 @@ class QuestionController extends Controller
 
         $request->validate([
             'question_text'          => 'required|string',
+            'media_path'             => 'nullable|string',
             'points'                 => 'integer|min:1',
-            'options'                => 'required|array|min:2|max:4',
+            'options'                => 'required|array|min:2',
             'options.*.option_text'  => 'required|string',
             'options.*.is_correct'   => 'required|boolean',
+            'options.*.image_path'   => 'nullable|string',
         ]);
 
         // Make sure exactly one option is correct
@@ -82,6 +87,8 @@ class QuestionController extends Controller
             'quiz_id'       => $quizId,
             'question_text' => $request->question_text,
             'question_type' => 'multiple_choice',
+            'media_path'    => $request->media_path,
+            'media_type'    => $request->media_path ? 'image' : null,
             'points'        => $request->points ?? 1,
             'order'         => Question::where('quiz_id', $quizId)->count() + 1,
         ]);
@@ -91,6 +98,7 @@ class QuestionController extends Controller
             AnswerOption::create([
                 'question_id' => $question->id,
                 'option_text' => $option['option_text'],
+                'image_path'  => $option['image_path'] ?? null,
                 'is_correct'  => $option['is_correct'],
                 'order'       => $index + 1,
             ]);
@@ -245,6 +253,8 @@ class QuestionController extends Controller
             'quiz_id'       => $quizId,
             'question_text' => $request->question_text,
             'question_type' => 'true_false',
+            'media_path'    => $request->media_path ?? null,
+            'media_type'    => $request->media_path ? 'image' : null,
             'points'        => $request->points ?? 1,
             'order'         => Question::where('quiz_id', $quizId)->count() + 1,
         ]);
@@ -290,6 +300,8 @@ class QuestionController extends Controller
             'quiz_id'       => $quizId,
             'question_text' => $request->question_text,
             'question_type' => 'identification',
+            'media_path'    => $request->media_path ?? null,
+            'media_type'    => $request->media_path ? 'image' : null,
             'points'        => $request->points ?? 1,
             'order'         => Question::where('quiz_id', $quizId)->count() + 1,
         ]);
@@ -329,6 +341,8 @@ class QuestionController extends Controller
             'quiz_id'       => $quizId,
             'question_text' => $request->question_text,
             'question_type' => 'matching',
+            'media_path'    => $request->media_path ?? null,
+            'media_type'    => $request->media_path ? 'image' : null,
             'points'        => $request->points ?? 1,
             'order'         => Question::where('quiz_id', $quizId)->count() + 1,
         ]);

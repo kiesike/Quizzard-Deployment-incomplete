@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../widgets/image_picker_widget.dart';
 
 class AddQuestionScreen extends StatefulWidget {
   final int quizId;
@@ -18,10 +19,12 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
   // Common fields
   final _questionTextController = TextEditingController();
   final _pointsController = TextEditingController(text: '1');
+  String? _questionImagePath;
 
   // Multiple choice
   final List<TextEditingController> _mcOptions =
       List.generate(4, (_) => TextEditingController());
+  final List<String?> _mcOptionImagePaths = List.generate(4, (_) => null);
   int _mcCorrectIndex = 0;
 
   // True/False
@@ -76,10 +79,12 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
         }
         body = {
           'question_text': _questionTextController.text.trim(),
+          'media_path': _questionImagePath,
           'points': int.tryParse(_pointsController.text) ?? 1,
           'options': List.generate(4, (i) => {
                 'option_text': options[i],
                 'is_correct': i == _mcCorrectIndex,
+                'image_path': _mcOptionImagePaths[i],
               }),
         };
         endpoint = '/quizzes/${widget.quizId}/questions/multiple-choice';
@@ -88,6 +93,7 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
       case 'true_false':
         body = {
           'question_text': _questionTextController.text.trim(),
+          'media_path': _questionImagePath,
           'points': int.tryParse(_pointsController.text) ?? 1,
           'correct_answer': _tfCorrectAnswer,
         };
@@ -106,6 +112,7 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
         }
         body = {
           'question_text': _questionTextController.text.trim(),
+          'media_path': _questionImagePath,
           'points': int.tryParse(_pointsController.text) ?? 1,
           'answer': _identAnswerController.text.trim(),
         };
@@ -126,6 +133,7 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
         }
         body = {
           'question_text': _questionTextController.text.trim(),
+          'media_path': _questionImagePath,
           'points': int.tryParse(_pointsController.text) ?? 1,
           'pairs': List.generate(4, (i) => {
                 'left': lefts[i],
@@ -183,26 +191,43 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
               maxLines: 3,
               decoration: InputDecoration(
                 labelText: 'Question Text *',
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: primaryColor, width: 2),
+                  borderSide:
+                      const BorderSide(color: primaryColor, width: 2),
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+
+            // Question image picker
+            const Text('Question Image (optional)',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: Colors.grey)),
+            const SizedBox(height: 8),
+            ImagePickerWidget(
+              label: 'Add image to question',
+              onImageSelected: (path, url) =>
+                  setState(() => _questionImagePath = path),
+            ),
             const SizedBox(height: 16),
+
             TextField(
               controller: _pointsController,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: 'Points',
                 prefixIcon: const Icon(Icons.star, color: primaryColor),
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: primaryColor, width: 2),
+                  borderSide:
+                      const BorderSide(color: primaryColor, width: 2),
                 ),
               ),
             ),
@@ -225,8 +250,8 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2))
                   : const Text('Add Question',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -237,9 +262,9 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
   Widget _buildTypeSelector() {
     final types = [
       {'value': 'multiple_choice', 'label': 'Multiple Choice', 'icon': Icons.radio_button_checked},
-      {'value': 'true_false',      'label': 'True / False',    'icon': Icons.check_circle_outline},
-      {'value': 'identification',  'label': 'Identification',  'icon': Icons.edit},
-      {'value': 'matching',        'label': 'Matching',        'icon': Icons.compare_arrows},
+      {'value': 'true_false', 'label': 'True / False', 'icon': Icons.check_circle_outline},
+      {'value': 'identification', 'label': 'Identification', 'icon': Icons.edit},
+      {'value': 'matching', 'label': 'Matching', 'icon': Icons.compare_arrows},
     ];
 
     return Wrap(
@@ -265,11 +290,16 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
 
   Widget _buildTypeFields() {
     switch (_selectedType) {
-      case 'multiple_choice': return _buildMCFields();
-      case 'true_false':      return _buildTFFields();
-      case 'identification':  return _buildIdentFields();
-      case 'matching':        return _buildMatchingFields();
-      default:                return const SizedBox();
+      case 'multiple_choice':
+        return _buildMCFields();
+      case 'true_false':
+        return _buildTFFields();
+      case 'identification':
+        return _buildIdentFields();
+      case 'matching':
+        return _buildMatchingFields();
+      default:
+        return const SizedBox();
     }
   }
 
@@ -283,28 +313,43 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
             style: TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 12),
         ...List.generate(4, (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Row(
-            children: [
-              Radio<int>(
-                value: i,
-                groupValue: _mcCorrectIndex,
-                activeColor: primaryColor,
-                onChanged: (v) => setState(() => _mcCorrectIndex = v!),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: _mcOptions[i],
-                  decoration: InputDecoration(
-                    labelText: 'Option ${i + 1}',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Radio<int>(
+                        value: i,
+                        groupValue: _mcCorrectIndex,
+                        activeColor: primaryColor,
+                        onChanged: (v) =>
+                            setState(() => _mcCorrectIndex = v!),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _mcOptions[i],
+                          decoration: InputDecoration(
+                            labelText: 'Option ${i + 1}',
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 48),
+                    child: ImagePickerWidget(
+                      label: 'Add image to option ${i + 1}',
+                      onImageSelected: (path, url) => setState(
+                          () => _mcOptionImagePaths[i] = path),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        )),
+            )),
       ],
     );
   }
@@ -381,8 +426,8 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
           decoration: InputDecoration(
             labelText: 'Answer *',
             hintText: 'e.g. Filipino',
-            border:
-                OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: primaryColor, width: 2),
@@ -402,37 +447,40 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
         const Text('Left column → Right column (correct pairs)',
             style: TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 12),
-        ...List.generate(4, (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _matchLeft[i],
-                  decoration: InputDecoration(
-                    labelText: 'Left ${i + 1}',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10)),
+        ...List.generate(
+            4,
+            (i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _matchLeft[i],
+                          decoration: InputDecoration(
+                            labelText: 'Left ${i + 1}',
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child:
+                            Icon(Icons.arrow_forward, color: Colors.grey),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _matchRight[i],
+                          decoration: InputDecoration(
+                            labelText: 'Right ${i + 1}',
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(Icons.arrow_forward, color: Colors.grey),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: _matchRight[i],
-                  decoration: InputDecoration(
-                    labelText: 'Right ${i + 1}',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        )),
+                )),
       ],
     );
   }

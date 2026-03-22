@@ -16,14 +16,40 @@ class QuizResultsScreen extends StatefulWidget {
 }
 
 class _QuizResultsScreenState extends State<QuizResultsScreen> {
+  static const Color _green = Color(0xFF4CAF50);
+  static const double _passPercentage = 60;
+
   bool _isLoading = true;
   String? _errorMessage;
   Map<String, dynamic>? _data;
 
+  final TextEditingController _searchController = TextEditingController();
+
+  String _selectedFilter = 'highest';
+  List<Map<String, dynamic>> _allResults = [];
+  List<Map<String, dynamic>> _visibleResults = [];
+
+  final List<Map<String, String>> _filterOptions = const [
+    {'value': 'highest', 'label': 'Highest Score'},
+    {'value': 'lowest', 'label': 'Lowest Score'},
+    {'value': 'newest', 'label': 'Newest'},
+    {'value': 'oldest', 'label': 'Oldest'},
+    {'value': 'passed', 'label': 'Passed Only'},
+    {'value': 'failed', 'label': 'Failed Only'},
+  ];
+
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_applySearchAndFilter);
     _loadResults();
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_applySearchAndFilter);
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadResults() async {
@@ -36,20 +62,195 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
       '/teacher/quizzes/${widget.quizId}/results',
     );
 
+    if (!mounted) return;
+
     setState(() {
       _isLoading = false;
+
       if (result['success']) {
-        _data = result['data'];
+        _data = Map<String, dynamic>.from(result['data']);
+        _allResults = List<Map<String, dynamic>>.from(
+          (_data!['results'] as List).map((e) => Map<String, dynamic>.from(e)),
+        );
+        _applySearchAndFilter();
       } else {
         _errorMessage = result['message'];
       }
     });
   }
 
+  void _applySearchAndFilter() {
+    if (_data == null) return;
+
+    final query = _searchController.text.trim().toLowerCase();
+
+    List<Map<String, dynamic>> working = _allResults.map((item) {
+      final percentage = _toInt(item['percentage']);
+      final score = _toNum(item['score']);
+      final totalPoints = _toNum(item['total_points']);
+      final completedAt = DateTime.tryParse(item['completed_at']?.toString() ?? '');
+
+      return {
+        ...item,
+        'percentage': percentage,
+        'score': score,
+        'total_points': totalPoints,
+        'is_passed': percentage >= _passPercentage,
+        'completed_at_dt': completedAt,
+      };
+    }).toList();
+
+    if (query.isNotEmpty) {
+      working = working.where((item) {
+        final studentName = (item['student_name'] ?? '').toString().toLowerCase();
+        final studentEmail = (item['student_email'] ?? '').toString().toLowerCase();
+        return studentName.contains(query) || studentEmail.contains(query);
+      }).toList();
+    }
+
+    switch (_selectedFilter) {
+      case 'lowest':
+        working.sort((a, b) => _compareResultsAscending(a, b));
+        break;
+      case 'newest':
+        working.sort((a, b) => _compareDatesDesc(a, b));
+        break;
+      case 'oldest':
+        working.sort((a, b) => _compareDatesAsc(a, b));
+        break;
+      case 'passed':
+        working = working.where((item) => item['is_passed'] == true).toList();
+        working.sort((a, b) => _compareResultsDescending(a, b));
+        break;
+      case 'failed':
+        working = working.where((item) => item['is_passed'] == false).toList();
+        working.sort((a, b) => _compareResultsDescending(a, b));
+        break;
+      case 'highest':
+      default:
+        working.sort((a, b) => _compareResultsDescending(a, b));
+        break;
+    }
+
+    for (int i = 0; i < working.length; i++) {
+      working[i]['rank'] = i + 1;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _visibleResults = working;
+    });
+  }
+
+  int _compareResultsDescending(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final percentageCompare = _toInt(b['percentage']).compareTo(_toInt(a['percentage']));
+    if (percentageCompare != 0) return percentageCompare;
+
+    final scoreCompare = _toNum(b['score']).compareTo(_toNum(a['score']));
+    if (scoreCompare != 0) return scoreCompare;
+
+    final totalPointsCompare = _toNum(b['total_points']).compareTo(_toNum(a['total_points']));
+    if (totalPointsCompare != 0) return totalPointsCompare;
+
+    return _compareDatesAsc(a, b);
+  }
+
+  int _compareResultsAscending(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final percentageCompare = _toInt(a['percentage']).compareTo(_toInt(b['percentage']));
+    if (percentageCompare != 0) return percentageCompare;
+
+    final scoreCompare = _toNum(a['score']).compareTo(_toNum(b['score']));
+    if (scoreCompare != 0) return scoreCompare;
+
+    final totalPointsCompare = _toNum(a['total_points']).compareTo(_toNum(b['total_points']));
+    if (totalPointsCompare != 0) return totalPointsCompare;
+
+    return _compareDatesAsc(a, b);
+  }
+
+  int _compareDatesDesc(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final aDate = a['completed_at_dt'] as DateTime?;
+    final bDate = b['completed_at_dt'] as DateTime?;
+    if (aDate == null && bDate == null) return 0;
+    if (aDate == null) return 1;
+    if (bDate == null) return -1;
+    return bDate.compareTo(aDate);
+  }
+
+  int _compareDatesAsc(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final aDate = a['completed_at_dt'] as DateTime?;
+    final bDate = b['completed_at_dt'] as DateTime?;
+    if (aDate == null && bDate == null) return 0;
+    if (aDate == null) return 1;
+    if (bDate == null) return -1;
+    return aDate.compareTo(bDate);
+  }
+
+  int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is double) return value.round();
+    return int.tryParse(value.toString()) ?? 0;
+  }
+
+  num _toNum(dynamic value) {
+    if (value is num) return value;
+    return num.tryParse(value.toString()) ?? 0;
+  }
+
+  int _getPassCount() {
+    return _visibleResults.where((e) => e['is_passed'] == true).length;
+  }
+
+  int _getFailCount() {
+    return _visibleResults.where((e) => e['is_passed'] == false).length;
+  }
+
   Color _getScoreColor(int percentage) {
     if (percentage >= 80) return Colors.green;
     if (percentage >= 60) return Colors.orange;
     return Colors.red;
+  }
+
+  Color _getMedalColor(int rank) {
+    switch (rank) {
+      case 1:
+        return const Color(0xFFFFD700);
+      case 2:
+        return const Color(0xFFC0C0C0);
+      case 3:
+        return const Color(0xFFCD7F32);
+      default:
+        return _green;
+    }
+  }
+
+  IconData _getMedalIcon(int rank) {
+    switch (rank) {
+      case 1:
+      case 2:
+      case 3:
+        return Icons.workspace_premium;
+      default:
+        return Icons.emoji_events_outlined;
+    }
+  }
+
+  String _getRankLabel(int rank) {
+    switch (rank) {
+      case 1:
+        return '1st';
+      case 2:
+        return '2nd';
+      case 3:
+        return '3rd';
+      default:
+        return '#$rank';
+    }
+  }
+
+  String _safeInitial(String? name) {
+    if (name == null || name.trim().isEmpty) return '?';
+    return name.trim()[0].toUpperCase();
   }
 
   @override
@@ -61,7 +262,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
           widget.quizTitle,
           style: const TextStyle(fontSize: 16),
         ),
-        backgroundColor: const Color(0xFF4CAF50),
+        backgroundColor: _green,
         foregroundColor: Colors.white,
       ),
       body: _buildBody(),
@@ -71,7 +272,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF4CAF50)),
+        child: CircularProgressIndicator(color: _green),
       );
     }
 
@@ -84,9 +285,11 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
             children: [
               const Icon(Icons.error_outline, size: 60, color: Colors.red),
               const SizedBox(height: 16),
-              Text(_errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.red)),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red),
+              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loadResults,
@@ -98,69 +301,155 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
       );
     }
 
-    final results = _data!['results'] as List;
-    final totalAttempts = _data!['total_attempts'] as int;
-    final averageScore = _data!['average_score'];
+    final totalAttempts = _toInt(_data!['total_attempts']);
+    final averagePercentage = (_data!['average_percentage'] ?? 0).toString();
+    final passCount = _data!['pass_count'] ?? _getPassCount();
+    final failCount = _data!['fail_count'] ?? _getFailCount();
 
     return RefreshIndicator(
       onRefresh: _loadResults,
-      color: const Color(0xFF4CAF50),
+      color: _green,
       child: Column(
         children: [
-          // Summary header
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
             decoration: const BoxDecoration(
-              color: Color(0xFF4CAF50),
+              color: _green,
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(24),
                 bottomRight: Radius.circular(24),
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            child: Column(
               children: [
-                _buildStat(
-                  label: 'Total Students',
-                  value: totalAttempts.toString(),
-                  icon: Icons.people,
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStat(
+                        label: 'Total Students',
+                        value: totalAttempts.toString(),
+                        icon: Icons.people,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildStat(
+                        label: 'Average',
+                        value: '$averagePercentage%',
+                        icon: Icons.bar_chart,
+                      ),
+                    ),
+                  ],
                 ),
-                _buildStat(
-                  label: 'Average Score',
-                  value: averageScore.toString(),
-                  icon: Icons.bar_chart,
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStat(
+                        label: 'Passed',
+                        value: passCount.toString(),
+                        icon: Icons.check_circle,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildStat(
+                        label: 'Failed',
+                        value: failCount.toString(),
+                        icon: Icons.cancel,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 16),
-
-          // Results list
-          Expanded(
-            child: results.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.inbox, size: 60, color: Colors.grey),
-                        SizedBox(height: 12),
-                        Text(
-                          'No students have taken this quiz yet.',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search student name or email...',
+                    prefixIcon: const Icon(Icons.search, color: _green),
+                    suffixIcon: _searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            onPressed: () {
+                              _searchController.clear();
+                            },
+                            icon: const Icon(Icons.clear),
+                          ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
                     ),
-                  )
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: _green, width: 1.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.filter_list, color: _green, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedFilter,
+                            isExpanded: true,
+                            icon: const Icon(Icons.keyboard_arrow_down),
+                            items: _filterOptions.map((option) {
+                              return DropdownMenuItem<String>(
+                                value: option['value'],
+                                child: Text(option['label']!),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                _selectedFilter = value;
+                              });
+                              _applySearchAndFilter();
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          Expanded(
+            child: _visibleResults.isEmpty
+                ? _buildEmptyState()
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: results.length,
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    itemCount: _visibleResults.length,
                     itemBuilder: (context, index) {
-                      final result =
-                          Map<String, dynamic>.from(results[index]);
-                      final percentage = result['percentage'] as int;
+                      final result = _visibleResults[index];
+                      final percentage = _toInt(result['percentage']);
                       final scoreColor = _getScoreColor(percentage);
+                      final rank = _toInt(result['rank']);
+                      final medalColor = _getMedalColor(rank);
+                      final isPassed = result['is_passed'] == true;
 
                       return GestureDetector(
                         onTap: () => Navigator.pushNamed(
@@ -177,8 +466,12 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: rank <= 3 ? medalColor.withOpacity(0.08) : Colors.white,
                             borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: rank <= 3 ? medalColor.withOpacity(0.45) : Colors.transparent,
+                              width: 1.2,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.05),
@@ -188,28 +481,64 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                             ],
                           ),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Avatar
+                              Column(
+                                children: [
+                                  Container(
+                                    width: 52,
+                                    height: 52,
+                                    decoration: BoxDecoration(
+                                      color: medalColor.withOpacity(0.14),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: medalColor.withOpacity(0.45),
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      _getMedalIcon(rank),
+                                      color: medalColor,
+                                      size: 26,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: medalColor,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      _getRankLabel(rank),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 12),
+
                               CircleAvatar(
-                                backgroundColor:
-                                    const Color(0xFF4CAF50).withOpacity(0.1),
+                                backgroundColor: _green.withOpacity(0.1),
                                 child: Text(
-                                  result['student_name'][0].toUpperCase(),
+                                  _safeInitial(result['student_name']?.toString()),
                                   style: const TextStyle(
-                                    color: Color(0xFF4CAF50),
+                                    color: _green,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 12),
 
-                              // Student info
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      result['student_name'],
+                                      result['student_name']?.toString() ?? 'Unknown Student',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 15,
@@ -218,36 +547,46 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      result['student_email'],
+                                      result['student_email']?.toString() ?? 'No email',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey.shade600,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Completed: ${_formatDate(result['completed_at'])}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade500,
-                                      ),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      children: [
+                                        _buildStatusChip(
+                                          label: isPassed ? 'Pass' : 'Fail',
+                                          color: isPassed ? Colors.green : Colors.red,
+                                          icon: isPassed ? Icons.check_circle : Icons.cancel,
+                                        ),
+                                        _buildStatusChip(
+                                          label: 'Completed ${_formatDate(result['completed_at']?.toString())}',
+                                          color: Colors.blueGrey,
+                                          icon: Icons.calendar_today,
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
                               ),
 
-                              // Score badge
+                              const SizedBox(width: 8),
+
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: scoreColor.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                          color: scoreColor.withOpacity(0.3)),
+                                        color: scoreColor.withOpacity(0.3),
+                                      ),
                                     ),
                                     child: Text(
                                       '$percentage%',
@@ -258,7 +597,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 6),
                                   Text(
                                     '${result['score']}/${result['total_points']} pts',
                                     style: TextStyle(
@@ -266,12 +605,10 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                                       color: Colors.grey.shade500,
                                     ),
                                   ),
+                                  const SizedBox(height: 6),
+                                  const Icon(Icons.chevron_right, color: Colors.grey),
                                 ],
                               ),
-
-                              const SizedBox(width: 8),
-                              const Icon(Icons.chevron_right,
-                                  color: Colors.grey),
                             ],
                           ),
                         ),
@@ -284,36 +621,105 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
     );
   }
 
+  Widget _buildEmptyState() {
+    final hasQuery = _searchController.text.trim().isNotEmpty;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              hasQuery ? Icons.search_off : Icons.inbox,
+              size: 60,
+              color: Colors.grey,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              hasQuery
+                  ? 'No students matched your search or filter.'
+                  : 'No students have taken this quiz yet.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip({
+    required String label,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.20)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStat({
     required String label,
     required String value,
     required IconData icon,
   }) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white70, size: 20),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: Colors.white70, size: 20),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
-        ),
-      ],
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
   String _formatDate(String? dateString) {
     if (dateString == null) return 'N/A';
     try {
-      final date = DateTime.parse(dateString);
-      return '${date.month}/${date.day}/${date.year}';
+      final date = DateTime.parse(dateString).toLocal();
+      final mm = date.month.toString().padLeft(2, '0');
+      final dd = date.day.toString().padLeft(2, '0');
+      final yyyy = date.year.toString();
+      return '$mm/$dd/$yyyy';
     } catch (e) {
       return 'N/A';
     }

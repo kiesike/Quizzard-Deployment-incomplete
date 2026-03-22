@@ -6,7 +6,9 @@ class AuthService {
 
   // static const String baseUrl = 'http://localhost:8000/api'; // browser
   // static const String baseUrl = 'http://10.0.2.2:8000/api'; //emulator
-  static const String baseUrl = 'http://10.195.218.155:8000/api';
+  //static const String baseUrl = 'http://192.168.1.12:8000/api'; //
+
+  static const String baseUrl = 'http://localhost:8000/api';
 
 // static const String baseUrl = 'http://172.30.160.1:8000/api';
 

@@ -92,49 +92,54 @@ class AuthController extends Controller
 
     // ─── REGISTER ────────────────────────────────────────────
     public function register(Request $request)
-    {
-        $request->validate([
-            'name'                  => 'required|string|max:255',
-            'email'                 => 'required|email|unique:users,email',
-            'password'              => [
-                'required',
-                'string',
-                'min:8',
-                'confirmed',
-                'regex:/[A-Z]/',
-                'regex:/[a-z]/',
-                'regex:/[0-9]/',
-                'regex:/[@$!%*#?&]/',
-            ],
-            'role'                  => 'required|in:teacher,student',
-        ], [
-            'password.regex'        => 'Password must contain uppercase, lowercase, number, and special character (@$!%*#?&).',
-            'password.min'          => 'Password must be at least 8 characters.',
-            'password.confirmed'    => 'Passwords do not match.',
-            'email.unique'          => 'This email is already registered.',
-        ]);
+{
+    $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+        'name' => 'required|string|max:255',
+        'email' => 'required|email|unique:users,email',
+        'password' => [
+            'required',
+            'string',
+            'min:8',
+            'confirmed',
+            'regex:/[A-Z]/',
+            'regex:/[a-z]/',
+            'regex:/[0-9]/',
+            'regex:/[@$!%*#?&]/',
+        ],
+        'role' => 'required|in:teacher,student',
+    ], [
+        'password.regex' => 'Password must contain uppercase, lowercase, number, and special character (@$!%*#?&).',
+        'password.min' => 'Password must be at least 8 characters.',
+        'password.confirmed' => 'Passwords do not match.',
+        'email.unique' => 'This email is already registered.',
+    ]);
 
-        $user = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
-            'password' => Hash::make($request->password),
-            'role'     => $request->role,
-            // Mobile registrations are not immediately allowed to log in.
-            // Admin must activate them first from the Activation page.
-            'status'   => 'pending',
-        ]);
-
+    if ($validator->fails()) {
         return response()->json([
-            'message' => 'Registration successful! Please wait for an administrator to approve your account.',
-            'user'    => [
-                'id'     => $user->id,
-                'name'   => $user->name,
-                'email'  => $user->email,
-                'role'   => $user->role,
-                'status' => $user->status,
-            ]
-        ], 201);
+            'message' => 'The given data was invalid.',
+            'errors' => $validator->errors(),
+        ], 422);
     }
+
+    $user = User::create([
+        'name' => $request->name,
+        'email' => $request->email,
+        'password' => Hash::make($request->password),
+        'role' => $request->role,
+        'status' => 'pending',
+    ]);
+
+    return response()->json([
+        'message' => 'Registration successful! Please wait for an administrator to approve your account.',
+        'user' => [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+            'status' => $user->status,
+        ]
+    ], 201);
+}
 
     // ─── LOGOUT ──────────────────────────────────────────────
     public function logout(Request $request)

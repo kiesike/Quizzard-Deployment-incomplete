@@ -59,16 +59,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://172.21.22.155:8000/api/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'name': _nameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'password': _passwordController.text,
-          'password_confirmation': _confirmPasswordController.text,
-          'role': _selectedRole,
-        }),
-      );
+  Uri.parse('http://localhost:8000/api/register'),
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+  body: jsonEncode({
+    'name': _nameController.text.trim(),
+    'email': _emailController.text.trim(),
+    'password': _passwordController.text,
+    'password_confirmation': _confirmPasswordController.text,
+    'role': _selectedRole,
+  }),
+);
 
       final data = jsonDecode(response.body);
 

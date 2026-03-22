@@ -64,46 +64,56 @@ class TeacherController extends Controller
 
     // Get all student attempts for a specific quiz
     public function quizResults(Request $request, $quizId)
-    {
-        $quiz = \App\Models\Quiz::where('id', $quizId)
-            ->where('teacher_id', $request->user()->id)
-            ->firstOrFail();
+{
+    $quiz = \App\Models\Quiz::where('id', $quizId)
+        ->where('teacher_id', $request->user()->id)
+        ->firstOrFail();
 
-        $attempts = \App\Models\QuizAttempt::where('quiz_id', $quizId)
-            ->where('status', 'completed')
-            ->with('student')
-            ->orderBy('completed_at', 'desc')
-            ->get();
+    $attempts = \App\Models\QuizAttempt::where('quiz_id', $quizId)
+        ->where('status', 'completed')
+        ->with('student')
+        ->orderBy('completed_at', 'desc')
+        ->get();
 
-        $results = $attempts->map(function ($attempt) use ($quiz) {
-            $percentage = $attempt->total_points > 0
-                ? round(($attempt->score / $attempt->total_points) * 100)
-                : 0;
+    $results = $attempts->map(function ($attempt) use ($quiz) {
+        $percentage = $attempt->total_points > 0
+            ? round(($attempt->score / $attempt->total_points) * 100)
+            : 0;
 
-            return [
-                'attempt_id'   => $attempt->id,
-                'student_id'   => $attempt->student->id,
-                'student_name' => $attempt->student->name,
-                'student_email'=> $attempt->student->email,
-                'score'        => $attempt->score,
-                'total_points' => $attempt->total_points,
-                'percentage'   => $percentage,
-                'completed_at' => $attempt->completed_at,
-            ];
-        });
+        return [
+            'attempt_id'    => $attempt->id,
+            'student_id'    => $attempt->student->id,
+            'student_name'  => $attempt->student->name,
+            'student_email' => $attempt->student->email,
+            'score'         => $attempt->score,
+            'total_points'  => $attempt->total_points,
+            'percentage'    => $percentage,
+            'is_passed'     => $percentage >= 60,
+            'completed_at'  => $attempt->completed_at,
+        ];
+    });
 
-        return response()->json([
-            'quiz'    => [
-                'id'    => $quiz->id,
-                'title' => $quiz->title,
-            ],
-            'total_attempts' => $attempts->count(),
-            'average_score'  => $attempts->count() > 0
-                ? round($attempts->avg('score'), 1)
-                : 0,
-            'results' => $results,
-        ]);
-    }
+    $passCount = $results->where('is_passed', true)->count();
+    $failCount = $results->where('is_passed', false)->count();
+    $averagePercentage = $results->count() > 0
+        ? round($results->avg('percentage'), 1)
+        : 0;
+
+    return response()->json([
+        'quiz' => [
+            'id'    => $quiz->id,
+            'title' => $quiz->title,
+        ],
+        'total_attempts'      => $attempts->count(),
+        'average_score'       => $attempts->count() > 0
+            ? round($attempts->avg('score'), 1)
+            : 0,
+        'average_percentage'  => $averagePercentage,
+        'pass_count'          => $passCount,
+        'fail_count'          => $failCount,
+        'results'             => $results,
+    ]);
+}
 
     // Get detailed answer breakdown for one student attempt
     public function attemptDetail(Request $request, $quizId, $attemptId)

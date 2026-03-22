@@ -14,6 +14,7 @@ class AnswerOption extends Model
         'option_text',
         'image_path',
         'video_path',
+        'audio_path',
         'is_correct',
         'match_pair',
         'order',

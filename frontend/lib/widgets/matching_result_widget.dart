@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'video_player_widget.dart';
+import 'audio_player_widget.dart';
 
 class MatchingResultWidget extends StatelessWidget {
   final Map<String, dynamic> question;
@@ -15,8 +16,9 @@ class MatchingResultWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final options = question['answer_options'] as List;
-    final mediaPath = question['media_path'];
-    final mediaType = question['media_type'];
+    final imagePath = question['image_path'];
+    final videoPath = question['video_path'];
+    final audioPath = question['audio_path'];
 
     int correctCount = 0;
     for (var option in options) {
@@ -103,18 +105,12 @@ class MatchingResultWidget extends StatelessWidget {
                 ),
               ),
               // Question image
-              if (mediaPath != null &&
-                  mediaPath.toString().isNotEmpty &&
-                  mediaType == 'image') ...[
+              if (imagePath != null && imagePath.toString().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.network(
-                    AuthService.fixImageUrl(
-                      mediaPath.toString().startsWith('http')
-                          ? mediaPath
-                          : '${AuthService.storageUrl}/$mediaPath',
-                    ),
+                    AuthService.fixImageUrl(imagePath),
                     width: double.infinity,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) =>
@@ -123,16 +119,17 @@ class MatchingResultWidget extends StatelessWidget {
                 ),
               ],
               // Question video
-              if (mediaPath != null &&
-                  mediaPath.toString().isNotEmpty &&
-                  mediaType == 'video') ...[
+              if (videoPath != null && videoPath.toString().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 VideoPlayerWidget(
-                  videoUrl: AuthService.fixImageUrl(
-                    mediaPath.toString().startsWith('http')
-                        ? mediaPath
-                        : '${AuthService.storageUrl}/$mediaPath',
-                  ),
+                  videoUrl: AuthService.fixImageUrl(videoPath),
+                ),
+              ],
+              // Question audio
+              if (audioPath != null && audioPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                AudioPlayerWidget(
+                  audioUrl: AuthService.fixImageUrl(audioPath),
                 ),
               ],
             ],
@@ -186,15 +183,16 @@ class MatchingResultWidget extends StatelessWidget {
                         children: [
                           const Text(
                             'Your answer: ',
-                            style:
-                                TextStyle(fontSize: 12, color: Colors.grey),
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey),
                           ),
                           Text(
                             studentB.isEmpty ? '(no answer)' : studentB,
                             style: TextStyle(
                               fontSize: 12,
-                              color:
-                                  isPairCorrect ? Colors.green : Colors.red,
+                              color: isPairCorrect
+                                  ? Colors.green
+                                  : Colors.red,
                               fontWeight: FontWeight.w600,
                             ),
                           ),

@@ -15,6 +15,9 @@ class Question extends Model
         'question_type',
         'media_path',
         'media_type',
+        'image_path',
+        'video_path',
+        'audio_path',
         'points',
         'order',
     ];

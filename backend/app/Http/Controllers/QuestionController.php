@@ -25,6 +25,15 @@ class QuestionController extends Controller
                     'question_type' => $question->question_type,
                     'media_path'    => $question->media_path,
                     'media_type'    => $question->media_type,
+                    'image_path'    => $question->image_path
+                        ? asset('storage/' . $question->image_path)
+                        : null,
+                    'video_path'    => $question->video_path
+                        ? asset('storage/' . $question->video_path)
+                        : null,
+                    'audio_path'    => $question->audio_path
+                        ? asset('storage/' . $question->audio_path)
+                        : null,
                     'points'        => $question->points,
                     'order'         => $question->order,
                     'answer_options' => $question->answerOptions->map(function ($option) {
@@ -38,6 +47,9 @@ class QuestionController extends Controller
                                 : null,
                             'video_path'  => $option->video_path
                                 ? asset('storage/' . $option->video_path)
+                                : null,
+                            'audio_path'  => $option->audio_path
+                                ? asset('storage/' . $option->audio_path)
                                 : null,
                             'order'       => $option->order,
                         ];
@@ -54,18 +66,6 @@ class QuestionController extends Controller
         ]);
     }
 
-    // Determine media_type from request fields
-    private function resolveMediaType(Request $request): ?string
-    {
-        if ($request->filled('media_type')) {
-            return $request->media_type; // trust explicit value from client
-        }
-        if ($request->filled('media_path')) {
-            return 'image'; // legacy fallback
-        }
-        return null;
-    }
-
     // Create a multiple choice question
     public function storeMultipleChoice(Request $request, $quizId)
     {
@@ -77,14 +77,16 @@ class QuestionController extends Controller
 
         $request->validate([
             'question_text'           => 'required|string',
-            'media_path'              => 'nullable|string',
-            'media_type'              => 'nullable|in:image,video,audio',
+            'image_path'              => 'nullable|string',
+            'video_path'              => 'nullable|string',
+            'audio_path'              => 'nullable|string',
             'points'                  => 'integer|min:1',
             'options'                 => 'required|array|min:2',
             'options.*.option_text'   => 'required|string',
             'options.*.is_correct'    => 'required|boolean',
             'options.*.image_path'    => 'nullable|string',
             'options.*.video_path'    => 'nullable|string',
+            'options.*.audio_path'    => 'nullable|string',
         ]);
 
         $correctCount = collect($request->options)
@@ -101,8 +103,9 @@ class QuestionController extends Controller
             'quiz_id'       => $quizId,
             'question_text' => $request->question_text,
             'question_type' => 'multiple_choice',
-            'media_path'    => $request->media_path,
-            'media_type'    => $this->resolveMediaType($request),
+            'image_path'    => $request->image_path,
+            'video_path'    => $request->video_path,
+            'audio_path'    => $request->audio_path,
             'points'        => $request->points ?? 1,
             'order'         => Question::where('quiz_id', $quizId)->count() + 1,
         ]);
@@ -113,6 +116,7 @@ class QuestionController extends Controller
                 'option_text' => $option['option_text'],
                 'image_path'  => $option['image_path'] ?? null,
                 'video_path'  => $option['video_path'] ?? null,
+                'audio_path'  => $option['audio_path'] ?? null,
                 'is_correct'  => $option['is_correct'],
                 'order'       => $index + 1,
             ]);
@@ -135,8 +139,9 @@ class QuestionController extends Controller
 
         $request->validate([
             'question_text'  => 'required|string',
-            'media_path'     => 'nullable|string',
-            'media_type'     => 'nullable|in:image,video,audio',
+            'image_path'     => 'nullable|string',
+            'video_path'     => 'nullable|string',
+            'audio_path'     => 'nullable|string',
             'points'         => 'integer|min:1',
             'correct_answer' => 'required|boolean',
         ]);
@@ -145,8 +150,9 @@ class QuestionController extends Controller
             'quiz_id'       => $quizId,
             'question_text' => $request->question_text,
             'question_type' => 'true_false',
-            'media_path'    => $request->media_path ?? null,
-            'media_type'    => $this->resolveMediaType($request),
+            'image_path'    => $request->image_path,
+            'video_path'    => $request->video_path,
+            'audio_path'    => $request->audio_path,
             'points'        => $request->points ?? 1,
             'order'         => Question::where('quiz_id', $quizId)->count() + 1,
         ]);
@@ -182,8 +188,9 @@ class QuestionController extends Controller
 
         $request->validate([
             'question_text' => 'required|string',
-            'media_path'    => 'nullable|string',
-            'media_type'    => 'nullable|in:image,video,audio',
+            'image_path'    => 'nullable|string',
+            'video_path'    => 'nullable|string',
+            'audio_path'    => 'nullable|string',
             'answer'        => 'required|string',
             'points'        => 'integer|min:1',
         ]);
@@ -192,8 +199,9 @@ class QuestionController extends Controller
             'quiz_id'       => $quizId,
             'question_text' => $request->question_text,
             'question_type' => 'identification',
-            'media_path'    => $request->media_path ?? null,
-            'media_type'    => $this->resolveMediaType($request),
+            'image_path'    => $request->image_path,
+            'video_path'    => $request->video_path,
+            'audio_path'    => $request->audio_path,
             'points'        => $request->points ?? 1,
             'order'         => Question::where('quiz_id', $quizId)->count() + 1,
         ]);
@@ -222,8 +230,9 @@ class QuestionController extends Controller
 
         $request->validate([
             'question_text' => 'required|string',
-            'media_path'    => 'nullable|string',
-            'media_type'    => 'nullable|in:image,video,audio',
+            'image_path'    => 'nullable|string',
+            'video_path'    => 'nullable|string',
+            'audio_path'    => 'nullable|string',
             'points'        => 'integer|min:1',
             'pairs'         => 'required|array|min:2',
             'pairs.*.left'  => 'required|string',
@@ -234,8 +243,9 @@ class QuestionController extends Controller
             'quiz_id'       => $quizId,
             'question_text' => $request->question_text,
             'question_type' => 'matching',
-            'media_path'    => $request->media_path ?? null,
-            'media_type'    => $this->resolveMediaType($request),
+            'image_path'    => $request->image_path,
+            'video_path'    => $request->video_path,
+            'audio_path'    => $request->audio_path,
             'points'        => $request->points ?? 1,
             'order'         => Question::where('quiz_id', $quizId)->count() + 1,
         ]);
@@ -269,17 +279,17 @@ class QuestionController extends Controller
 
         $request->validate([
             'question_text' => 'required|string',
-            'media_path'    => 'nullable|string',
-            'media_type'    => 'nullable|in:image,video,audio',
+            'image_path'    => 'nullable|string',
+            'video_path'    => 'nullable|string',
+            'audio_path'    => 'nullable|string',
             'points'        => 'integer|min:1',
         ]);
 
         $question->update([
             'question_text' => $request->question_text,
-            'media_path'    => $request->media_path ?? $question->media_path,
-            'media_type'    => $request->filled('media_type')
-                                ? $request->media_type
-                                : $question->media_type,
+            'image_path'    => $request->image_path,
+            'video_path'    => $request->video_path,
+            'audio_path'    => $request->audio_path,
             'points'        => $request->points ?? 1,
         ]);
 
@@ -295,6 +305,7 @@ class QuestionController extends Controller
                     'options.*.is_correct'  => 'required|boolean',
                     'options.*.image_path'  => 'nullable|string',
                     'options.*.video_path'  => 'nullable|string',
+                    'options.*.audio_path'  => 'nullable|string',
                 ]);
                 $correctCount = collect($request->options)->where('is_correct', true)->count();
                 if ($correctCount !== 1) {
@@ -309,6 +320,7 @@ class QuestionController extends Controller
                         'is_correct'  => $option['is_correct'],
                         'image_path'  => $option['image_path'] ?? null,
                         'video_path'  => $option['video_path'] ?? null,
+                        'audio_path'  => $option['audio_path'] ?? null,
                         'order'       => $index + 1,
                     ]);
                 }

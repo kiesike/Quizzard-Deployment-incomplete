@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'video_player_widget.dart';
+import 'audio_player_widget.dart';
 
 class IdentificationWidget extends StatefulWidget {
   final Map<String, dynamic> question;
@@ -35,9 +36,10 @@ class _IdentificationWidgetState extends State<IdentificationWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final mediaPath = widget.question['media_path'];
-    final mediaType = widget.question['media_type'];
-    
+    final imagePath = widget.question['image_path'];
+    final videoPath = widget.question['video_path'];
+    final audioPath = widget.question['audio_path'];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -93,30 +95,31 @@ class _IdentificationWidgetState extends State<IdentificationWidget> {
                 ),
               ),
               // Question image
-              if (mediaPath != null && mediaPath.toString().isNotEmpty && mediaType == 'image')...[
+              if (imagePath != null && imagePath.toString().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.network(
-                    AuthService.fixImageUrl(
-                      mediaPath.toString().startsWith('http')
-                          ? mediaPath
-                          : '${AuthService.storageUrl}/$mediaPath',
-                    ),
+                    AuthService.fixImageUrl(imagePath),
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox(),
                   ),
                 ),
               ],
-              if (mediaPath != null && mediaPath.toString().isNotEmpty && mediaType == 'video') ...[
+              // Question video
+              if (videoPath != null && videoPath.toString().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 VideoPlayerWidget(
-                  videoUrl: AuthService.fixImageUrl(
-                    mediaPath.toString().startsWith('http')
-                        ? mediaPath
-                        : '${AuthService.storageUrl}/$mediaPath',
-                  ),
+                  videoUrl: AuthService.fixImageUrl(videoPath),
+                ),
+              ],
+              // Question audio
+              if (audioPath != null && audioPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                AudioPlayerWidget(
+                  audioUrl: AuthService.fixImageUrl(audioPath),
                 ),
               ],
             ],
@@ -164,13 +167,11 @@ class _IdentificationWidgetState extends State<IdentificationWidget> {
         const SizedBox(height: 8),
         Row(
           children: [
-            Icon(Icons.info_outline,
-                size: 14, color: Colors.grey.shade500),
+            Icon(Icons.info_outline, size: 14, color: Colors.grey.shade500),
             const SizedBox(width: 4),
             Text(
               'Answer is not case-sensitive',
-              style:
-                  TextStyle(fontSize: 12, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
             ),
           ],
         ),

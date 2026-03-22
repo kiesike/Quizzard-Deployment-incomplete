@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'video_player_widget.dart';
-
+import 'audio_player_widget.dart';
 
 class MatchingWidget extends StatefulWidget {
   final Map<String, dynamic> question;
@@ -52,8 +52,9 @@ class _MatchingWidgetState extends State<MatchingWidget> {
   @override
   Widget build(BuildContext context) {
     final options = widget.question['answer_options'] as List;
-    final mediaPath = widget.question['media_path'];
-    final mediaType = widget.question['media_type'];
+    final imagePath = widget.question['image_path'];
+    final videoPath = widget.question['video_path'];
+    final audioPath = widget.question['audio_path'];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,34 +111,33 @@ class _MatchingWidgetState extends State<MatchingWidget> {
                 ),
               ),
               // Question image
-              if (mediaPath != null && mediaPath.toString().isNotEmpty && mediaType == 'image')...[
+              if (imagePath != null && imagePath.toString().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.network(
-                    AuthService.fixImageUrl(
-                      mediaPath.toString().startsWith('http')
-                          ? mediaPath
-                          : '${AuthService.storageUrl}/$mediaPath',
-                    ),
+                    AuthService.fixImageUrl(imagePath),
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox(),
                   ),
                 ),
               ],
-              if (mediaPath != null && mediaPath.toString().isNotEmpty && mediaType == 'video') ...[
+              // Question video
+              if (videoPath != null && videoPath.toString().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 VideoPlayerWidget(
-                  videoUrl: AuthService.fixImageUrl(
-                    mediaPath.toString().startsWith('http')
-                        ? mediaPath
-                        : '${AuthService.storageUrl}/$mediaPath',
-                  ),
+                  videoUrl: AuthService.fixImageUrl(videoPath),
                 ),
               ],
-
-
+              // Question audio
+              if (audioPath != null && audioPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                AudioPlayerWidget(
+                  audioUrl: AuthService.fixImageUrl(audioPath),
+                ),
+              ],
             ],
           ),
         ),
@@ -199,7 +199,6 @@ class _MatchingWidgetState extends State<MatchingWidget> {
             margin: const EdgeInsets.only(bottom: 10),
             child: Row(
               children: [
-                // Column A item
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.all(12),
@@ -222,8 +221,6 @@ class _MatchingWidgetState extends State<MatchingWidget> {
                 const Icon(Icons.arrow_forward,
                     color: Colors.grey, size: 16),
                 const SizedBox(width: 8),
-
-                // Column B dropdown
                 Expanded(
                   child: Container(
                     padding:

@@ -3,6 +3,8 @@ import '../services/auth_service.dart';
 import '../widgets/image_picker_widget.dart';
 import '../widgets/video_picker_widget.dart';
 import '../widgets/video_player_widget.dart';
+import '../widgets/audio_picker_widget.dart';
+import '../widgets/audio_player_widget.dart';
 
 class AddQuestionScreen extends StatefulWidget {
   final int quizId;
@@ -21,9 +23,13 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
   // Common fields
   final _questionTextController = TextEditingController();
   final _pointsController = TextEditingController(text: '1');
-  String? _questionMediaPath;
-  String? _questionMediaType;
-  String? _questionVideoUrl; // full URL for previewing uploaded question video
+
+  // Question media — all 3 separate
+  String? _questionImagePath;
+  String? _questionVideoPath;
+  String? _questionVideoUrl;
+  String? _questionAudioPath;
+  String? _questionAudioUrl;
 
   // Multiple choice
   final List<TextEditingController> _mcOptions =
@@ -31,6 +37,8 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
   final List<String?> _mcOptionImagePaths = List.generate(4, (_) => null);
   final List<String?> _mcOptionVideoPaths = List.generate(4, (_) => null);
   final List<String?> _mcOptionVideoUrls  = List.generate(4, (_) => null);
+  final List<String?> _mcOptionAudioPaths = List.generate(4, (_) => null);
+  final List<String?> _mcOptionAudioUrls  = List.generate(4, (_) => null);
   int _mcCorrectIndex = 0;
 
   // True/False
@@ -85,14 +93,16 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
         }
         body = {
           'question_text': _questionTextController.text.trim(),
-          'media_path': _questionMediaPath,
-          'media_type': _questionMediaType,
+          'image_path': _questionImagePath,
+          'video_path': _questionVideoPath,
+          'audio_path': _questionAudioPath,
           'points': int.tryParse(_pointsController.text) ?? 1,
           'options': List.generate(4, (i) => {
-                'option_text': options[i],
+                'option_text': _mcOptions[i].text.trim(),
                 'is_correct': i == _mcCorrectIndex,
                 'image_path': _mcOptionImagePaths[i],
                 'video_path': _mcOptionVideoPaths[i],
+                'audio_path': _mcOptionAudioPaths[i],
               }),
         };
         endpoint = '/quizzes/${widget.quizId}/questions/multiple-choice';
@@ -101,8 +111,9 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
       case 'true_false':
         body = {
           'question_text': _questionTextController.text.trim(),
-          'media_path': _questionMediaPath,
-          'media_type': _questionMediaType,
+          'image_path': _questionImagePath,
+          'video_path': _questionVideoPath,
+          'audio_path': _questionAudioPath,
           'points': int.tryParse(_pointsController.text) ?? 1,
           'correct_answer': _tfCorrectAnswer,
         };
@@ -121,8 +132,9 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
         }
         body = {
           'question_text': _questionTextController.text.trim(),
-          'media_path': _questionMediaPath,
-          'media_type': _questionMediaType,
+          'image_path': _questionImagePath,
+          'video_path': _questionVideoPath,
+          'audio_path': _questionAudioPath,
           'points': int.tryParse(_pointsController.text) ?? 1,
           'answer': _identAnswerController.text.trim(),
         };
@@ -143,8 +155,9 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
         }
         body = {
           'question_text': _questionTextController.text.trim(),
-          'media_path': _questionMediaPath,
-          'media_type': _questionMediaType,
+          'image_path': _questionImagePath,
+          'video_path': _questionVideoPath,
+          'audio_path': _questionAudioPath,
           'points': int.tryParse(_pointsController.text) ?? 1,
           'pairs': List.generate(4, (i) => {
                 'left': lefts[i],
@@ -211,48 +224,87 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            // Question image picker
-            const Text('Question Image (optional)',
-                style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: Colors.grey)),
-            const SizedBox(height: 4),
-            ImagePickerWidget(
-              label: 'Add image to question',
-              onImageSelected: (path, url) => setState(() {
-                _questionMediaPath = path;
-                _questionMediaType = 'image';
-                _questionVideoUrl = null;
-              }),
-            ),
-            const SizedBox(height: 12),
+            // Question media section
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Question Media (optional)',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: primaryColor)),
+                  const SizedBox(height: 12),
 
-            // Question video picker
-            const Text('Question Video (optional)',
-                style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: Colors.grey)),
-            const SizedBox(height: 4),
-            VideoPickerWidget(
-              onVideoUploaded: (videoUrl, videoPath) => setState(() {
-                _questionMediaPath = videoPath;
-                _questionMediaType = 'video';
-                _questionVideoUrl = videoUrl;
-              }),
-              onVideoRemoved: () => setState(() {
-                _questionMediaPath = null;
-                _questionMediaType = null;
-                _questionVideoUrl = null;
-              }),
+                  // Image
+                  const Text('Image',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Colors.grey)),
+                  const SizedBox(height: 4),
+                  ImagePickerWidget(
+                    label: 'Add image to question',
+                    onImageSelected: (path, url) =>
+                        setState(() => _questionImagePath = path),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Video
+                  const Text('Video',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Colors.grey)),
+                  const SizedBox(height: 4),
+                  VideoPickerWidget(
+                    onVideoUploaded: (videoUrl, videoPath) => setState(() {
+                      _questionVideoPath = videoPath;
+                      _questionVideoUrl = videoUrl;
+                    }),
+                    onVideoRemoved: () => setState(() {
+                      _questionVideoPath = null;
+                      _questionVideoUrl = null;
+                    }),
+                  ),
+                  if (_questionVideoUrl != null) ...[
+                    const SizedBox(height: 8),
+                    VideoPlayerWidget(videoUrl: _questionVideoUrl!),
+                  ],
+                  const SizedBox(height: 12),
+
+                  // Audio
+                  const Text('Audio',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Colors.grey)),
+                  const SizedBox(height: 4),
+                  AudioPickerWidget(
+                    onAudioUploaded: (audioUrl, audioPath) => setState(() {
+                      _questionAudioPath = audioPath;
+                      _questionAudioUrl = audioUrl;
+                    }),
+                    onAudioRemoved: () => setState(() {
+                      _questionAudioPath = null;
+                      _questionAudioUrl = null;
+                    }),
+                  ),
+                  if (_questionAudioUrl != null) ...[
+                    const SizedBox(height: 8),
+                    AudioPlayerWidget(audioUrl: _questionAudioUrl!),
+                  ],
+                ],
+              ),
             ),
-            if (_questionMediaType == 'video' && _questionVideoUrl != null) ...[
-              const SizedBox(height: 8),
-              VideoPlayerWidget(videoUrl: _questionVideoUrl!),
-            ],
             const SizedBox(height: 16),
 
             TextField(
@@ -380,38 +432,75 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
                   const SizedBox(height: 6),
                   Padding(
                     padding: const EdgeInsets.only(left: 48),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ImagePickerWidget(
-                          label: 'Add image to option ${i + 1}',
-                          onImageSelected: (path, url) => setState(
-                              () => _mcOptionImagePaths[i] = path),
-                        ),
-                        const SizedBox(height: 6),
-                        VideoPickerWidget(
-                          onVideoUploaded: (videoUrl, videoPath) {
-                            final index = i;
-                            setState(() {
-                              _mcOptionVideoPaths[index] = videoPath;
-                              _mcOptionVideoUrls[index] = videoUrl;
-                            });
-                          },
-                          onVideoRemoved: () {
-                            final index = i;
-                            setState(() {
-                              _mcOptionVideoPaths[index] = null;
-                              _mcOptionVideoUrls[index] = null;
-                            });
-                          },
-                        ),
-                        if (_mcOptionVideoUrls[i] != null) ...[
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Option Media',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey)),
                           const SizedBox(height: 6),
-                          VideoPlayerWidget(
-                            videoUrl: _mcOptionVideoUrls[i]!,
+                          ImagePickerWidget(
+                            label: 'Add image to option ${i + 1}',
+                            onImageSelected: (path, url) => setState(
+                                () => _mcOptionImagePaths[i] = path),
                           ),
+                          const SizedBox(height: 6),
+                          VideoPickerWidget(
+                            onVideoUploaded: (videoUrl, videoPath) {
+                              final index = i;
+                              setState(() {
+                                _mcOptionVideoPaths[index] = videoPath;
+                                _mcOptionVideoUrls[index] = videoUrl;
+                              });
+                            },
+                            onVideoRemoved: () {
+                              final index = i;
+                              setState(() {
+                                _mcOptionVideoPaths[index] = null;
+                                _mcOptionVideoUrls[index] = null;
+                              });
+                            },
+                          ),
+                          if (_mcOptionVideoUrls[i] != null) ...[
+                            const SizedBox(height: 6),
+                            VideoPlayerWidget(
+                              videoUrl: _mcOptionVideoUrls[i]!,
+                            ),
+                          ],
+                          const SizedBox(height: 6),
+                          AudioPickerWidget(
+                            onAudioUploaded: (audioUrl, audioPath) {
+                              final index = i;
+                              setState(() {
+                                _mcOptionAudioPaths[index] = audioPath;
+                                _mcOptionAudioUrls[index] = audioUrl;
+                              });
+                            },
+                            onAudioRemoved: () {
+                              final index = i;
+                              setState(() {
+                                _mcOptionAudioPaths[index] = null;
+                                _mcOptionAudioUrls[index] = null;
+                              });
+                            },
+                          ),
+                          if (_mcOptionAudioUrls[i] != null) ...[
+                            const SizedBox(height: 6),
+                            AudioPlayerWidget(
+                              audioUrl: _mcOptionAudioUrls[i]!,
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ],

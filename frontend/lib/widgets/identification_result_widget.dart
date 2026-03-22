@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'video_player_widget.dart';
+import 'audio_player_widget.dart';
 
 class IdentificationResultWidget extends StatelessWidget {
   final Map<String, dynamic> question;
@@ -15,8 +16,9 @@ class IdentificationResultWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final options = question['answer_options'] as List;
-    final mediaPath = question['media_path'];
-    final mediaType = question['media_type'];
+    final imagePath = question['image_path'];
+    final videoPath = question['video_path'];
+    final audioPath = question['audio_path'];
 
     String correctAnswer = '';
     for (var option in options) {
@@ -33,7 +35,6 @@ class IdentificationResultWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Question with result
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -82,9 +83,7 @@ class IdentificationResultWidget extends StatelessWidget {
                   ),
                   const Spacer(),
                   Text(
-                    isCorrect
-                        ? '+${question['points']} pts'
-                        : '0 pts',
+                    isCorrect ? '+${question['points']} pts' : '0 pts',
                     style: TextStyle(
                       color: isCorrect ? Colors.green : Colors.red,
                       fontWeight: FontWeight.bold,
@@ -102,18 +101,12 @@ class IdentificationResultWidget extends StatelessWidget {
                 ),
               ),
               // Question image
-              if (mediaPath != null &&
-                  mediaPath.toString().isNotEmpty &&
-                  mediaType == 'image') ...[
+              if (imagePath != null && imagePath.toString().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.network(
-                    AuthService.fixImageUrl(
-                      mediaPath.toString().startsWith('http')
-                          ? mediaPath
-                          : '${AuthService.storageUrl}/$mediaPath',
-                    ),
+                    AuthService.fixImageUrl(imagePath),
                     width: double.infinity,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) =>
@@ -122,16 +115,17 @@ class IdentificationResultWidget extends StatelessWidget {
                 ),
               ],
               // Question video
-              if (mediaPath != null &&
-                  mediaPath.toString().isNotEmpty &&
-                  mediaType == 'video') ...[
+              if (videoPath != null && videoPath.toString().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 VideoPlayerWidget(
-                  videoUrl: AuthService.fixImageUrl(
-                    mediaPath.toString().startsWith('http')
-                        ? mediaPath
-                        : '${AuthService.storageUrl}/$mediaPath',
-                  ),
+                  videoUrl: AuthService.fixImageUrl(videoPath),
+                ),
+              ],
+              // Question audio
+              if (audioPath != null && audioPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                AudioPlayerWidget(
+                  audioUrl: AuthService.fixImageUrl(audioPath),
                 ),
               ],
             ],

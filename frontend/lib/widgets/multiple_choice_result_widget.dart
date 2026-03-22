@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'video_player_widget.dart';
+import 'audio_player_widget.dart';
 
 class MultipleChoiceResultWidget extends StatelessWidget {
   final Map<String, dynamic> question;
@@ -15,8 +16,9 @@ class MultipleChoiceResultWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final options = question['answer_options'] as List;
-    final mediaPath = question['media_path'];
-    final mediaType = question['media_type'];
+    final imagePath = question['image_path'];
+    final videoPath = question['video_path'];
+    final audioPath = question['audio_path'];
 
     Map<String, dynamic>? correctOption;
     for (var option in options) {
@@ -100,18 +102,12 @@ class MultipleChoiceResultWidget extends StatelessWidget {
                 ),
               ),
               // Question image
-              if (mediaPath != null &&
-                  mediaPath.toString().isNotEmpty &&
-                  mediaType == 'image') ...[
+              if (imagePath != null && imagePath.toString().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.network(
-                    AuthService.fixImageUrl(
-                      mediaPath.toString().startsWith('http')
-                          ? mediaPath
-                          : '${AuthService.storageUrl}/$mediaPath',
-                    ),
+                    AuthService.fixImageUrl(imagePath),
                     width: double.infinity,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) =>
@@ -120,16 +116,17 @@ class MultipleChoiceResultWidget extends StatelessWidget {
                 ),
               ],
               // Question video
-              if (mediaPath != null &&
-                  mediaPath.toString().isNotEmpty &&
-                  mediaType == 'video') ...[
+              if (videoPath != null && videoPath.toString().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 VideoPlayerWidget(
-                  videoUrl: AuthService.fixImageUrl(
-                    mediaPath.toString().startsWith('http')
-                        ? mediaPath
-                        : '${AuthService.storageUrl}/$mediaPath',
-                  ),
+                  videoUrl: AuthService.fixImageUrl(videoPath),
+                ),
+              ],
+              // Question audio
+              if (audioPath != null && audioPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                AudioPlayerWidget(
+                  audioUrl: AuthService.fixImageUrl(audioPath),
                 ),
               ],
             ],
@@ -220,11 +217,7 @@ class MultipleChoiceResultWidget extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
-                      AuthService.fixImageUrl(
-                        option['image_path'].toString().startsWith('http')
-                            ? option['image_path']
-                            : '${AuthService.storageUrl}/${option['image_path']}',
-                      ),
+                      AuthService.fixImageUrl(option['image_path']),
                       width: double.infinity,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) =>
@@ -237,11 +230,15 @@ class MultipleChoiceResultWidget extends StatelessWidget {
                     option['video_path'].toString().isNotEmpty) ...[
                   const SizedBox(height: 8),
                   VideoPlayerWidget(
-                    videoUrl: AuthService.fixImageUrl(
-                      option['video_path'].toString().startsWith('http')
-                          ? option['video_path']
-                          : '${AuthService.storageUrl}/${option['video_path']}',
-                    ),
+                    videoUrl: AuthService.fixImageUrl(option['video_path']),
+                  ),
+                ],
+                // Option audio
+                if (option['audio_path'] != null &&
+                    option['audio_path'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  AudioPlayerWidget(
+                    audioUrl: AuthService.fixImageUrl(option['audio_path']),
                   ),
                 ],
               ],

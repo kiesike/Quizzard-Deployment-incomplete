@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'video_player_widget.dart';
-
+import 'audio_player_widget.dart';
 
 class TrueFalseWidget extends StatefulWidget {
   final Map<String, dynamic> question;
@@ -31,8 +31,9 @@ class _TrueFalseWidgetState extends State<TrueFalseWidget> {
   @override
   Widget build(BuildContext context) {
     final options = widget.question['answer_options'] as List;
-    final mediaPath = widget.question['media_path'];
-    final mediaType = widget.question['media_type'];
+    final imagePath = widget.question['image_path'];
+    final videoPath = widget.question['video_path'];
+    final audioPath = widget.question['audio_path'];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,30 +90,31 @@ class _TrueFalseWidgetState extends State<TrueFalseWidget> {
                 ),
               ),
               // Question image
-              if (mediaPath != null && mediaPath.toString().isNotEmpty && mediaType == 'image')...[
+              if (imagePath != null && imagePath.toString().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.network(
-                    AuthService.fixImageUrl(
-                      mediaPath.toString().startsWith('http')
-                          ? mediaPath
-                          : '${AuthService.storageUrl}/$mediaPath',
-                    ),
+                    AuthService.fixImageUrl(imagePath),
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox(),
                   ),
                 ),
               ],
-              if (mediaPath != null && mediaPath.toString().isNotEmpty && mediaType == 'video') ...[
+              // Question video
+              if (videoPath != null && videoPath.toString().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 VideoPlayerWidget(
-                  videoUrl: AuthService.fixImageUrl(
-                    mediaPath.toString().startsWith('http')
-                        ? mediaPath
-                        : '${AuthService.storageUrl}/$mediaPath',
-                  ),
+                  videoUrl: AuthService.fixImageUrl(videoPath),
+                ),
+              ],
+              // Question audio
+              if (audioPath != null && audioPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                AudioPlayerWidget(
+                  audioUrl: AuthService.fixImageUrl(audioPath),
                 ),
               ],
             ],

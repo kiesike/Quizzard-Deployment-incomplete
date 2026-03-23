@@ -58,4 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/quizzes/{quizId}/questions/matching',               [QuestionController::class, 'storeMatching']);
     Route::put('/quizzes/{quizId}/questions/{questionId}',            [QuestionController::class, 'update']);
     Route::delete('/quizzes/{quizId}/questions/{questionId}',         [QuestionController::class, 'destroy']);
+
+    // Analytics route
+    Route::get('/teacher/quizzes/{quizId}/analytics', [TeacherController::class, 'quizAnalytics']);
 });

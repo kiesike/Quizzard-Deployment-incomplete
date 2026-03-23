@@ -18,6 +18,7 @@ import 'screens/student_attempt_detail_screen.dart';
 import 'screens/class_list_screen.dart';
 import 'screens/class_detail_screen.dart';
 import 'screens/student_class_quizzes_screen.dart';
+import 'screens/quiz_analytics_screen.dart';
 
 void main() {
   runApp(const QuizzardApp());
@@ -47,6 +48,14 @@ class QuizzardApp extends StatelessWidget {
         '/question-preview':   (context) => const QuestionPreviewScreen(),
         '/create-quiz':        (context) => const CreateQuizScreen(),
         '/quiz-result':        (context) => const QuizResultScreen(),
+        '/quiz-analytics': (context) {
+  final args = ModalRoute.of(context)!.settings.arguments
+      as Map<String, dynamic>;
+  return QuizAnalyticsScreen(
+    quizId: args['quiz_id'],
+    quizTitle: args['quiz_title'],
+  );
+},
         '/quiz-taking': (context) {
           final args = ModalRoute.of(context)!.settings.arguments
               as Map<String, dynamic>;

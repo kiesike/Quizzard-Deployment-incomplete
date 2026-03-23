@@ -12,15 +12,15 @@ class TeacherDashboardScreen extends StatefulWidget {
 class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   // ─── Theme ────────────────────────────────────────────────
   static const Color _purple = Color(0xFF6C63FF);
-  static const Color _green  = Color(0xFF4CAF50);
+  static const Color _green = Color(0xFF4CAF50);
 
   // ─── State ────────────────────────────────────────────────
-  int    _selectedIndex = 0;
-  bool   _isLoading     = true;
-  String _teacherName   = '';
-  String _teacherEmail  = '';
+  int _selectedIndex = 0;
+  bool _isLoading = true;
+  String _teacherName = '';
+  String _teacherEmail = '';
   List<Map<String, dynamic>> _quizzes = [];
-  Map<String, dynamic>       _stats   = {};
+  Map<String, dynamic> _stats = {};
   final Set<int> _togglingIds = {};
 
   @override
@@ -38,13 +38,16 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
       if (response['success'] == true) {
         final data = response['data'];
         setState(() {
-          _teacherName  = data['teacher']['name']  ?? '';
+          _teacherName = data['teacher']['name'] ?? '';
           _teacherEmail = data['teacher']['email'] ?? '';
           _quizzes = List<Map<String, dynamic>>.from(data['quizzes'] ?? []);
-          _stats   = Map<String, dynamic>.from(data['stats']   ?? {});
+          _stats = Map<String, dynamic>.from(data['stats'] ?? {});
         });
       } else {
-        _showSnackbar(response['message'] ?? 'Failed to load dashboard', isError: true);
+        _showSnackbar(
+          response['message'] ?? 'Failed to load dashboard',
+          isError: true,
+        );
       }
     } catch (e) {
       _showSnackbar('Network error: $e', isError: true);
@@ -54,16 +57,20 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   }
 
   Future<void> _togglePublish(Map<String, dynamic> quiz) async {
-    final int    quizId      = quiz['id'];
-    final bool   isPublished = quiz['is_published'] == true || quiz['is_published'] == 1;
-    final String quizTitle   = quiz['title'] ?? 'this quiz';
+    final int quizId = quiz['id'];
+    final bool isPublished =
+        quiz['is_published'] == true || quiz['is_published'] == 1;
+    final String quizTitle = quiz['title'] ?? 'this quiz';
 
     final confirmed = await _showPublishConfirmation(quizTitle, isPublished);
     if (!confirmed) return;
 
     setState(() => _togglingIds.add(quizId));
     try {
-      final response = await AuthService.authPatch('/quizzes/$quizId/publish-toggle', {});
+      final response = await AuthService.authPatch(
+        '/quizzes/$quizId/publish-toggle',
+        {},
+      );
       if (response['success'] == true) {
         final updatedQuiz = response['data'];
         setState(() {
@@ -77,7 +84,10 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
         });
         _showSnackbar(response['message'] ?? 'Status updated.');
       } else {
-        _showSnackbar(response['message'] ?? 'Failed to toggle.', isError: true);
+        _showSnackbar(
+          response['message'] ?? 'Failed to toggle.',
+          isError: true,
+        );
       }
     } catch (e) {
       _showSnackbar('Network error: $e', isError: true);
@@ -92,7 +102,9 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Delete Quiz'),
-        content: Text('Are you sure you want to delete "${quiz['title']}"? This cannot be undone.'),
+        content: Text(
+          'Are you sure you want to delete "${quiz['title']}"? This cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -101,7 +113,10 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -137,10 +152,12 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     );
   }
 
-  Future<bool> _showPublishConfirmation(String quizTitle, bool isCurrentlyPublished) async {
-    final action      = isCurrentlyPublished ? 'unpublish' : 'publish';
-    final actionLabel = isCurrentlyPublished ? 'Unpublish'  : 'Publish';
-    final color       = isCurrentlyPublished ? Colors.orange : _green;
+  Future<bool> _showPublishConfirmation(
+    String quizTitle,
+    bool isCurrentlyPublished,
+  ) async {
+    final actionLabel = isCurrentlyPublished ? 'Unpublish' : 'Publish';
+    final color = isCurrentlyPublished ? Colors.orange : _green;
 
     final result = await showDialog<bool>(
       context: context,
@@ -160,7 +177,10 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: color),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(actionLabel, style: const TextStyle(color: Colors.white)),
+            child: Text(
+              actionLabel,
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -202,7 +222,10 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
               },
               backgroundColor: _purple,
               icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text('New Quiz', style: TextStyle(color: Colors.white)),
+              label: const Text(
+                'New Quiz',
+                style: TextStyle(color: Colors.white),
+              ),
             )
           : null,
       body: _isLoading
@@ -221,9 +244,9 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
         unselectedItemColor: Colors.grey,
         onTap: (i) => setState(() => _selectedIndex = i),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.quiz),    label: 'My Quizzes'),
-          BottomNavigationBarItem(icon: Icon(Icons.class_),  label: 'Classes'),
-          BottomNavigationBarItem(icon: Icon(Icons.person),  label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.quiz), label: 'My Quizzes'),
+          BottomNavigationBarItem(icon: Icon(Icons.class_), label: 'Classes'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );
@@ -232,7 +255,6 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   Widget _buildClassesTab() {
     return Column(
       children: [
-        // Header
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -246,8 +268,6 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
             ),
           ),
         ),
-
-        // Go to Classes button
         Expanded(
           child: Center(
             child: Column(
@@ -273,9 +293,12 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _green,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 14),
+                      horizontal: 24,
+                      vertical: 14,
+                    ),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ],
@@ -318,10 +341,13 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   }
 
   Widget _buildStatsBar() {
-    final totalQuizzes     = _stats['total_quizzes']     ?? _quizzes.length;
-    final publishedQuizzes = _stats['published_quizzes'] ??
-        _quizzes.where((q) => q['is_published'] == true || q['is_published'] == 1).length;
-    final totalStudents    = _stats['total_students']    ?? 0;
+    final totalQuizzes = _stats['total_quizzes'] ?? _quizzes.length;
+    final publishedQuizzes =
+        _stats['published_quizzes'] ??
+        _quizzes
+            .where((q) => q['is_published'] == true || q['is_published'] == 1)
+            .length;
+    final totalStudents = _stats['total_students'] ?? 0;
 
     return Container(
       color: _green,
@@ -331,16 +357,20 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
         children: [
           Text(
             'Welcome, $_teacherName 👋',
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              _statChip(Icons.quiz_outlined, '$totalQuizzes',     'Total Quizzes'),
+              _statChip(Icons.quiz_outlined, '$totalQuizzes', 'Total Quizzes'),
               const SizedBox(width: 10),
-              _statChip(Icons.publish,        '$publishedQuizzes', 'Published'),
+              _statChip(Icons.publish, '$publishedQuizzes', 'Published'),
               const SizedBox(width: 10),
-              _statChip(Icons.people_outline, '$totalStudents',    'Students'),
+              _statChip(Icons.people_outline, '$totalStudents', 'Students'),
             ],
           ),
         ],
@@ -360,8 +390,18 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
           children: [
             Icon(icon, color: Colors.white, size: 20),
             const SizedBox(height: 4),
-            Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            Text(label,  style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            ),
           ],
         ),
       ),
@@ -369,12 +409,13 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   }
 
   Widget _buildQuizCard(Map<String, dynamic> quiz) {
-    final int    quizId      = quiz['id'];
-    final bool   isPublished = quiz['is_published'] == true || quiz['is_published'] == 1;
-    final bool   isToggling  = _togglingIds.contains(quizId);
-    final String title       = quiz['title']          ?? 'Untitled Quiz';
-    final String description = quiz['description']    ?? '';
-    final int    questions   = quiz['questions_count'] ?? 0;
+    final int quizId = quiz['id'];
+    final bool isPublished =
+        quiz['is_published'] == true || quiz['is_published'] == 1;
+    final bool isToggling = _togglingIds.contains(quizId);
+    final String title = quiz['title'] ?? 'Untitled Quiz';
+    final String description = quiz['description'] ?? '';
+    final int questions = quiz['questions_count'] ?? 0;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -387,7 +428,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
             context,
             '/quiz-detail',
             arguments: {
-              'quiz_id':   quizId,
+              'quiz_id': quizId,
               'quiz_title': title,
             },
           );
@@ -405,7 +446,10 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                   Expanded(
                     child: Text(
                       title,
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -427,10 +471,11 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                 style: const TextStyle(color: Colors.blueGrey, fontSize: 13),
               ),
               const Divider(height: 20),
+
               // ── Action row ────────────────────────────────
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child:Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     // Edit button
@@ -440,24 +485,41 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                           context,
                           '/edit-quiz',
                           arguments: {
-                            'quiz_id':     quizId,
-                            'title':       title,
+                            'quiz_id': quizId,
+                            'title': title,
                             'description': description,
                           },
                         );
                         if (result == true) _loadDashboard();
                       },
-                      icon: const Icon(Icons.edit, size: 16, color: Color(0xFF6C63FF)),
-                      label: const Text('Edit', style: TextStyle(color: Color(0xFF6C63FF))),
+                      icon: const Icon(
+                        Icons.edit,
+                        size: 16,
+                        color: Color(0xFF6C63FF),
+                      ),
+                      label: const Text(
+                        'Edit',
+                        style: TextStyle(color: Color(0xFF6C63FF)),
+                      ),
                     ),
                     const SizedBox(width: 4),
+
                     // Delete button
                     TextButton.icon(
                       onPressed: () => _deleteQuiz(quiz),
-                      icon: const Icon(Icons.delete, size: 16, color: Colors.red),
-                      label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                      icon: const Icon(
+                        Icons.delete,
+                        size: 16,
+                        color: Colors.red,
+                      ),
+                      label: const Text(
+                        'Delete',
+                        style: TextStyle(color: Colors.red),
+                      ),
                     ),
-                    // View Results button
+                    const SizedBox(width: 6),
+
+                    // Results button
                     TextButton.icon(
                       onPressed: () => Navigator.pushNamed(
                         context,
@@ -467,30 +529,97 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                           'quiz_title': title,
                         },
                       ),
-                      icon: const Icon(Icons.bar_chart, size: 16, color: Color(0xFF4CAF50)),
-                      label: const Text('Results', style: TextStyle(color: Color(0xFF4CAF50))),
+                      style: TextButton.styleFrom(
+                        backgroundColor:
+                            const Color(0xFF4CAF50).withOpacity(0.10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.bar_chart,
+                        size: 16,
+                        color: Color(0xFF4CAF50),
+                      ),
+                      label: const Text(
+                        'Results',
+                        style: TextStyle(
+                          color: Color(0xFF4CAF50),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 6),
+
+                    // Analytics button
+                    TextButton.icon(
+                      onPressed: () => Navigator.pushNamed(
+                        context,
+                        '/quiz-analytics',
+                        arguments: {
+                          'quiz_id': quizId,
+                          'quiz_title': title,
+                        },
+                      ),
+                      style: TextButton.styleFrom(
+                        backgroundColor:
+                            const Color(0xFF6C63FF).withOpacity(0.10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.analytics_outlined,
+                        size: 16,
+                        color: Color(0xFF6C63FF),
+                      ),
+                      label: const Text(
+                        'Analytics',
+                        style: TextStyle(
+                          color: Color(0xFF6C63FF),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+
                     // Publish toggle
                     isToggling
                         ? const SizedBox(
-                            width: 24, height: 24,
+                            width: 24,
+                            height: 24,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : OutlinedButton.icon(
                             onPressed: () => _togglePublish(quiz),
                             icon: Icon(
-                              isPublished ? Icons.unpublished_outlined : Icons.publish,
+                              isPublished
+                                  ? Icons.unpublished_outlined
+                                  : Icons.publish,
                               size: 18,
                               color: isPublished ? Colors.orange : _green,
                             ),
                             label: Text(
                               isPublished ? 'Unpublish' : 'Publish',
-                              style: TextStyle(color: isPublished ? Colors.orange : _green),
+                              style: TextStyle(
+                                color: isPublished ? Colors.orange : _green,
+                              ),
                             ),
                             style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: isPublished ? Colors.orange : _green),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              side: BorderSide(
+                                color: isPublished ? Colors.orange : _green,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
                   ],
@@ -507,9 +636,14 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: isPublished ? _green.withOpacity(0.15) : Colors.grey.withOpacity(0.15),
+        color: isPublished
+            ? _green.withOpacity(0.15)
+            : Colors.grey.withOpacity(0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isPublished ? _green : Colors.grey, width: 1),
+        border: Border.all(
+          color: isPublished ? _green : Colors.grey,
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -538,7 +672,4 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   Widget _buildProfileTab() {
     return ProfileWidget(onLogout: _logout);
   }
-
-
-
 }

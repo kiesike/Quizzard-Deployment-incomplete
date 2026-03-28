@@ -7,19 +7,19 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminActivationController;
 use App\Http\Controllers\AdminProfileController;
 use App\Http\Controllers\AdminQuizController;
+use App\Http\Controllers\TeacherAuthController;
+use App\Http\Controllers\TeacherDashboardController;
 
 Route::get('/', function () {
     return redirect()->route('admin.login');
 });
 
 Route::prefix('admin')->group(function () {
-    // Guest routes
     Route::middleware('guest')->group(function () {
         Route::get('/login', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
         Route::post('/login', [AdminAuthController::class, 'login'])->name('admin.login.submit');
     });
 
-    // Authenticated admin routes
     Route::middleware(['auth', 'admin'])->group(function () {
         Route::post('/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
@@ -44,13 +44,21 @@ Route::prefix('admin')->group(function () {
         Route::get('/profile', [AdminProfileController::class, 'index'])->name('admin.profile');
         Route::post('/profile', [AdminProfileController::class, 'update'])->name('admin.profile.update');
 
-        Route::get('/classes', [AdminQuizController::class, 'index'])
-        ->name('admin.classes');
-
+        Route::get('/classes', [AdminQuizController::class, 'index'])->name('admin.classes');
         Route::get('/classes/{id}', [AdminQuizController::class, 'show']);
-
         Route::put('/classes/{id}', [AdminQuizController::class, 'update']);
-
         Route::delete('/classes/{id}', [AdminQuizController::class, 'destroy']);
+    });
+});
+
+Route::prefix('teacher')->group(function () {
+    Route::middleware('guest')->group(function () {
+        Route::get('/login', [TeacherAuthController::class, 'showLoginForm'])->name('teacher.login');
+        Route::post('/login', [TeacherAuthController::class, 'login'])->name('teacher.login.submit');
+    });
+
+    Route::middleware(['auth', 'teacher'])->group(function () {
+        Route::post('/logout', [TeacherAuthController::class, 'logout'])->name('teacher.logout');
+        Route::get('/dashboard', [TeacherDashboardController::class, 'index'])->name('teacher.dashboard');
     });
 });

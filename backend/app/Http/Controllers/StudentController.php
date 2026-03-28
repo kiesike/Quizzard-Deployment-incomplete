@@ -13,9 +13,15 @@ class StudentController extends Controller
     {
         $student = $request->user();
 
-        // Get available published quizzes
+        // Get only published quizzes assigned to classes the student is enrolled in
         $availableQuizzes = Quiz::where('is_published', true)
+            ->whereHas('classes', function ($query) use ($student) {
+                $query->whereHas('students', function ($studentQuery) use ($student) {
+                    $studentQuery->where('student_id', $student->id);
+                });
+            })
             ->with('teacher:id,name')
+            ->distinct()
             ->get()
             ->map(function ($quiz) use ($student) {
                 // Check if student already attempted this quiz
@@ -25,13 +31,13 @@ class StudentController extends Controller
                     ->first();
 
                 return [
-                    'id'           => $quiz->id,
-                    'title'        => $quiz->title,
-                    'description'  => $quiz->description,
-                    'teacher_name' => $quiz->teacher->name ?? 'Unknown',
+                    'id'            => $quiz->id,
+                    'title'         => $quiz->title,
+                    'description'   => $quiz->description,
+                    'teacher_name'  => $quiz->teacher->name ?? 'Unknown',
                     'already_taken' => $attempt ? true : false,
-                    'score'        => $attempt ? $attempt->score : null,
-                    'total_points' => $attempt ? $attempt->total_points : null,
+                    'score'         => $attempt ? $attempt->score : null,
+                    'total_points'  => $attempt ? $attempt->total_points : null,
                 ];
             });
 
@@ -55,14 +61,14 @@ class StudentController extends Controller
             });
 
         return response()->json([
-            'student'          => [
+            'student' => [
                 'id'              => $student->id,
                 'name'            => $student->name,
                 'email'           => $student->email,
                 'profile_picture' => $student->profile_picture,
             ],
-            'available_quizzes' => $availableQuizzes,
-            'recent_scores'     => $recentScores,
+            'available_quizzes'   => $availableQuizzes,
+            'recent_scores'       => $recentScores,
             'total_quizzes_taken' => QuizAttempt::where('student_id', $student->id)
                 ->where('status', 'completed')
                 ->count(),
@@ -132,10 +138,10 @@ class StudentController extends Controller
         return response()->json([
             'message' => 'Successfully joined the class!',
             'class'   => [
-                'id'           => $class->id,
-                'name'         => $class->name,
-                'description'  => $class->description,
-                'class_code'   => $class->class_code,
+                'id'          => $class->id,
+                'name'        => $class->name,
+                'description' => $class->description,
+                'class_code'  => $class->class_code,
             ],
         ]);
     }

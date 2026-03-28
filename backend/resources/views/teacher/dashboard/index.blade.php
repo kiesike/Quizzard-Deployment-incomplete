@@ -9,31 +9,31 @@
                         Teacher Panel
                     </p>
                     <h2 class="mt-2 text-3xl font-bold sm:text-4xl">
-                        Reporting Dashboard
+                        Dashboard
                     </h2>
                     <p class="mt-2 max-w-2xl text-sm text-green-100 sm:text-base">
-                        View detailed reports of your quizzes, analyze student performance,
-                        and export results for further use.
+                        Welcome to the teacher reporting panel. Use the menu on the left
+                        to navigate through dashboard and report-related pages.
                     </p>
                 </div>
             </div>
         </div>
 
-        <div class="rounded-3xl bg-white p-6 shadow-lg ring-1 ring-slate-200">
-            <h3 class="text-lg font-semibold text-slate-800 mb-2">
-                Welcome, Teacher 👋
-            </h3>
+        <div class="grid gap-6 md:grid-cols-2">
+            <div class="rounded-3xl bg-white p-6 shadow-lg ring-1 ring-slate-200">
+                <h3 class="text-lg font-semibold text-slate-800">Dashboard</h3>
+                <p class="mt-2 text-sm text-slate-600">
+                    This page will serve as the main overview for your reporting panel.
+                </p>
+            </div>
 
-            <p class="text-sm text-slate-600">
-                This is your reporting dashboard. In the next steps, you will be able to:
-            </p>
-
-            <ul class="mt-4 list-disc pl-5 text-sm text-slate-600 space-y-1">
-                <li>View quiz results in table format</li>
-                <li>Filter students and scores</li>
-                <li>Analyze performance</li>
-                <li>Export reports (CSV / PDF)</li>
-            </ul>
+            <div class="rounded-3xl bg-white p-6 shadow-lg ring-1 ring-slate-200">
+                <h3 class="text-lg font-semibold text-slate-800">Reports</h3>
+                <p class="mt-2 text-sm text-slate-600">
+                    A dedicated reports section will be added next so you can view and export
+                    quiz performance data in a desktop-friendly interface.
+                </p>
+            </div>
         </div>
     </div>
 @endsection

@@ -59,6 +59,11 @@ Route::prefix('teacher')->group(function () {
 
     Route::middleware(['auth', 'teacher'])->group(function () {
         Route::post('/logout', [TeacherAuthController::class, 'logout'])->name('teacher.logout');
+
         Route::get('/dashboard', [TeacherDashboardController::class, 'index'])->name('teacher.dashboard');
+
+        Route::get('/reports/classes', [TeacherDashboardController::class, 'classes'])->name('teacher.reports.classes');
+        Route::get('/reports/quizzes', [TeacherDashboardController::class, 'quizzes'])->name('teacher.reports.quizzes');
+        Route::get('/reports/students', [TeacherDashboardController::class, 'students'])->name('teacher.reports.students');
     });
 });

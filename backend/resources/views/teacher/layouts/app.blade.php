@@ -17,8 +17,35 @@
 
                 <nav class="flex-1 space-y-2 px-4 py-6">
                     <a href="{{ route('teacher.dashboard') }}"
-                       class="block rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-green-800">
-                        Reporting Dashboard
+                       class="block rounded-xl px-4 py-3 text-sm transition
+                       {{ request()->routeIs('teacher.dashboard')
+                            ? 'text-green-700 font-bold border border-gray-500'
+                            : 'text-green-100 hover:bg-green-800 hover:text-white' }}">
+                        Dashboard
+                    </a>
+
+                    <a href="{{ route('teacher.reports.classes') }}"
+                       class="block rounded-xl px-4 py-3 text-sm transition
+                       {{ request()->routeIs('teacher.reports.classes')
+                            ? 'text-green-700 font-bold border border-gray-500'
+                            : 'text-green-100 hover:bg-green-800 hover:text-white' }}">
+                        Classes
+                    </a>
+
+                    <a href="{{ route('teacher.reports.quizzes') }}"
+                       class="block rounded-xl px-4 py-3 text-sm transition
+                       {{ request()->routeIs('teacher.reports.quizzes')
+                            ? 'text-green-700 font-bold border border-gray-500'
+                            : 'text-green-100 hover:bg-green-800 hover:text-white' }}">
+                        Quizzes
+                    </a>
+
+                    <a href="{{ route('teacher.reports.students') }}"
+                       class="block rounded-xl px-4 py-3 text-sm transition
+                       {{ request()->routeIs('teacher.reports.students')
+                            ? 'text-green-700 font-bold border border-gray-500'
+                            : 'text-green-100 hover:bg-green-800 hover:text-white' }}">
+                        Students
                     </a>
                 </nav>
 

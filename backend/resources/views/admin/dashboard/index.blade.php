@@ -73,6 +73,13 @@
                 </div>
 
                 <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+                    <select id="filterBy" class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                        <option value="all">All Fields</option>
+                        <option value="first_name">First Name</option>
+                        <option value="middle_initial">Middle Initial</option>
+                        <option value="surname">Surname</option>
+                    </select>
+                    
                     <input type="text"
                            id="searchInput"
                            value="{{ $search }}"
@@ -120,9 +127,19 @@
             <form method="POST" action="{{ route('admin.users.store') }}" class="space-y-4">
                 @csrf
 
-                <div>
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Full Name</label>
-                    <input type="text" name="name" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">First Name</label>
+                        <input type="text" name="first_name" id="createFirstName" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Middle Initial</label>
+                        <input type="text" name="middle_initial" id="createMiddleInitial" maxlength="1" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="Optional">
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Surname</label>
+                        <input type="text" name="surname" id="createSurname" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                    </div>
                 </div>
 
                 <div>
@@ -172,8 +189,15 @@
     </div>
 
     {{-- VIEW MODAL --}}
-    <div id="viewModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-        <div class="relative w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl">
+    <div id="viewModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-950/60 py-8 px-4 backdrop-blur-sm">
+        <div class="relative w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl max-h-[calc(100vh-4rem)] overflow-y-auto">
+            <div id="viewModalSkeleton" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 rounded-3xl">
+                <div class="h-10 w-10 animate-spin rounded-full border-4 border-blue-400 border-t-transparent mb-4"></div>
+                <div class="h-4 w-40 bg-slate-200 rounded mb-2 animate-pulse"></div>
+                <div class="h-4 w-32 bg-slate-200 rounded mb-2 animate-pulse"></div>
+                <div class="h-4 w-48 bg-slate-200 rounded mb-2 animate-pulse"></div>
+            </div>
+
             <button type="button" class="close-modal absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-500 hover:bg-slate-200 hover:text-slate-700">&times;</button>
 
             <div class="mb-6">
@@ -204,7 +228,7 @@
                 </div>
                 <div class="rounded-2xl bg-slate-50 p-4">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Password</p>
-                    <p class="mt-1 text-base font-semibold text-slate-500">Hidden for security</p>
+                    <p id="viewPassword" class="mt-1 text-base font-semibold text-slate-800"></p>
                 </div>
                 <div class="rounded-2xl bg-slate-50 p-4">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Created At</p>
@@ -225,8 +249,12 @@
     </div>
 
     {{-- EDIT MODAL --}}
-    <div id="editModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-        <div class="relative w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl">
+    <div id="editModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-950/60 py-8 px-4 backdrop-blur-sm">
+        <div class="relative w-full max-w-xl max-h-[calc(100vh-4rem)] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+            <div id="editModalSpinner" class="hidden absolute inset-0 z-10 flex items-center justify-center bg-white/80 rounded-3xl">
+                <div class="h-10 w-10 animate-spin rounded-full border-4 border-blue-400 border-t-transparent"></div>
+            </div>
+
             <button type="button" class="close-modal absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-500 hover:bg-slate-200 hover:text-slate-700">&times;</button>
 
             <div class="mb-6">
@@ -238,9 +266,19 @@
                 @csrf
                 @method('PUT')
 
-                <div>
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Full Name</label>
-                    <input type="text" name="name" id="editName" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">First Name</label>
+                        <input type="text" name="first_name" id="editFirstName" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Middle Initial</label>
+                        <input type="text" name="middle_initial" id="editMiddleInitial" maxlength="1" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="Optional">
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Surname</label>
+                        <input type="text" name="surname" id="editSurname" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                    </div>
                 </div>
 
                 <div>
@@ -281,8 +319,11 @@
                     <button type="button" class="close-modal rounded-xl bg-slate-100 px-5 py-2.5 font-semibold text-slate-700 hover:bg-slate-200">
                         Cancel
                     </button>
-                    <button type="submit" class="rounded-xl bg-amber-500 px-5 py-2.5 font-semibold text-white hover:bg-amber-600">
-                        Update
+                    <button id="updateUserBtn" type="submit" class="rounded-xl bg-amber-500 px-5 py-2.5 font-semibold text-white hover:bg-amber-600 transition disabled:opacity-60 disabled:cursor-not-allowed">
+                        <span class="flex items-center justify-center gap-2">
+                            <span class="spinner hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                            <span>Update</span>
+                        </span>
                     </button>
                 </div>
             </form>
@@ -326,7 +367,14 @@
         const currentType = "{{ $type }}";
 
         const searchInput = document.getElementById('searchInput');
+        const filterBySelect = document.getElementById('filterBy');
         const usersTableContainer = document.getElementById('usersTableContainer');
+
+        // @ts-ignore
+        let currentFilterBy = @json($filterBy ?? 'all');
+        if (filterBySelect) {
+            filterBySelect.value = currentFilterBy;
+        }
 
         const createModal = document.getElementById('createModal');
         const viewModal = document.getElementById('viewModal');
@@ -399,6 +447,32 @@
             });
         }
 
+        // Filter by name parts
+        if (filterBySelect) {
+            filterBySelect.addEventListener('change', function() {
+                currentFilterBy = this.value;
+                performSearch();
+            });
+        }
+
+        // Search input with filter
+        let searchTimeout;
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                clearTimeout(searchTimeout);
+
+                searchTimeout = setTimeout(function () {
+                    performSearch();
+                }, 250);
+            });
+        }
+
+        function performSearch() {
+            const search = searchInput.value;
+            const url = `${dashboardUrl}?type=${encodeURIComponent(currentType)}&search=${encodeURIComponent(search)}&filter_by=${encodeURIComponent(currentFilterBy)}`;
+            loadUsers(url);
+        }
+
         document.addEventListener('click', async function (e) {
             const viewBtn = e.target.closest('.btn-view-user');
             const editBtn = e.target.closest('.btn-edit-user');
@@ -415,6 +489,7 @@
                 document.getElementById('viewStatus').textContent = 'Loading...';
                 document.getElementById('viewCreatedAt').textContent = 'Loading...';
                 document.getElementById('viewUpdatedAt').textContent = 'Loading...';
+                document.getElementById('viewPassword').textContent = 'Loading...';
 
                 try {
                     const id = viewBtn.dataset.id;
@@ -434,6 +509,7 @@
                     document.getElementById('viewStatus').textContent = user.status ?? '';
                     document.getElementById('viewCreatedAt').textContent = user.created_at ?? '';
                     document.getElementById('viewUpdatedAt').textContent = user.updated_at ?? '';
+                    document.getElementById('viewPassword').textContent = user.password ?? '';
                 } catch (error) {
                     document.getElementById('viewId').textContent = '-';
                     document.getElementById('viewName').textContent = 'Failed to load user';
@@ -442,6 +518,7 @@
                     document.getElementById('viewStatus').textContent = '-';
                     document.getElementById('viewCreatedAt').textContent = '-';
                     document.getElementById('viewUpdatedAt').textContent = '-';
+                    document.getElementById('viewPassword').textContent = '-';
                     console.error(error);
                 }
 
@@ -449,7 +526,9 @@
             }
 
             if (editBtn) {
-                document.getElementById('editName').value = editBtn.dataset.name ?? '';
+                document.getElementById('editFirstName').value = editBtn.dataset.firstName ?? '';
+                document.getElementById('editMiddleInitial').value = editBtn.dataset.middleInitial ?? '';
+                document.getElementById('editSurname').value = editBtn.dataset.surname ?? '';
                 document.getElementById('editEmail').value = editBtn.dataset.email ?? '';
                 document.getElementById('editRole').value = editBtn.dataset.role ?? '';
                 document.getElementById('editStatus').value = editBtn.dataset.status ?? '';
@@ -478,27 +557,18 @@
             }
         });
 
-        let searchTimeout;
-
-        if (searchInput) {
-            searchInput.addEventListener('input', function () {
-                clearTimeout(searchTimeout);
-
-                searchTimeout = setTimeout(function () {
-                    const search = searchInput.value;
-                    const url = `${dashboardUrl}?type=${encodeURIComponent(currentType)}&search=${encodeURIComponent(search)}`;
-                    loadUsers(url);
-                }, 250);
-            });
+        function userSkeleton() {
+            return `
+                <div class="py-12 text-center">
+                    <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-slate-600"></div>
+                    <p class="mt-3 text-sm text-slate-600">Loading users...</p>
+                </div>
+            `;
         }
 
         async function loadUsers(url) {
             try {
-                usersTableContainer.innerHTML = `
-                    <div class="py-8 text-center text-slate-500">
-                        Loading users...
-                    </div>
-                `;
+                usersTableContainer.innerHTML = userSkeleton();
 
                 const response = await fetch(url, {
                     headers: {
@@ -518,5 +588,46 @@
                 console.error(error);
             }
         }
+
+        // Handle update form submission
+        document.getElementById('editForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const submitBtn = this.querySelector('button[type="submit"]');
+            setButtonLoading(submitBtn);
+
+            try {
+                const formData = new FormData(this);
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    loadUsers(dashboardUrl + window.location.search);
+                    closeModal(editModal);
+                } else {
+                    alert(data.message || 'Error updating user');
+                }
+            } catch (error) {
+                alert('Error updating user');
+            } finally {
+                resetButtonLoading(submitBtn);
+            }
+        });
+    </script>
+
+    <script>
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('close-modal') || e.target.closest('.close-modal')) {
+                resetButtonLoading(document.getElementById('createTeacherBtn'));
+                resetButtonLoading(document.getElementById('createStudentBtn'));
+                resetButtonLoading(document.querySelector('#editForm button[type="submit"]'));
+            }
+        });
     </script>
 @endpush

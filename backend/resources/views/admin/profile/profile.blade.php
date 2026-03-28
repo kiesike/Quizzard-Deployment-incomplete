@@ -97,30 +97,54 @@
 
                     <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <div>
-                            <label class="mb-2 block text-sm font-semibold text-slate-700">Full Name</label>
+                            <label class="mb-2 block text-sm font-semibold text-slate-700">First Name</label>
                             <input
                                 type="text"
-                                name="name"
-                                value="{{ old('name', $admin->name) }}"
+                                name="first_name"
+                                value="{{ old('first_name', $admin->first_name ?? '') }}"
                                 class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 shadow-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                                 required
                             >
                         </div>
 
                         <div>
-                            <label class="mb-2 block text-sm font-semibold text-slate-700">Email Address</label>
+                            <label class="mb-2 block text-sm font-semibold text-slate-700">Middle Initial (Optional)</label>
                             <input
-                                type="email"
-                                name="email"
-                                value="{{ old('email', $admin->email) }}"
+                                type="text"
+                                name="middle_initial"
+                                value="{{ old('middle_initial', $admin->middle_initial ?? '') }}"
                                 class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 shadow-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
-                                required
+                                maxlength="1"
+                                placeholder="Single letter"
                             >
                         </div>
                     </div>
 
                     <div>
-                        <label class="mb-2 block text-sm font-semibold text-slate-700">Profile Picture</label>
+                        <label class="mb-2 block text-sm font-semibold text-slate-700">Surname</label>
+                        <input
+                            type="text"
+                            name="surname"
+                            value="{{ old('surname', $admin->surname ?? '') }}"
+                            class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 shadow-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                            required
+                        >
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-slate-700">Email Address</label>
+                        <input
+                            type="email"
+                            name="email"
+                            value="{{ old('email', $admin->email) }}"
+                            class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 shadow-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                            required
+                        >
+                    </div>
+
+                    <div>
                         <input
                             type="file"
                             name="profile_image"

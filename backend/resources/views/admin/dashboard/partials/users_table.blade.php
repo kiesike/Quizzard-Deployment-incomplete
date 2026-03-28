@@ -3,7 +3,9 @@
         <thead class="bg-slate-100 text-left text-xs font-bold uppercase tracking-wide text-slate-600">
             <tr>
                 <th class="px-4 py-4">ID</th>
-                <th class="px-4 py-4">Name</th>
+                <th class="px-4 py-4">First Name</th>
+                <th class="px-4 py-4">Middle Initial</th>
+                <th class="px-4 py-4">Surname</th>
                 <th class="px-4 py-4">Email</th>
                 <th class="px-4 py-4">Role</th>
                 <th class="px-4 py-4">Status</th>
@@ -14,7 +16,9 @@
             @forelse($users as $user)
                 <tr class="transition hover:bg-slate-50">
                     <td class="px-4 py-4 font-medium text-slate-800">{{ $user->id }}</td>
-                    <td class="px-4 py-4">{{ $user->name }}</td>
+                    <td class="px-4 py-4">{{ $user->first_name ?? '-' }}</td>
+                    <td class="px-4 py-4">{{ $user->middle_initial ?? '-' }}</td>
+                    <td class="px-4 py-4">{{ $user->surname ?? '-' }}</td>
                     <td class="px-4 py-4">{{ $user->email }}</td>
                     <td class="px-4 py-4">
                         <span class="inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold capitalize text-blue-700">
@@ -47,7 +51,9 @@
                                 type="button"
                                 class="btn-edit-user inline-flex items-center rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-600"
                                 data-id="{{ $user->id }}"
-                                data-name="{{ $user->name }}"
+                                data-first-name="{{ $user->first_name }}"
+                                data-middle-initial="{{ $user->middle_initial }}"
+                                data-surname="{{ $user->surname }}"
                                 data-email="{{ $user->email }}"
                                 data-role="{{ $user->role }}"
                                 data-status="{{ $user->status }}"
@@ -67,7 +73,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6" class="px-4 py-10 text-center text-slate-500">
+                    <td colspan="8" class="px-4 py-10 text-center text-slate-500">
                         No users found.
                     </td>
                 </tr>

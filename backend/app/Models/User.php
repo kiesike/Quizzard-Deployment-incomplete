@@ -13,6 +13,9 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name',
+        'first_name',
+        'middle_initial',
+        'surname',
         'email',
         'password',
         'role',
@@ -36,6 +39,15 @@ class User extends Authenticatable
             'password'          => 'hashed',
             'locked_until'      => 'datetime',
         ];
+    }
+
+    public function getNameAttribute($value)
+    {
+        if (!empty($this->first_name) || !empty($this->surname)) {
+            $middle = $this->middle_initial ? ' ' . strtoupper(substr($this->middle_initial, 0, 1)) . '.' : '';
+            return trim("{$this->first_name}{$middle} {$this->surname}");
+        }
+        return $value;
     }
 
     public function getProfileImageUrlAttribute(): string

@@ -86,6 +86,13 @@
                 </div>
 
                 <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+                    <select id="filterBy" class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100">
+                        <option value="all">All Fields</option>
+                        <option value="first_name">First Name</option>
+                        <option value="middle_initial">Middle Initial</option>
+                        <option value="surname">Surname</option>
+                    </select>
+                    
                     <input type="text"
                            id="searchInput"
                            value="{{ $search }}"
@@ -107,11 +114,15 @@
 <script>
     const activationBaseUrl = "{{ route('admin.activation.index') }}";
     const searchInput = document.getElementById('searchInput');
+    const filterBySelect = document.getElementById('filterBy');
     const activationTableContainer = document.getElementById('activationTableContainer');
     const statusButtons = document.querySelectorAll('.status-filter');
 
     let currentStatus = "{{ $status }}";
+    let currentFilterBy = "{{ $filterBy ?? 'all' }}";
     let searchTimeout;
+
+    filterBySelect.value = currentFilterBy;
 
     function setActiveStatusButton(status) {
         statusButtons.forEach(button => {
@@ -141,13 +152,21 @@
         });
     }
 
+    function activationSkeleton() {
+        return `
+            <div class="px-4 py-6">
+                <div class="space-y-3">
+                    ${Array.from({ length: 5 }).map(() => `
+                        <div class="h-6 w-full rounded-lg bg-slate-200 animate-pulse"></div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     async function loadActivationUsers(url) {
         try {
-            activationTableContainer.innerHTML = `
-                <div class="py-8 text-center text-slate-500">
-                    Loading accounts...
-                </div>
-            `;
+            activationTableContainer.innerHTML = activationSkeleton();
 
             const response = await fetch(url, {
                 headers: {
@@ -171,7 +190,8 @@
     function buildUrl() {
         const search = encodeURIComponent(searchInput.value || '');
         const status = encodeURIComponent(currentStatus || 'all');
-        return `${activationBaseUrl}?search=${search}&status=${status}`;
+        const filterBy = encodeURIComponent(currentFilterBy || 'all');
+        return `${activationBaseUrl}?search=${search}&status=${status}&filter_by=${filterBy}`;
     }
 
     statusButtons.forEach(button => {
@@ -180,6 +200,11 @@
             setActiveStatusButton(currentStatus);
             loadActivationUsers(buildUrl());
         });
+    });
+
+    filterBySelect.addEventListener('change', function() {
+        currentFilterBy = this.value;
+        loadActivationUsers(buildUrl());
     });
 
     if (searchInput) {

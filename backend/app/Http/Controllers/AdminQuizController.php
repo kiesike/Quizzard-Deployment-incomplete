@@ -13,14 +13,26 @@ class AdminQuizController extends Controller
     {
         $search = $request->search;
         $sort = $request->sort ?? 'latest';
+        $filterBy = $request->get('filter_by', 'all'); // all, first_name, middle_initial, surname
 
         $query = ClassRoom::with(['teacher', 'students']);
 
         if ($search) {
-    $query->where(function ($q) use ($search) {
+    $query->where(function ($q) use ($search, $filterBy) {
         $q->where('name', 'like', "%{$search}%")
-          ->orWhereHas('teacher', function ($teacherQuery) use ($search) {
-              $teacherQuery->where('name', 'like', "%{$search}%");
+          ->orWhereHas('teacher', function ($teacherQuery) use ($search, $filterBy) {
+              if ($filterBy === 'first_name') {
+                  $teacherQuery->where('first_name', 'like', "%{$search}%");
+              } elseif ($filterBy === 'middle_initial') {
+                  $teacherQuery->where('middle_initial', 'like', "%{$search}%");
+              } elseif ($filterBy === 'surname') {
+                  $teacherQuery->where('surname', 'like', "%{$search}%");
+              } else {
+                  $teacherQuery->where('first_name', 'like', "%{$search}%")
+                      ->orWhere('middle_initial', 'like', "%{$search}%")
+                      ->orWhere('surname', 'like', "%{$search}%")
+                      ->orWhere('name', 'like', "%{$search}%");
+              }
           });
     });
 }

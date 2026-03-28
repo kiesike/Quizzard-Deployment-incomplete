@@ -11,6 +11,7 @@ class AdminActivationController extends Controller
     {
         $search = trim($request->get('search', ''));
         $status = $request->get('status', 'all');
+        $filterBy = $request->get('filter_by', 'all'); // all, first_name, middle_initial, surname
 
         $query = User::query()
             ->whereIn('role', ['teacher', 'student']);
@@ -20,10 +21,22 @@ class AdminActivationController extends Controller
         }
 
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('role', 'like', "%{$search}%");
+            $query->where(function ($q) use ($search, $filterBy) {
+                if ($filterBy === 'first_name') {
+                    $q->where('first_name', 'like', "%{$search}%");
+                } elseif ($filterBy === 'middle_initial') {
+                    $q->where('middle_initial', 'like', "%{$search}%");
+                } elseif ($filterBy === 'surname') {
+                    $q->where('surname', 'like', "%{$search}%");
+                } else {
+                    // Search all name fields + email + role
+                    $q->where('first_name', 'like', "%{$search}%")
+                      ->orWhere('middle_initial', 'like', "%{$search}%")
+                      ->orWhere('surname', 'like', "%{$search}%")
+                      ->orWhere('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%")
+                      ->orWhere('role', 'like', "%{$search}%");
+                }
             });
         }
 
@@ -45,7 +58,7 @@ class AdminActivationController extends Controller
             ]);
         }
 
-        return view('admin.activation.index', compact('users', 'search', 'status', 'stats'));
+        return view('admin.activation.index', compact('users', 'search', 'status', 'stats', 'filterBy'));
     }
 
     public function activate(User $user)

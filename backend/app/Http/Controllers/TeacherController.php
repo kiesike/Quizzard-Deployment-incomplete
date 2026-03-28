@@ -54,6 +54,9 @@ class TeacherController extends Controller
             'teacher' => [
                 'id'              => $teacher->id,
                 'name'            => $teacher->name,
+                'first_name'      => $teacher->first_name,
+                'middle_initial'  => $teacher->middle_initial,
+                'surname'         => $teacher->surname,
                 'email'           => $teacher->email,
                 'profile_picture' => $teacher->profile_picture,
             ],
@@ -86,6 +89,9 @@ class TeacherController extends Controller
             'attempt_id'    => $attempt->id,
             'student_id'    => $attempt->student->id,
             'student_name'  => $attempt->student->name,
+            'student_first_name' => $attempt->student->first_name,
+            'student_middle_initial' => $attempt->student->middle_initial,
+            'student_surname' => $attempt->student->surname,
             'student_email' => $attempt->student->email,
             'score'         => $attempt->score,
             'total_points'  => $attempt->total_points,
@@ -117,73 +123,78 @@ class TeacherController extends Controller
     ]);
 }
 
-    // Get detailed answer breakdown for one student attempt
-    public function attemptDetail(Request $request, $quizId, $attemptId)
-    {
-        // Verify quiz belongs to teacher
-        $quiz = \App\Models\Quiz::where('id', $quizId)
-            ->where('teacher_id', $request->user()->id)
-            ->firstOrFail();
+public function attemptDetail(Request $request, $quizId, $attemptId)
+{
+    $teacherId = $request->user()->id;
 
-        $attempt = \App\Models\QuizAttempt::where('id', $attemptId)
-            ->where('quiz_id', $quizId)
-            ->with('student')
-            ->firstOrFail();
+    $quiz = Quiz::where('id', $quizId)
+        ->where('teacher_id', $teacherId)
+        ->firstOrFail();
 
-        $studentAnswers = \App\Models\StudentAnswer::where('attempt_id', $attemptId)
-            ->with(['question' => function ($q) {
-                $q->with('answerOptions');
-            }])
-            ->get();
+    $attempt = QuizAttempt::where('id', $attemptId)
+        ->where('quiz_id', $quiz->id)
+        ->where('status', 'completed')
+        ->with('student')
+        ->firstOrFail();
 
-        $percentage = $attempt->total_points > 0
-            ? round(($attempt->score / $attempt->total_points) * 100)
-            : 0;
+    $studentAnswers = StudentAnswer::where('attempt_id', $attemptId)
+        ->with(['question' => function ($q) {
+            $q->with('answerOptions');
+        }])
+        ->get();
 
-        $questionResults = $studentAnswers->map(function ($answer) {
-            $question = $answer->question;
-            return [
-                'id'            => $question->id,
-                'question_text' => $question->question_text,
-                'question_type' => $question->question_type,
-                'points'        => $question->points,
-                'points_earned' => $answer->points_earned,
-                'is_correct'    => $answer->is_correct,
-                'answer_given'  => $answer->answer_given,
-                'answer_options' => $question->answerOptions->map(function ($opt) {
-                    return [
-                        'id'          => $opt->id,
-                        'option_text' => $opt->option_text,
-                        'is_correct'  => $opt->is_correct,
-                        'match_pair'  => $opt->match_pair,
-                        'order'       => $opt->order,
-                    ];
-                }),
-            ];
-        });
+    $percentage = $attempt->total_points > 0
+        ? round(($attempt->score / $attempt->total_points) * 100)
+        : 0;
 
-        return response()->json([
-            'quiz' => [
-                'id'    => $quiz->id,
-                'title' => $quiz->title,
-            ],
-            'attempt' => [
-                'id'           => $attempt->id,
-                'score'        => $attempt->score,
-                'total_points' => $attempt->total_points,
-                'percentage'   => $percentage,
-                'completed_at' => $attempt->completed_at,
-            ],
-            'student' => [
-                'id'    => $attempt->student->id,
-                'name'  => $attempt->student->name,
-                'email' => $attempt->student->email,
-            ],
-            'question_results' => $questionResults,
-        ]);
-    }
+    $questionResults = $studentAnswers->map(function ($answer) {
+        $question = $answer->question;
+        return [
+            'id'            => $question->id,
+            'question_text' => $question->question_text,
+            'question_type' => $question->question_type,
+            'points'        => $question->points,
+            'points_earned' => $answer->points_earned,
+            'is_correct'    => $answer->is_correct,
+            'answer_given'  => $answer->answer_given,
+            'answer_options' => $question->answerOptions->map(function ($opt) {
+                return [
+                    'id'          => $opt->id,
+                    'option_text' => $opt->option_text,
+                    'is_correct'  => $opt->is_correct,
+                    'match_pair'  => $opt->match_pair,
+                    'order'       => $opt->order,
+                ];
+            }),
+        ];
+    });
 
-    public function quizAnalytics(Request $request, $quizId)
+    return response()->json([
+        'quiz' => [
+            'id'    => $quiz->id,
+            'title' => $quiz->title,
+        ],
+        'attempt' => [
+            'id'           => $attempt->id,
+            'score'        => $attempt->score,
+            'total_points' => $attempt->total_points,
+            'percentage'   => $percentage,
+            'completed_at' => $attempt->completed_at,
+        ],
+        'student' => [
+            'id'            => $attempt->student->id,
+            'name'          => $attempt->student->name,
+            'full_name'     => $attempt->student->name,
+            'first_name'    => $attempt->student->first_name,
+            'middle_initial'=> $attempt->student->middle_initial,
+            'surname'       => $attempt->student->surname,
+            'email'         => $attempt->student->email,
+        ],
+        'question_results' => $questionResults,
+    ]);
+}
+
+public function quizAnalytics(Request $request, $quizId)
 {
     $teacherId = $request->user()->id;
 

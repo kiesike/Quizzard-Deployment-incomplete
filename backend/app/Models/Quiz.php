@@ -41,4 +41,9 @@ class Quiz extends Model
             'class_id'
         );
     }
+
+    public function attempts()
+    {
+        return $this->hasMany(QuizAttempt::class);
+    }
 }

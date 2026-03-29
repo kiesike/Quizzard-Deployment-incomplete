@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ClassRoom;
+use App\Models\Quiz;
 use Illuminate\Http\Request;
 
 class TeacherDashboardController extends Controller
@@ -54,7 +55,41 @@ class TeacherDashboardController extends Controller
 
     public function quizzes(Request $request)
     {
-        return view('teacher.reports.quizzes');
+        $teacher = $request->user();
+
+        $quizzes = Quiz::query()
+            ->where('teacher_id', $teacher->id)
+            ->withCount('classes')
+            ->with([
+                'attempts' => function ($query) {
+                    $query->where('status', 'completed');
+                },
+            ])
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($quiz) {
+                $attempts = $quiz->attempts;
+                $attemptsCount = $attempts->count();
+                $studentsAttempted = $attempts->pluck('student_id')->unique()->count();
+
+                $averageScore = $attemptsCount > 0
+                    ? round($attempts->avg(function ($attempt) {
+                        if ((float) $attempt->total_points <= 0) {
+                            return 0;
+                        }
+
+                        return ($attempt->score / $attempt->total_points) * 100;
+                    }), 2)
+                    : null;
+
+                $quiz->attempts_count = $attemptsCount;
+                $quiz->students_attempted_count = $studentsAttempted;
+                $quiz->average_score = $averageScore;
+
+                return $quiz;
+            });
+
+        return view('teacher.reports.quizzes', compact('quizzes'));
     }
 
     public function students(Request $request)

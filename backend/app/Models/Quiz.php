@@ -31,7 +31,6 @@ class Quiz extends Model
         return $this->hasMany(Question::class)->orderBy('order');
     }
 
-    // ✅ ADD THIS RELATIONSHIP
     public function classes()
     {
         return $this->belongsToMany(

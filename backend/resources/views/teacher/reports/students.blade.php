@@ -11,16 +11,85 @@
                     Students
                 </h2>
                 <p class="mt-2 max-w-2xl text-sm text-green-100 sm:text-base">
-                    This page will contain student-based reporting tools for teachers.
+                    Review student participation and performance across your classes and quizzes.
                 </p>
             </div>
         </div>
 
-        <div class="rounded-3xl bg-white p-6 shadow-lg ring-1 ring-slate-200">
-            <h3 class="text-lg font-semibold text-slate-800">Coming Next</h3>
-            <p class="mt-2 text-sm text-slate-600">
-                The student reports feature will be implemented in DOP-59.
-            </p>
+        <div class="rounded-3xl bg-white shadow-lg ring-1 ring-slate-200">
+            <div class="border-b border-slate-200 px-6 py-4">
+                <h3 class="text-lg font-semibold text-slate-800">Student Performance Report</h3>
+                <p class="mt-1 text-sm text-slate-500">
+                    This report only includes students enrolled in your classes.
+                </p>
+            </div>
+
+            @if ($students->isEmpty())
+                <div class="px-6 py-10 text-center">
+                    <p class="text-sm text-slate-500">No students found.</p>
+                </div>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Student Name
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Email
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Classes Joined
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Quizzes Taken
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Avg Score
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Last Activity
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            @foreach ($students as $student)
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-6 py-4">
+                                        <div class="font-semibold text-slate-800">
+                                            {{ $student->name }}
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-slate-700">
+                                        {{ $student->email }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-slate-700">
+                                        {{ $student->classes_joined_count }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-slate-700">
+                                        {{ $student->quizzes_taken_count }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-slate-700">
+                                        @if (!is_null($student->average_score))
+                                            {{ number_format($student->average_score, 2) }}%
+                                        @else
+                                            N/A
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-slate-700">
+                                        @if ($student->last_activity)
+                                            {{ $student->last_activity->format('M d, Y h:i A') }}
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
         </div>
     </div>
 @endsection

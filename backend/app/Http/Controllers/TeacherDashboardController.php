@@ -94,6 +94,66 @@ class TeacherDashboardController extends Controller
 
     public function students(Request $request)
     {
-        return view('teacher.reports.students');
+        $teacher = $request->user();
+
+        $classes = ClassRoom::query()
+            ->where('teacher_id', $teacher->id)
+            ->with([
+                'students',
+                'quizzes.attempts' => function ($query) {
+                    $query->where('status', 'completed');
+                },
+            ])
+            ->get();
+
+        $students = $classes
+            ->flatMap(function ($class) {
+                return $class->students->map(function ($student) use ($class) {
+                    $student->teacher_class_id = $class->id;
+                    return $student;
+                });
+            })
+            ->unique('id')
+            ->map(function ($student) use ($classes) {
+                $studentClasses = $classes->filter(function ($class) use ($student) {
+                    return $class->students->contains('id', $student->id);
+                });
+
+                $classCount = $studentClasses->count();
+
+                $attempts = $studentClasses
+                    ->flatMap(function ($class) use ($student) {
+                        return $class->quizzes->flatMap(function ($quiz) use ($student) {
+                            return $quiz->attempts->where('student_id', $student->id);
+                        });
+                    })
+                    ->unique('id')
+                    ->values();
+
+                $quizzesTaken = $attempts->count();
+
+                $averageScore = $quizzesTaken > 0
+                    ? round($attempts->avg(function ($attempt) {
+                        if ((float) $attempt->total_points <= 0) {
+                            return 0;
+                        }
+
+                        return ($attempt->score / $attempt->total_points) * 100;
+                    }), 2)
+                    : null;
+
+                $lastActivity = $attempts->sortByDesc('completed_at')->first()?->completed_at;
+
+                $student->classes_joined_count = $classCount;
+                $student->quizzes_taken_count = $quizzesTaken;
+                $student->average_score = $averageScore;
+                $student->last_activity = $lastActivity;
+
+                return $student;
+            })
+            ->sortBy('name')
+            ->values();
+
+        return view('teacher.reports.students', compact('students'));
     }
 }

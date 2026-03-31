@@ -11,7 +11,9 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _nameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _middleInitialController = TextEditingController();
+  final _surnameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -24,7 +26,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _middleInitialController.dispose();
+    _surnameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -39,15 +43,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     // Basic validation
-    if (_nameController.text.trim().isEmpty ||
+    if (_firstNameController.text.trim().isEmpty ||
+        _surnameController.text.trim().isEmpty ||
         _emailController.text.trim().isEmpty ||
         _passwordController.text.isEmpty ||
         _confirmPasswordController.text.isEmpty) {
       setState(() {
-        _errorMessage = 'Please fill in all fields.';
+        _errorMessage = 'Please fill in all required fields.';
         _isLoading = false;
       });
       return;
+    }
+
+    String middleInitial = _middleInitialController.text.trim();
+    if (middleInitial.isNotEmpty) {
+      if (middleInitial.length != 1 || !RegExp(r'^[a-zA-Z]$').hasMatch(middleInitial)) {
+        setState(() {
+          _errorMessage = 'Middle initial must be a single alphabet character.';
+          _isLoading = false;
+        });
+        return;
+      }
+      middleInitial = middleInitial.toUpperCase();
     }
 
     if (_passwordController.text != _confirmPasswordController.text) {
@@ -61,15 +78,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final response = await http.post(
         Uri.parse('${AuthService.baseUrl}/register'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({
-          'name': _nameController.text.trim(),
+          'first_name': _firstNameController.text.trim(),
+          'middle_initial': middleInitial.isEmpty ? null : middleInitial,
+          'surname': _surnameController.text.trim(),
+          'name': '${_firstNameController.text.trim()}${middleInitial.isEmpty ? '' : ' $middleInitial.'} ${_surnameController.text.trim()}',
           'email': _emailController.text.trim(),
           'password': _passwordController.text,
           'password_confirmation': _confirmPasswordController.text,
           'role': _selectedRole,
         }),
       );
+ 
 
       final data = jsonDecode(response.body);
 
@@ -80,7 +104,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _successMessage = data['message'];
         });
         // Clear the form
-        _nameController.clear();
+        _firstNameController.clear();
+        _middleInitialController.clear();
+        _surnameController.clear();
         _emailController.clear();
         _passwordController.clear();
         _confirmPasswordController.clear();
@@ -244,13 +270,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
 
-                    // Name field
-                    _buildLabel('Full Name'),
+                    // First name field
+                    _buildLabel('First Name'),
                     const SizedBox(height: 8),
                     _buildTextField(
-                      controller: _nameController,
-                      hint: 'Enter your full name',
-                      icon: Icons.person_outlined,
+                      controller: _firstNameController,
+                      hint: 'Enter your first name',
+                      icon: Icons.person_outline,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Middle initial field
+                    _buildLabel('Middle initial (optional)'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _middleInitialController,
+                      hint: 'E.g. A',
+                      icon: Icons.text_fields,
+                      maxLength: 1,
+                      keyboardType: TextInputType.text,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Surname field
+                    _buildLabel('Surname'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _surnameController,
+                      hint: 'Enter your surname',
+                      icon: Icons.person,
                     ),
                     const SizedBox(height: 16),
 
@@ -481,10 +529,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required String hint,
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
+    int? maxLength,
   }) {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      maxLength: maxLength,
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon: Icon(icon, color: const Color(0xFF6C63FF)),

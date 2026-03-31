@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quizzard Admin</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800">
@@ -17,22 +18,22 @@
 
                 <nav class="flex-1 space-y-2 px-4 py-6">
                     <a href="{{ route('admin.dashboard') }}"
-                       class="block rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-slate-800">
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.dashboard*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
                         Menu Dashboard
                     </a>
 
                     <a href="{{ route('admin.profile') }}"
-   class="flex items-center px-4 py-2 rounded-lg hover:bg-slate-700 transition {{ request()->routeIs('admin.profile') ? 'bg-slate-700 text-white' : 'text-slate-200' }}">
-    Profile
-</a>
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.profile*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
+                        Profile
+                    </a>
 
                     <a href="{{ route('admin.activation.index') }}"
-                       class="block rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-slate-800">
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.activation*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
                         Activation
                     </a>
 
                     <a href="{{ route('admin.classes') }}"
-                       class="block rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-slate-800">
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.classes*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
                         Classes
                     </a>
                 </nav>

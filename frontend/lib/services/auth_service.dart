@@ -28,6 +28,9 @@ class AuthService {
         await prefs.setString('token', data['token']);
         await prefs.setString('role', data['user']['role']);
         await prefs.setString('name', data['user']['name']);
+        await prefs.setString('first_name', data['user']['first_name'] ?? '');
+        await prefs.setString('middle_initial', data['user']['middle_initial'] ?? '');
+        await prefs.setString('surname', data['user']['surname'] ?? '');
         await prefs.setInt('user_id', data['user']['id']);
         return {'success': true, 'data': data};
       } else {
@@ -56,6 +59,21 @@ class AuthService {
   static Future getName() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('name');
+  }
+
+  static Future getFirstName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('first_name');
+  }
+
+  static Future getMiddleInitial() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('middle_initial');
+  }
+
+  static Future getSurname() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('surname');
   }
 
   static Future isLoggedIn() async {

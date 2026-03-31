@@ -24,13 +24,24 @@ class AdminProfileController extends Controller
         $admin = Auth::user();
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_initial' => ['nullable', 'string', 'size:1'],
+            'surname' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $admin->id],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'profile_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
-        $admin->name = $validated['name'];
+        $fullName = trim(sprintf('%s%s %s',
+            $validated['first_name'],
+            $validated['middle_initial'] ? ' ' . strtoupper(substr($validated['middle_initial'], 0, 1)) . '.' : '',
+            $validated['surname']
+        ));
+
+        $admin->name = $fullName;
+        $admin->first_name = $validated['first_name'];
+        $admin->middle_initial = $validated['middle_initial'];
+        $admin->surname = $validated['surname'];
         $admin->email = $validated['email'];
 
         if (!empty($validated['password'])) {

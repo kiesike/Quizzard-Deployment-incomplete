@@ -125,6 +125,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const url = pageUrl ?? `{{ route('admin.classes') }}?search=${encodeURIComponent(search)}&sort=${encodeURIComponent(sort)}`;
 
+        // Show loading spinner
+        tableWrapper.innerHTML = `
+            <div class="py-12 text-center">
+                <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-slate-600"></div>
+                <p class="mt-3 text-sm text-slate-600">Loading classes...</p>
+            </div>
+        `;
+
         fetch(url, {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'

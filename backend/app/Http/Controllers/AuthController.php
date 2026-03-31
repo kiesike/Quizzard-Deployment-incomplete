@@ -83,6 +83,9 @@ class AuthController extends Controller
             'user'    => [
                 'id'     => $user->id,
                 'name'   => $user->name,
+                'first_name' => $user->first_name,
+                'middle_initial' => $user->middle_initial,
+                'surname' => $user->surname,
                 'email'  => $user->email,
                 'role'   => $user->role,
                 'status' => $user->status,
@@ -94,7 +97,9 @@ class AuthController extends Controller
     public function register(Request $request)
 {
     $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
-        'name' => 'required|string|max:255',
+        'first_name' => 'required|string|max:255',
+        'middle_initial' => 'nullable|string|size:1|alpha',
+        'surname' => 'required|string|max:255',
         'email' => 'required|email|unique:users,email',
         'password' => [
             'required',
@@ -121,8 +126,17 @@ class AuthController extends Controller
         ], 422);
     }
 
+    $fullName = trim(sprintf('%s%s %s',
+        $request->first_name,
+        $request->middle_initial ? ' ' . strtoupper(substr($request->middle_initial, 0, 1)) . '.' : '',
+        $request->surname
+    ));
+
     $user = User::create([
-        'name' => $request->name,
+        'name' => $fullName,
+        'first_name' => $request->first_name,
+        'middle_initial' => $request->middle_initial,
+        'surname' => $request->surname,
         'email' => $request->email,
         'password' => Hash::make($request->password),
         'role' => $request->role,
@@ -134,6 +148,9 @@ class AuthController extends Controller
         'user' => [
             'id' => $user->id,
             'name' => $user->name,
+            'first_name' => $user->first_name,
+            'middle_initial' => $user->middle_initial,
+            'surname' => $user->surname,
             'email' => $user->email,
             'role' => $user->role,
             'status' => $user->status,
@@ -161,14 +178,32 @@ class AuthController extends Controller
         $user = $request->user();
 
         $request->validate([
-            'name'             => 'sometimes|string|max:255',
+            'first_name'       => 'sometimes|required|string|max:255',
+            'middle_initial'   => 'nullable|string|size:1',
+            'surname'          => 'sometimes|required|string|max:255',
             'current_password' => 'required_with:new_password|string',
             'new_password'     => 'sometimes|string|min:8|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&]).+$/',
             'profile_picture'  => 'sometimes|string',
         ]);
 
-        if ($request->has('name')) {
-            $user->name = $request->name;
+        if ($request->has('first_name')) {
+            $user->first_name = $request->first_name;
+        }
+
+        if ($request->has('middle_initial')) {
+            $user->middle_initial = strtoupper(substr($request->middle_initial, 0, 1));
+        }
+
+        if ($request->has('surname')) {
+            $user->surname = $request->surname;
+        }
+
+        if ($request->hasAny(['first_name', 'middle_initial', 'surname'])) {
+            $user->name = trim(sprintf('%s%s %s',
+                $user->first_name ?? '',
+                $user->middle_initial ? ' ' . strtoupper(substr($user->middle_initial, 0, 1)) . '.' : '',
+                $user->surname ?? ''
+            ));
         }
 
         if ($request->has('profile_picture')) {
@@ -197,6 +232,9 @@ class AuthController extends Controller
             'user'    => [
                 'id'              => $user->id,
                 'name'            => $user->name,
+                'first_name'      => $user->first_name,
+                'middle_initial'  => $user->middle_initial,
+                'surname'         => $user->surname,
                 'email'           => $user->email,
                 'role'            => $user->role,
                 'profile_picture' => $user->profile_picture,

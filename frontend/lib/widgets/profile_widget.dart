@@ -57,8 +57,12 @@ class _ProfileWidgetState extends State<ProfileWidget> {
   }
 
   Future<void> _editName() async {
-    final nameController =
-        TextEditingController(text: _user?['name'] ?? '');
+    final firstNameController =
+        TextEditingController(text: _user?['first_name'] ?? '');
+    final middleInitialController =
+        TextEditingController(text: _user?['middle_initial'] ?? '');
+    final surnameController =
+        TextEditingController(text: _user?['surname'] ?? '');
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -66,13 +70,38 @@ class _ProfileWidgetState extends State<ProfileWidget> {
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16)),
         title: const Text('Edit Name'),
-        content: TextField(
-          controller: nameController,
-          decoration: InputDecoration(
-            labelText: 'Full Name',
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12)),
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: firstNameController,
+              decoration: InputDecoration(
+                labelText: 'First Name',
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: middleInitialController,
+              maxLength: 1,
+              decoration: InputDecoration(
+                labelText: 'Middle Initial (optional)',
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                helperText: 'Single letter',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: surnameController,
+              decoration: InputDecoration(
+                labelText: 'Surname',
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -92,10 +121,24 @@ class _ProfileWidgetState extends State<ProfileWidget> {
     );
 
     if (confirm != true) return;
-    if (nameController.text.trim().isEmpty) return;
+    if (firstNameController.text.trim().isEmpty ||
+        surnameController.text.trim().isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('First name and surname are required!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     final result = await AuthService.authPut('/profile', {
-      'name': nameController.text.trim(),
+      'first_name': firstNameController.text.trim(),
+      'middle_initial': middleInitialController.text.trim().isEmpty
+          ? null
+          : middleInitialController.text.trim()[0],
+      'surname': surnameController.text.trim(),
     });
 
     if (result['success']) {

@@ -28,15 +28,27 @@ class AdminUserController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_initial' => ['nullable', 'string', 'size:1', 'alpha'],
+            'surname' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['required', Rule::in(['teacher', 'student'])],
             'status' => ['required', Rule::in(['pending', 'active', 'deactivated'])],
         ]);
 
+        $middleInitial = $validated['middle_initial'] ? strtoupper(substr($validated['middle_initial'], 0, 1)) : null;
+        $fullName = trim(sprintf('%s%s %s',
+            $validated['first_name'],
+            $middleInitial ? ' ' . $middleInitial . '.' : '',
+            $validated['surname']
+        ));
+
         User::create([
-            'name' => $validated['name'],
+            'name' => $fullName,
+            'first_name' => $validated['first_name'],
+            'middle_initial' => $middleInitial,
+            'surname' => $validated['surname'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
@@ -79,7 +91,9 @@ class AdminUserController extends Controller
         abort_if(!in_array($user->role, ['teacher', 'student']), 404);
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_initial' => ['nullable', 'string', 'size:1', 'alpha'],
+            'surname' => ['required', 'string', 'max:255'],
             'email' => [
                 'required',
                 'email',
@@ -91,7 +105,17 @@ class AdminUserController extends Controller
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ]);
 
-        $user->name = $validated['name'];
+        $middleInitial = $validated['middle_initial'] ? strtoupper(substr($validated['middle_initial'], 0, 1)) : null;
+        $fullName = trim(sprintf('%s%s %s',
+            $validated['first_name'],
+            $middleInitial ? ' ' . $middleInitial . '.' : '',
+            $validated['surname']
+        ));
+
+        $user->name = $fullName;
+        $user->first_name = $validated['first_name'];
+        $user->middle_initial = $middleInitial;
+        $user->surname = $validated['surname'];
         $user->email = $validated['email'];
         $user->role = $validated['role'];
         $user->status = $validated['status'];
@@ -101,7 +125,9 @@ class AdminUserController extends Controller
         }
 
         $user->save();
-
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'User updated successfully']);
+        }
         return redirect()
             ->route('admin.dashboard', ['type' => $validated['role']])
             ->with('success', 'Account updated successfully.');

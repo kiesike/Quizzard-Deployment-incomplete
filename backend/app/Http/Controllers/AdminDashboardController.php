@@ -11,6 +11,7 @@ class AdminDashboardController extends Controller
 {
     $type = $request->get('type', 'teacher');
     $search = $request->get('search', '');
+    $filterBy = $request->get('filter_by', 'all'); // all, first_name, middle_initial, surname
 
     if (!in_array($type, ['teacher', 'student'])) {
         $type = 'teacher';
@@ -18,10 +19,22 @@ class AdminDashboardController extends Controller
 
     $query = User::query()
         ->where('role', $type)
-        ->when($search, function ($q) use ($search) {
-            $q->where(function ($sub) use ($search) {
-                $sub->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+        ->when($search, function ($q) use ($search, $filterBy) {
+            $q->where(function ($sub) use ($search, $filterBy) {
+                if ($filterBy === 'first_name') {
+                    $sub->where('first_name', 'like', "%{$search}%");
+                } elseif ($filterBy === 'middle_initial') {
+                    $sub->where('middle_initial', 'like', "%{$search}%");
+                } elseif ($filterBy === 'surname') {
+                    $sub->where('surname', 'like', "%{$search}%");
+                } else {
+                    // Search all name fields + email
+                    $sub->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('middle_initial', 'like', "%{$search}%")
+                        ->orWhere('surname', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                }
             });
         })
         ->orderByDesc('created_at');
@@ -41,6 +54,6 @@ class AdminDashboardController extends Controller
         ]);
     }
 
-    return view('admin.dashboard.index', compact('users', 'stats', 'type', 'search'));
+    return view('admin.dashboard.index', compact('users', 'stats', 'type', 'search', 'filterBy'));
 }
 }

@@ -1,0 +1,1661 @@
+@extends('admin.layouts.app')
+
+@section('title', 'Classes')
+
+@section('content')
+<div class="space-y-6">
+    <!-- Hero -->
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 p-6 md:p-8 text-white shadow-lg">
+        <div class="relative z-10">
+            <h1 class="text-2xl md:text-3xl font-bold">Classes Management</h1>
+            <p class="mt-2 text-sm md:text-base text-white/90">
+                View, update, and manage all classes across the platform.
+            </p>
+        </div>
+        <div class="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10"></div>
+        <div class="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/10"></div>
+    </div>
+
+    <!-- Widgets -->
+    <div id="classWidgets" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
+            <p class="text-sm font-medium text-slate-500">Active Teachers</p>
+            <h2 id="activeTeachersCount" class="mt-2 text-3xl font-bold text-slate-800">{{ $activeTeachers }}</h2>
+        </div>
+
+        <div class="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
+            <p class="text-sm font-medium text-slate-500">Total Students</p>
+            <h2 id="studentsCount" class="mt-2 text-3xl font-bold text-slate-800">{{ $studentsCount }}</h2>
+        </div>
+
+        <div class="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
+            <p class="text-sm font-medium text-slate-500">Classes</p>
+            <h2 id="classesCount" class="mt-2 text-3xl font-bold text-slate-800">{{ $classesCount }}</h2>
+        </div>
+
+        <div class="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
+    <p class="text-sm font-medium text-slate-500">Total Enrollments</p>
+    <h2 class="mt-2 text-3xl font-bold text-slate-800">{{ $totalEnrollments }}</h2>
+</div>
+    </div>
+
+    <!-- Controls -->
+    <div class="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div class="w-full lg:max-w-md">
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search by class title or teacher..."
+                    class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+            </div>
+
+            <div class="w-full lg:w-auto">
+                <select
+                    id="sortFilter"
+                    class="w-full lg:w-48 rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                    <option value="latest">Latest</option>
+                    <option value="oldest">Oldest</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="rounded-2xl bg-white shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <div id="classesTableWrapper">
+                @include('admin.classes.partials.table', ['classes' => $classes])
+            </div>
+        </div>
+    </div>
+</div>
+
+@include('admin.classes.modals.view')
+@include('admin.classes.modals.edit')
+@include('admin.classes.modals.delete')
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const searchInput = document.getElementById('searchInput');
+    const sortFilter = document.getElementById('sortFilter');
+    const tableWrapper = document.getElementById('classesTableWrapper');
+
+    const viewModal = document.getElementById('viewClassModal');
+    const editModal = document.getElementById('editClassModal');
+    const deleteModal = document.getElementById('deleteClassModal');
+
+    const editForm = document.getElementById('editClassForm');
+    const deleteForm = document.getElementById('deleteClassForm');
+
+    let searchTimeout = null;
+    let currentDeleteId = null;
+
+    function openModal(modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function closeModal(modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+    }
+
+    document.querySelectorAll('.close-modal').forEach(button => {
+        button.addEventListener('click', function () {
+            closeModal(viewModal);
+            closeModal(editModal);
+            closeModal(deleteModal);
+        });
+    });
+
+    [viewModal, editModal, deleteModal].forEach(modal => {
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) closeModal(modal);
+        });
+    });
+
+    function fetchClasses(pageUrl = null) {
+        const search = searchInput.value;
+        const sort = sortFilter.value;
+
+        const url = pageUrl ?? `{{ route('admin.classes') }}?search=${encodeURIComponent(search)}&sort=${encodeURIComponent(sort)}`;
+
+        // Show loading spinner
+        tableWrapper.innerHTML = `
+            <div class="py-12 text-center">
+                <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-slate-600"></div>
+                <p class="mt-3 text-sm text-slate-600">Loading classes...</p>
+            </div>
+        `;
+
+        fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            tableWrapper.innerHTML = html;
+            bindTableActions();
+        });
+    }
+
+    function refreshCounts() {
+        fetch(`{{ route('admin.classes') }}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(() => {
+            const currentSearch = searchInput.value;
+            const currentSort = sortFilter.value;
+
+            fetch(`{{ route('admin.classes') }}?search=${encodeURIComponent(currentSearch)}&sort=${encodeURIComponent(currentSort)}`)
+                .then(response => response.text())
+                .then(() => {
+                    window.location.reload();
+                });
+        });
+    }
+
+    function bindTableActions() {
+        document.querySelectorAll('.view-class-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                const id = this.dataset.id;
+
+                fetch(`/admin/classes/${id}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('viewClassName').textContent = data.name ?? '—';
+                        document.getElementById('viewClassCode').textContent = data.class_code ?? '—';
+                        document.getElementById('viewClassDescription').textContent = data.description ?? '—';
+                        document.getElementById('viewClassTeacher').textContent = data.teacher?.name ?? '—';
+                        document.getElementById('viewClassStudentCount').textContent = data.students?.length ?? 0;
+
+                        openModal(viewModal);
+                    });
+            });
+        });
+
+        document.querySelectorAll('.edit-class-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                const id = this.dataset.id;
+
+                fetch(`/admin/classes/${id}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('editClassId').value = data.id;
+                        document.getElementById('editClassName').value = data.name ?? '';
+                        document.getElementById('editClassDescription').value = data.description ?? '';
+
+                        openModal(editModal);
+                    });
+            });
+        });
+
+        document.querySelectorAll('.delete-class-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                currentDeleteId = this.dataset.id;
+                document.getElementById('deleteClassName').textContent = this.dataset.name;
+                openModal(deleteModal);
+            });
+        });
+
+        document.querySelectorAll('#classesTableWrapper .pagination a').forEach(link => {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                fetchClasses(this.href);
+            });
+        });
+    }
+
+    searchInput.addEventListener('input', function () {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            fetchClasses();
+        }, 300);
+    });
+
+    sortFilter.addEventListener('change', function () {
+        fetchClasses();
+    });
+
+    editForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const id = document.getElementById('editClassId').value;
+        const formData = new FormData(editForm);
+
+        fetch(`/admin/classes/${id}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-HTTP-Method-Override': 'PUT',
+                'Accept': 'application/json'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeModal(editModal);
+                fetchClasses();
+                setTimeout(() => window.location.reload(), 250);
+            }
+        });
+    });
+
+    deleteForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        if (!currentDeleteId) return;
+
+        fetch(`/admin/classes/${currentDeleteId}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-HTTP-Method-Override': 'DELETE',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeModal(deleteModal);
+                fetchClasses();
+                setTimeout(() => window.location.reload(), 250);
+            }
+        });
+    });
+
+    bindTableActions();
+});
+</script>
+@endsection
+<table class="min-w-full divide-y divide-slate-200">
+    <thead class="bg-slate-50">
+        <tr>
+            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Class</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Teacher</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Students</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Code</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Created</th>
+            <th class="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
+        </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100 bg-white">
+        @forelse($classes as $class)
+            <tr class="hover:bg-slate-50 transition">
+                <td class="px-6 py-4">
+                    <div class="font-semibold text-slate-800">{{ $class->name }}</div>
+                    <div class="text-sm text-slate-500 max-w-xs truncate">
+                        {{ $class->description ?: 'No description' }}
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-700">
+                    {{ $class->teacher->name ?? 'Unknown Teacher' }}
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-700">
+                    {{ $class->students->count() }}
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-700">
+                    {{ $class->class_code }}
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-700">
+                    {{ $class->created_at ? $class->created_at->format('M d, Y') : '—' }}
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex items-center justify-center gap-2 flex-wrap">
+                        <button
+                            class="view-class-btn rounded-lg bg-sky-100 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-200 transition"
+                            data-id="{{ $class->id }}"
+                        >
+                            View
+                        </button>
+
+                        <button
+                            class="edit-class-btn rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-200 transition"
+                            data-id="{{ $class->id }}"
+                        >
+                            Update
+                        </button>
+
+                        <button
+                            class="delete-class-btn rounded-lg bg-rose-100 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-200 transition"
+                            data-id="{{ $class->id }}"
+                            data-name="{{ $class->name }}"
+                        >
+                            Delete
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        @empty
+            <tr>
+                <td colspan="6" class="px-6 py-10 text-center text-sm text-slate-500">
+                    No classes found.
+                </td>
+            </tr>
+        @endforelse
+    </tbody>
+</table>
+
+@if ($classes->hasPages())
+    <div class="border-t border-slate-200 bg-white px-6 py-4">
+        {{ $classes->links() }}
+    </div>
+@endif
+<div id="editClassModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4">
+    <div class="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
+        <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+            <h2 class="text-lg font-bold text-slate-800">Update Class</h2>
+            <button class="close-modal text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <form id="editClassForm">
+            @csrf
+            <input type="hidden" id="editClassId" name="id">
+
+            <div class="space-y-4 px-6 py-5">
+                <div>
+                    <label for="editClassName" class="block text-sm font-semibold text-slate-700 mb-1">Class Title</label>
+                    <input
+                        type="text"
+                        id="editClassName"
+                        name="name"
+                        class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                    >
+                </div>
+
+                <div>
+                    <label for="editClassDescription" class="block text-sm font-semibold text-slate-700 mb-1">Description</label>
+                    <textarea
+                        id="editClassDescription"
+                        name="description"
+                        rows="4"
+                        class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    ></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
+                <button type="button" class="close-modal rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    Cancel
+                </button>
+                <button type="submit" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<div id="deleteClassModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4">
+    <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+        <div class="border-b border-slate-200 px-6 py-4">
+            <h2 class="text-lg font-bold text-rose-600">Delete Class</h2>
+        </div>
+
+        <form id="deleteClassForm">
+            @csrf
+            <div class="px-6 py-5">
+                <p class="text-sm text-slate-700">
+                    Are you sure you want to delete
+                    <span id="deleteClassName" class="font-bold text-slate-900"></span>?
+                </p>
+                <p class="mt-2 text-sm text-rose-500">
+                    This action cannot be undone and will also remove related student enrollments and assigned quiz links.
+                </p>
+            </div>
+
+            <div class="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
+                <button type="button" class="close-modal rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    Cancel
+                </button>
+                <button type="submit" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">
+                    Delete
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<div id="viewClassModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4">
+    <div class="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
+        <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+            <h2 class="text-lg font-bold text-slate-800">View Class</h2>
+            <button class="close-modal text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div class="space-y-4 px-6 py-5">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Class Title</p>
+                <p id="viewClassName" class="mt-1 text-base text-slate-800">—</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Class Code</p>
+                    <p id="viewClassCode" class="mt-1 text-base text-slate-800">—</p>
+                </div>
+
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Teacher</p>
+                    <p id="viewClassTeacher" class="mt-1 text-base text-slate-800">—</p>
+                </div>
+            </div>
+
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Description</p>
+                <p id="viewClassDescription" class="mt-1 text-base text-slate-800 whitespace-pre-line">—</p>
+            </div>
+
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Students Enrolled</p>
+                <p id="viewClassStudentCount" class="mt-1 text-base text-slate-800">0</p>
+            </div>
+        </div>
+
+        <div class="flex justify-end border-t border-slate-200 px-6 py-4">
+            <button class="close-modal rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+@extends('admin.layouts.app')
+
+@section('content')
+    <div class="space-y-6">
+        <div class="rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-blue-900 p-6 text-white shadow-xl sm:p-8">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <p class="text-sm font-medium uppercase tracking-[0.2em] text-blue-200">Admin Panel</p>
+                    <h2 class="mt-2 text-3xl font-bold sm:text-4xl">Menu Dashboard</h2>
+                    <p class="mt-2 max-w-2xl text-sm text-slate-200 sm:text-base">
+                        Manage teacher and student accounts, review account details, and maintain the Quizzard admin system.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+                        <p class="text-xs uppercase tracking-wide text-slate-200">Teachers</p>
+                        <p class="mt-1 text-2xl font-bold">{{ $stats['teachers_count'] }}</p>
+                    </div>
+                    <div class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+                        <p class="text-xs uppercase tracking-wide text-slate-200">Students</p>
+                        <p class="mt-1 text-2xl font-bold">{{ $stats['students_count'] }}</p>
+                    </div>
+                    <div class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+                        <p class="text-xs uppercase tracking-wide text-slate-200">Activated</p>
+                        <p class="mt-1 text-2xl font-bold">{{ $stats['activated_count'] }}</p>
+                    </div>
+                    <div class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+                        <p class="text-xs uppercase tracking-wide text-slate-200">Deactivated</p>
+                        <p class="mt-1 text-2xl font-bold">{{ $stats['deactivated_count'] }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if(session('success'))
+            <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 shadow-sm">
+                <div class="flex items-start gap-3">
+                    <div class="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                        ✓
+                    </div>
+                    <div>
+                        <p class="font-semibold text-emerald-800">Success</p>
+                        <p class="text-sm text-emerald-700">{{ session('success') }}</p>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        @if($errors->any())
+            <div class="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 shadow-sm">
+                <p class="mb-2 font-semibold text-red-800">Please fix the following:</p>
+                <ul class="ml-5 list-disc text-sm text-red-700">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        <div class="rounded-3xl bg-white p-6 shadow-lg ring-1 ring-slate-200">
+            <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div class="flex flex-wrap gap-3">
+                    <a href="{{ route('admin.dashboard', ['type' => 'teacher', 'search' => $search]) }}"
+                       class="rounded-xl px-5 py-2.5 text-sm font-semibold transition {{ $type === 'teacher' ? 'bg-blue-700 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
+                        Teachers
+                    </a>
+
+                    <a href="{{ route('admin.dashboard', ['type' => 'student', 'search' => $search]) }}"
+                       class="rounded-xl px-5 py-2.5 text-sm font-semibold transition {{ $type === 'student' ? 'bg-blue-700 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
+                        Students
+                    </a>
+                </div>
+
+                <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+                    <select id="filterBy" class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                        <option value="all">All Fields</option>
+                        <option value="first_name">First Name</option>
+                        <option value="middle_initial">Middle Initial</option>
+                        <option value="surname">Surname</option>
+                    </select>
+                    
+                    <input type="text"
+                           id="searchInput"
+                           value="{{ $search }}"
+                           placeholder="Search by name or email"
+                           class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 xl:w-80">
+
+                    @if($type === 'teacher')
+                        <button type="button"
+                                id="btnCreateTeacher"
+                                class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+                            Create Teacher
+                        </button>
+                    @endif
+
+                    @if($type === 'student')
+                        <button type="button"
+                                id="btnCreateStudent"
+                                class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+                            Create Student
+                        </button>
+                    @endif
+                </div>
+            </div>
+
+            <div class="mt-6 overflow-hidden rounded-2xl border border-slate-200">
+                <div id="usersTableContainer" class="bg-white">
+                    @include('admin.dashboard.partials.users_table', ['users' => $users, 'type' => $type])
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@push('modals')
+    {{-- CREATE MODAL --}}
+    <div id="createModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+        <div class="relative w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl">
+            <button type="button" class="close-modal absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-500 hover:bg-slate-200 hover:text-slate-700">&times;</button>
+
+            <div class="mb-6">
+                <h3 class="text-2xl font-bold text-slate-900" id="createModalTitle">Create Account</h3>
+                <p class="mt-1 text-sm text-slate-500">Fill in the account details below.</p>
+            </div>
+
+            <form method="POST" action="{{ route('admin.users.store') }}" class="space-y-4">
+                @csrf
+
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">First Name</label>
+                        <input type="text" name="first_name" id="createFirstName" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Middle Initial</label>
+                        <input type="text" name="middle_initial" id="createMiddleInitial" maxlength="1" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="Optional">
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Surname</label>
+                        <input type="text" name="surname" id="createSurname" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
+                    <input type="email" name="email" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Role</label>
+                        <select name="role" id="createRole" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                            <option value="teacher">Teacher</option>
+                            <option value="student">Student</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Status</label>
+                        <select name="status" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                            <option value="pending">Pending</option>
+                            <option value="active">Active</option>
+                            <option value="deactivated">Deactivated</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Password</label>
+                    <input type="password" name="password" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                </div>
+
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Confirm Password</label>
+                    <input type="password" name="password_confirmation" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" class="close-modal rounded-xl bg-slate-100 px-5 py-2.5 font-semibold text-slate-700 hover:bg-slate-200">
+                        Cancel
+                    </button>
+                    <button type="submit" class="rounded-xl bg-emerald-600 px-5 py-2.5 font-semibold text-white hover:bg-emerald-700">
+                        Create
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- VIEW MODAL --}}
+    <div id="viewModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-950/60 py-8 px-4 backdrop-blur-sm">
+        <div class="relative w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl max-h-[calc(100vh-4rem)] overflow-y-auto">
+            <div id="viewModalSkeleton" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 rounded-3xl">
+                <div class="h-10 w-10 animate-spin rounded-full border-4 border-blue-400 border-t-transparent mb-4"></div>
+                <div class="h-4 w-40 bg-slate-200 rounded mb-2 animate-pulse"></div>
+                <div class="h-4 w-32 bg-slate-200 rounded mb-2 animate-pulse"></div>
+                <div class="h-4 w-48 bg-slate-200 rounded mb-2 animate-pulse"></div>
+            </div>
+
+            <button type="button" class="close-modal absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-500 hover:bg-slate-200 hover:text-slate-700">&times;</button>
+
+            <div class="mb-6">
+                <h3 class="text-2xl font-bold text-slate-900">Account Details</h3>
+                <p class="mt-1 text-sm text-slate-500">View account information.</p>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div class="rounded-2xl bg-slate-50 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">ID</p>
+                    <p id="viewId" class="mt-1 text-base font-semibold text-slate-800"></p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Full Name</p>
+                    <p id="viewName" class="mt-1 text-base font-semibold text-slate-800"></p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Email</p>
+                    <p id="viewEmail" class="mt-1 text-base font-semibold text-slate-800 break-all"></p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Role</p>
+                    <p id="viewRole" class="mt-1 text-base font-semibold capitalize text-slate-800"></p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</p>
+                    <p id="viewStatus" class="mt-1 text-base font-semibold capitalize text-slate-800"></p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Password</p>
+                    <p id="viewPassword" class="mt-1 text-base font-semibold text-slate-800"></p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Created At</p>
+                    <p id="viewCreatedAt" class="mt-1 text-base font-semibold text-slate-800"></p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Updated At</p>
+                    <p id="viewUpdatedAt" class="mt-1 text-base font-semibold text-slate-800"></p>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button type="button" class="close-modal rounded-xl bg-slate-100 px-5 py-2.5 font-semibold text-slate-700 hover:bg-slate-200">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- EDIT MODAL --}}
+    <div id="editModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-950/60 py-8 px-4 backdrop-blur-sm">
+        <div class="relative w-full max-w-xl max-h-[calc(100vh-4rem)] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+            <div id="editModalSpinner" class="hidden absolute inset-0 z-10 flex items-center justify-center bg-white/80 rounded-3xl">
+                <div class="h-10 w-10 animate-spin rounded-full border-4 border-blue-400 border-t-transparent"></div>
+            </div>
+
+            <button type="button" class="close-modal absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-500 hover:bg-slate-200 hover:text-slate-700">&times;</button>
+
+            <div class="mb-6">
+                <h3 class="text-2xl font-bold text-slate-900">Update Account</h3>
+                <p class="mt-1 text-sm text-slate-500">Edit user details and save changes.</p>
+            </div>
+
+            <form method="POST" id="editForm" class="space-y-4">
+                @csrf
+                @method('PUT')
+
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">First Name</label>
+                        <input type="text" name="first_name" id="editFirstName" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Middle Initial</label>
+                        <input type="text" name="middle_initial" id="editMiddleInitial" maxlength="1" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="Optional">
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Surname</label>
+                        <input type="text" name="surname" id="editSurname" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
+                    <input type="email" name="email" id="editEmail" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Role</label>
+                        <select name="role" id="editRole" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                            <option value="teacher">Teacher</option>
+                            <option value="student">Student</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Status</label>
+                        <select name="status" id="editStatus" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
+                            <option value="pending">Pending</option>
+                            <option value="active">Active</option>
+                            <option value="deactivated">Deactivated</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">New Password</label>
+                    <input type="password" name="password" id="editPassword" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                </div>
+
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Confirm New Password</label>
+                    <input type="password" name="password_confirmation" id="editPasswordConfirmation" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" class="close-modal rounded-xl bg-slate-100 px-5 py-2.5 font-semibold text-slate-700 hover:bg-slate-200">
+                        Cancel
+                    </button>
+                    <button id="updateUserBtn" type="submit" class="rounded-xl bg-amber-500 px-5 py-2.5 font-semibold text-white hover:bg-amber-600 transition disabled:opacity-60 disabled:cursor-not-allowed">
+                        <span class="flex items-center justify-center gap-2">
+                            <span class="spinner hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                            <span>Update</span>
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- DELETE MODAL --}}
+    <div id="deleteModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+        <div class="relative w-full max-w-lg rounded-3xl border border-red-200 bg-white p-6 shadow-2xl">
+            <button type="button" class="close-modal absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-500 hover:bg-slate-200 hover:text-slate-700">&times;</button>
+
+            <div class="mb-5">
+                <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-xl text-red-600">
+                    !
+                </div>
+                <h3 class="text-2xl font-bold text-red-600">Delete Account</h3>
+                <p class="mt-2 text-sm text-slate-600">
+                    Are you sure you want to delete <strong id="deleteUserName" class="text-slate-900"></strong>?
+                </p>
+                <p class="mt-2 text-sm text-red-600">This action cannot be undone.</p>
+            </div>
+
+            <form method="POST" id="deleteForm" class="flex justify-end gap-3">
+                @csrf
+                @method('DELETE')
+
+                <button type="button" class="close-modal rounded-xl bg-slate-100 px-5 py-2.5 font-semibold text-slate-700 hover:bg-slate-200">
+                    Cancel
+                </button>
+                <button type="submit" class="rounded-xl bg-red-600 px-5 py-2.5 font-semibold text-white hover:bg-red-700">
+                    Delete
+                </button>
+            </form>
+        </div>
+    </div>
+@endpush
+
+@push('scripts')
+    <script>
+        const dashboardUrl = "{{ route('admin.dashboard') }}";
+        const currentType = "{{ $type }}";
+
+        const searchInput = document.getElementById('searchInput');
+        const filterBySelect = document.getElementById('filterBy');
+        const usersTableContainer = document.getElementById('usersTableContainer');
+
+        // @ts-ignore
+        let currentFilterBy = @json($filterBy ?? 'all');
+        if (filterBySelect) {
+            filterBySelect.value = currentFilterBy;
+        }
+
+        const createModal = document.getElementById('createModal');
+        const viewModal = document.getElementById('viewModal');
+        const editModal = document.getElementById('editModal');
+        const deleteModal = document.getElementById('deleteModal');
+
+        const allModals = [createModal, viewModal, editModal, deleteModal];
+
+        function openModal(modal) {
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.classList.add('overflow-hidden');
+        }
+
+        function closeModal(modal) {
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+
+            const hasVisibleModal = allModals.some(m => m && !m.classList.contains('hidden'));
+            if (!hasVisibleModal) {
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
+        function closeAllModals() {
+            allModals.forEach(modal => closeModal(modal));
+        }
+
+        allModals.forEach(modal => {
+            if (!modal) return;
+
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) {
+                    closeModal(modal);
+                }
+            });
+        });
+
+        document.querySelectorAll('.close-modal').forEach(button => {
+            button.addEventListener('click', function () {
+                const modal = button.closest('#createModal, #viewModal, #editModal, #deleteModal');
+                closeModal(modal);
+            });
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeAllModals();
+            }
+        });
+
+        const btnCreateTeacher = document.getElementById('btnCreateTeacher');
+        const btnCreateStudent = document.getElementById('btnCreateStudent');
+
+        if (btnCreateTeacher) {
+            btnCreateTeacher.addEventListener('click', function () {
+                document.getElementById('createRole').value = 'teacher';
+                document.getElementById('createModalTitle').textContent = 'Create Teacher Account';
+                openModal(createModal);
+            });
+        }
+
+        if (btnCreateStudent) {
+            btnCreateStudent.addEventListener('click', function () {
+                document.getElementById('createRole').value = 'student';
+                document.getElementById('createModalTitle').textContent = 'Create Student Account';
+                openModal(createModal);
+            });
+        }
+
+        // Filter by name parts
+        if (filterBySelect) {
+            filterBySelect.addEventListener('change', function() {
+                currentFilterBy = this.value;
+                performSearch();
+            });
+        }
+
+        // Search input with filter
+        let searchTimeout;
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                clearTimeout(searchTimeout);
+
+                searchTimeout = setTimeout(function () {
+                    performSearch();
+                }, 250);
+            });
+        }
+
+        function performSearch() {
+            const search = searchInput.value;
+            const url = `${dashboardUrl}?type=${encodeURIComponent(currentType)}&search=${encodeURIComponent(search)}&filter_by=${encodeURIComponent(currentFilterBy)}`;
+            loadUsers(url);
+        }
+
+        document.addEventListener('click', async function (e) {
+            const viewBtn = e.target.closest('.btn-view-user');
+            const editBtn = e.target.closest('.btn-edit-user');
+            const deleteBtn = e.target.closest('.btn-delete-user');
+            const paginationLink = e.target.closest('#usersPagination a');
+
+            if (viewBtn) {
+                openModal(viewModal);
+
+                document.getElementById('viewId').textContent = 'Loading...';
+                document.getElementById('viewName').textContent = 'Loading...';
+                document.getElementById('viewEmail').textContent = 'Loading...';
+                document.getElementById('viewRole').textContent = 'Loading...';
+                document.getElementById('viewStatus').textContent = 'Loading...';
+                document.getElementById('viewCreatedAt').textContent = 'Loading...';
+                document.getElementById('viewUpdatedAt').textContent = 'Loading...';
+                document.getElementById('viewPassword').textContent = 'Loading...';
+
+                try {
+                    const id = viewBtn.dataset.id;
+                    const response = await fetch(`/admin/users/${id}`, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    const user = await response.json();
+
+                    document.getElementById('viewId').textContent = user.id ?? '';
+                    document.getElementById('viewName').textContent = user.name ?? '';
+                    document.getElementById('viewEmail').textContent = user.email ?? '';
+                    document.getElementById('viewRole').textContent = user.role ?? '';
+                    document.getElementById('viewStatus').textContent = user.status ?? '';
+                    document.getElementById('viewCreatedAt').textContent = user.created_at ?? '';
+                    document.getElementById('viewUpdatedAt').textContent = user.updated_at ?? '';
+                    document.getElementById('viewPassword').textContent = user.password ?? '';
+                } catch (error) {
+                    document.getElementById('viewId').textContent = '-';
+                    document.getElementById('viewName').textContent = 'Failed to load user';
+                    document.getElementById('viewEmail').textContent = '-';
+                    document.getElementById('viewRole').textContent = '-';
+                    document.getElementById('viewStatus').textContent = '-';
+                    document.getElementById('viewCreatedAt').textContent = '-';
+                    document.getElementById('viewUpdatedAt').textContent = '-';
+                    document.getElementById('viewPassword').textContent = '-';
+                    console.error(error);
+                }
+
+                return;
+            }
+
+            if (editBtn) {
+                document.getElementById('editFirstName').value = editBtn.dataset.firstName ?? '';
+                document.getElementById('editMiddleInitial').value = editBtn.dataset.middleInitial ?? '';
+                document.getElementById('editSurname').value = editBtn.dataset.surname ?? '';
+                document.getElementById('editEmail').value = editBtn.dataset.email ?? '';
+                document.getElementById('editRole').value = editBtn.dataset.role ?? '';
+                document.getElementById('editStatus').value = editBtn.dataset.status ?? '';
+                document.getElementById('editPassword').value = '';
+                document.getElementById('editPasswordConfirmation').value = '';
+                document.getElementById('editForm').action = editBtn.dataset.updateUrl ?? '';
+
+                openModal(editModal);
+                return;
+            }
+
+            if (deleteBtn) {
+                document.getElementById('deleteUserName').textContent = deleteBtn.dataset.name ?? '';
+                document.getElementById('deleteForm').action = deleteBtn.dataset.deleteUrl ?? '';
+
+                openModal(deleteModal);
+                return;
+            }
+
+            if (paginationLink) {
+                e.preventDefault();
+                const url = paginationLink.getAttribute('href');
+                if (url) {
+                    loadUsers(url);
+                }
+            }
+        });
+
+        function userSkeleton() {
+            return `
+                <div class="py-12 text-center">
+                    <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-slate-600"></div>
+                    <p class="mt-3 text-sm text-slate-600">Loading users...</p>
+                </div>
+            `;
+        }
+
+        async function loadUsers(url) {
+            try {
+                usersTableContainer.innerHTML = userSkeleton();
+
+                const response = await fetch(url, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                usersTableContainer.innerHTML = data.html;
+            } catch (error) {
+                usersTableContainer.innerHTML = `
+                    <div class="py-8 text-center text-red-600">
+                        Failed to load users.
+                    </div>
+                `;
+                console.error(error);
+            }
+        }
+
+        // Handle update form submission
+        document.getElementById('editForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const submitBtn = this.querySelector('button[type="submit"]');
+            setButtonLoading(submitBtn);
+
+            try {
+                const formData = new FormData(this);
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    loadUsers(dashboardUrl + window.location.search);
+                    closeModal(editModal);
+                } else {
+                    alert(data.message || 'Error updating user');
+                }
+            } catch (error) {
+                alert('Error updating user');
+            } finally {
+                resetButtonLoading(submitBtn);
+            }
+        });
+    </script>
+
+    <script>
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('close-modal') || e.target.closest('.close-modal')) {
+                resetButtonLoading(document.getElementById('createTeacherBtn'));
+                resetButtonLoading(document.getElementById('createStudentBtn'));
+                resetButtonLoading(document.querySelector('#editForm button[type="submit"]'));
+            }
+        });
+    </script>
+@endpush
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quizzard Admin</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+    <div class="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
+        <aside class="bg-slate-900 text-white shadow-2xl">
+            <div class="flex h-full flex-col">
+                <div class="border-b border-slate-800 px-6 py-6">
+                    <h1 class="text-2xl font-bold tracking-wide">Quizzard Admin</h1>
+                    <p class="mt-1 text-sm text-slate-400">Management Panel</p>
+                </div>
+
+                <nav class="flex-1 space-y-2 px-4 py-6">
+                    <a href="{{ route('admin.dashboard') }}"
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.dashboard*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
+                        Menu Dashboard
+                    </a>
+
+                    <a href="{{ route('admin.profile') }}"
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.profile*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
+                        Profile
+                    </a>
+
+                    <a href="{{ route('admin.activation.index') }}"
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.activation*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
+                        Activation
+                    </a>
+
+                    <a href="{{ route('admin.classes') }}"
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.classes*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
+                        Classes
+                    </a>
+                </nav>
+
+                <div class="border-t border-slate-800 p-4">
+                    <form action="{{ route('admin.logout') }}" method="POST">
+                        @csrf
+                        <button type="submit"
+                                class="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700">
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </aside>
+
+        <main class="min-w-0 p-4 sm:p-6 lg:p-8">
+            @yield('content')
+        </main>
+    </div>
+
+    @stack('modals')
+    @stack('scripts')
+</body>
+</html>
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\ClassRoom;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+
+class AdminQuizController extends Controller
+{
+    public function index(Request $request)
+    {
+        $search = $request->search;
+        $sort = $request->sort ?? 'latest';
+        $filterBy = $request->get('filter_by', 'all'); // all, first_name, middle_initial, surname
+
+        $query = ClassRoom::with(['teacher', 'students']);
+
+        if ($search) {
+    $query->where(function ($q) use ($search, $filterBy) {
+        $q->where('name', 'like', "%{$search}%")
+          ->orWhereHas('teacher', function ($teacherQuery) use ($search, $filterBy) {
+              if ($filterBy === 'first_name') {
+                  $teacherQuery->where('first_name', 'like', "%{$search}%");
+              } elseif ($filterBy === 'middle_initial') {
+                  $teacherQuery->where('middle_initial', 'like', "%{$search}%");
+              } elseif ($filterBy === 'surname') {
+                  $teacherQuery->where('surname', 'like', "%{$search}%");
+              } else {
+                  $teacherQuery->where('first_name', 'like', "%{$search}%")
+                      ->orWhere('middle_initial', 'like', "%{$search}%")
+                      ->orWhere('surname', 'like', "%{$search}%")
+                      ->orWhere('name', 'like', "%{$search}%");
+              }
+          });
+    });
+}
+
+        if ($sort === 'oldest') {
+            $query->orderBy('created_at', 'asc');
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
+        $classes = $query->paginate(10);
+
+        $activeTeachers = User::where('role', 'teacher')
+            ->where('status', 'active')
+            ->count();
+
+        $studentsCount = User::where('role', 'student')->count();
+
+        $classesCount = ClassRoom::count();
+        $totalEnrollments = DB::table('class_students')->count();
+
+        if ($request->ajax()) {
+            return view('admin.classes.partials.table', compact('classes'))->render();
+        }
+
+        return view('admin.classes.index', compact(
+            'classes',
+            'activeTeachers',
+            'studentsCount',
+            'classesCount',
+            'totalEnrollments'
+        ));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $class = ClassRoom::findOrFail($id);
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string'
+        ]);
+
+        $class->update([
+            'name' => $request->name,
+            'description' => $request->description
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function destroy($id)
+    {
+        $class = ClassRoom::findOrFail($id);
+        $class->delete();
+
+        return response()->json(['success' => true]);
+    }
+
+    public function show($id)
+    {
+        $class = ClassRoom::with(['teacher', 'students'])->findOrFail($id);
+        return response()->json($class);
+    }
+}
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+
+class ClassRoom extends Model
+{
+    use HasFactory;
+
+    protected $table = 'classes';
+
+    protected $fillable = [
+        'teacher_id',
+        'name',
+        'description',
+        'class_code',
+    ];
+
+    // Auto-generate class code when creating
+    protected static function booted()
+    {
+        static::creating(function ($class) {
+            if (empty($class->class_code)) {
+                do {
+                    $code = strtoupper(Str::random(6));
+                } while (self::where('class_code', $code)->exists());
+                $class->class_code = $code;
+            }
+        });
+    }
+
+    public function teacher()
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function students()
+    {
+        return $this->belongsToMany(User::class, 'class_students', 'class_id', 'student_id')
+            ->withPivot('joined_at')
+            ->withTimestamps();
+    }
+
+    public function quizzes()
+    {
+        return $this->belongsToMany(Quiz::class, 'class_quizzes', 'class_id', 'quiz_id')
+            ->withPivot('assigned_at')
+            ->withTimestamps();
+    }
+}
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AdminAuthController;
+use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\AdminActivationController;
+use App\Http\Controllers\AdminProfileController;
+use App\Http\Controllers\AdminQuizController;
+
+Route::get('/', function () {
+    return redirect()->route('admin.login');
+});
+
+Route::get('/login', function () {
+    return redirect()->route('admin.login');
+})->name('login');
+
+Route::prefix('admin')->group(function () {
+    // Guest routes
+    Route::middleware('admin.guest')->group(function () {
+        Route::get('/login', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
+        Route::post('/login', [AdminAuthController::class, 'login'])->name('admin.login.submit');
+    });
+
+    // Authenticated admin routes
+    Route::middleware(['auth', 'admin'])->group(function () {
+        Route::post('/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
+
+        Route::get('/users', [AdminUserController::class, 'index'])->name('admin.users.index');
+        Route::get('/users/create', [AdminUserController::class, 'create'])->name('admin.users.create');
+        Route::post('/users', [AdminUserController::class, 'store'])->name('admin.users.store');
+        Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('admin.users.show');
+        Route::get('/users/{user}/edit', [AdminUserController::class, 'edit'])->name('admin.users.edit');
+        Route::put('/users/{user}', [AdminUserController::class, 'update'])->name('admin.users.update');
+        Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('admin.users.destroy');
+
+        Route::get('/activation', [AdminActivationController::class, 'index'])->name('admin.activation.index');
+        Route::patch('/activation/{user}/activate', [AdminActivationController::class, 'activate'])->name('admin.activation.activate');
+        Route::patch('/activation/{user}/deactivate', [AdminActivationController::class, 'deactivate'])->name('admin.activation.deactivate');
+
+        Route::get('/profile', [AdminProfileController::class, 'index'])->name('admin.profile');
+        Route::post('/profile', [AdminProfileController::class, 'update'])->name('admin.profile.update');
+
+        Route::get('/classes', [AdminQuizController::class, 'index'])
+        ->name('admin.classes');
+
+        Route::get('/classes/{id}', [AdminQuizController::class, 'show']);
+
+        Route::put('/classes/{id}', [AdminQuizController::class, 'update']);
+
+        Route::delete('/classes/{id}', [AdminQuizController::class, 'destroy']);
+    });
+});
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('classes', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
+            $table->string('name');
+            $table->text('description')->nullable();
+            $table->string('class_code', 8)->unique();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('classes');
+    }
+};
+import './bootstrap';
+
+// Activation / Deactivation AJAX logic
+document.addEventListener('DOMContentLoaded', function () {
+    const activationTable = document.getElementById('activationTableContainer');
+
+    if (activationTable) {
+        activationTable.addEventListener('submit', async function (e) {
+            const form = e.target.closest('form');
+            if (!form) return;
+
+            e.preventDefault();
+
+            const allButtons = activationTable.querySelectorAll('.activation-btn');
+            allButtons.forEach((btn) => {
+                btn.disabled = true;
+            });
+
+            const submitBtn = form.querySelector('.activation-btn');
+            const originalText = submitBtn ? submitBtn.innerHTML : '';
+
+            if (submitBtn) {
+                submitBtn.innerHTML = 'Processing...';
+            }
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to update status.');
+                }
+
+                const tableResponse = await fetch(window.location.href, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    },
+                });
+
+                if (!tableResponse.ok) {
+                    throw new Error('Failed to reload activation table.');
+                }
+
+                const data = await tableResponse.json();
+                activationTable.innerHTML = data.html;
+            } catch (error) {
+                console.error(error);
+
+                if (submitBtn) {
+                    submitBtn.innerHTML = originalText;
+                }
+
+                allButtons.forEach((btn) => {
+                    btn.disabled = false;
+                });
+
+                alert('Failed to update account status.');
+            }
+        });
+    }
+
+    // Close modal when clicking outside
+    document.querySelectorAll('[id$="Modal"]').forEach(function (modal) {
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) {
+                modal.classList.add('hidden');
+            }
+        });
+    });
+
+    // Close modal buttons
+    document.querySelectorAll('.close-modal').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const modal = btn.closest('[id$="Modal"]');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        });
+    });
+
+    // View modal skeleton loader
+    window.showViewModalSkeleton = function (show = true) {
+        const skeleton = document.getElementById('viewModalSkeleton');
+        if (skeleton) {
+            skeleton.classList.toggle('hidden', !show);
+        }
+    };
+
+    // Edit modal spinner
+    window.showEditModalSpinner = function (show = true) {
+        const spinner = document.getElementById('editModalSpinner');
+        if (spinner) {
+            spinner.classList.toggle('hidden', !show);
+        }
+    };
+
+    // Copy password on click
+    const viewPassword = document.getElementById('viewPassword');
+    if (viewPassword) {
+        viewPassword.style.userSelect = 'all';
+        viewPassword.title = 'Click to copy';
+
+        viewPassword.addEventListener('click', function () {
+            if (viewPassword.textContent) {
+                navigator.clipboard.writeText(viewPassword.textContent);
+            }
+        });
+    }
+});
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Http\Request;
+
+class AdminDashboardController extends Controller
+{
+    public function index(Request $request)
+{
+    $type = $request->get('type', 'teacher');
+    $search = $request->get('search', '');
+    $filterBy = $request->get('filter_by', 'all'); // all, first_name, middle_initial, surname
+
+    if (!in_array($type, ['teacher', 'student'])) {
+        $type = 'teacher';
+    }
+
+    $query = User::query()
+        ->where('role', $type)
+        ->when($search, function ($q) use ($search, $filterBy) {
+            $q->where(function ($sub) use ($search, $filterBy) {
+                if ($filterBy === 'first_name') {
+                    $sub->where('first_name', 'like', "%{$search}%");
+                } elseif ($filterBy === 'middle_initial') {
+                    $sub->where('middle_initial', 'like', "%{$search}%");
+                } elseif ($filterBy === 'surname') {
+                    $sub->where('surname', 'like', "%{$search}%");
+                } else {
+                    // Search all name fields + email
+                    $sub->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('middle_initial', 'like', "%{$search}%")
+                        ->orWhere('surname', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                }
+            });
+        })
+        ->orderByDesc('created_at');
+
+    $users = $query->paginate(10)->withQueryString();
+
+    $stats = [
+        'teachers_count'     => User::where('role', 'teacher')->count(),
+        'students_count'     => User::where('role', 'student')->count(),
+        'activated_count'    => User::where('status', 'active')->count(),
+        'deactivated_count'  => User::where('status', 'deactivated')->count(),
+    ];
+
+    if ($request->ajax()) {
+        return response()->json([
+            'html' => view('admin.dashboard.partials.users_table', compact('users', 'type'))->render(),
+        ]);
+    }
+
+    return view('admin.dashboard.index', compact('users', 'stats', 'type', 'search', 'filterBy'));
+}
+}
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\User;
+use App\Models\ClassRoom;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+
+class AdminClassesTestSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $teachers = [];
+
+        for ($i = 1; $i <= 5; $i++) {
+            $teacher = User::updateOrCreate(
+                ['email' => "teacher{$i}@test.com"],
+                [
+                    'name' => "Teacher $i",
+                    'password' => Hash::make('password'),
+                    'role' => 'teacher',
+                    'status' => $i <= 4 ? 'active' : 'deactivated',
+                ]
+            );
+
+            $teachers[] = $teacher;
+        }
+
+        $students = [];
+
+        for ($i = 1; $i <= 30; $i++) {
+            $student = User::updateOrCreate(
+                ['email' => "student{$i}@test.com"],
+                [
+                    'name' => "Student $i",
+                    'password' => Hash::make('password'),
+                    'role' => 'student',
+                    'status' => 'active',
+                ]
+            );
+
+            $students[] = $student;
+        }
+
+        foreach ($teachers as $teacher) {
+            for ($c = 1; $c <= 3; $c++) {
+                $className = "Class {$teacher->id} - $c";
+
+                $class = ClassRoom::firstOrCreate(
+                    [
+                        'teacher_id' => $teacher->id,
+                        'name' => $className,
+                    ],
+                    [
+                        'description' => "This is a demo description for class {$teacher->id}-$c",
+                        'class_code' => strtoupper(Str::random(6)),
+                    ]
+                );
+
+                $randomStudents = collect($students)->random(rand(5, 15));
+
+                foreach ($randomStudents as $student) {
+                    DB::table('class_students')->updateOrInsert(
+                        [
+                            'class_id' => $class->id,
+                            'student_id' => $student->id,
+                        ],
+                        []
+                    );
+                }
+            }
+        }
+    }
+}

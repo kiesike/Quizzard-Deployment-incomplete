@@ -1,0 +1,394 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Quiz extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'teacher_id',
+        'title',
+        'description',
+        'is_published',
+        'cover_image',
+    ];
+
+    protected $casts = [
+        'is_published' => 'boolean',
+    ];
+
+    public function teacher()
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function questions()
+    {
+        return $this->hasMany(Question::class)->orderBy('order');
+    }
+}
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+class QuizAttempt extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'student_id',
+        'quiz_id',
+        'score',
+        'total_points',
+        'status',
+        'started_at',
+        'completed_at',
+    ];
+
+    protected $casts = [
+        'started_at'   => 'datetime',
+        'completed_at' => 'datetime',
+    ];
+
+    // Attempt belongs to a student
+    public function student()
+    {
+        return $this->belongsTo(User::class, 'student_id');
+    }
+
+    // Attempt belongs to a quiz
+    public function quiz()
+    {
+        return $this->belongsTo(Quiz::class);
+    }
+}
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\ClassRoom;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+class AdminQuizController extends Controller
+{
+    public function index(Request $request)
+    {
+        $search = $request->search;
+        $sort = $request->sort ?? 'latest';
+        $filterBy = $request->get('filter_by', 'all'); // all, first_name, middle_initial, surname
+
+        $query = ClassRoom::with(['teacher', 'students']);
+
+        if ($search) {
+    $query->where(function ($q) use ($search, $filterBy) {
+        $q->where('name', 'like', "%{$search}%")
+          ->orWhereHas('teacher', function ($teacherQuery) use ($search, $filterBy) {
+              if ($filterBy === 'first_name') {
+                  $teacherQuery->where('first_name', 'like', "%{$search}%");
+              } elseif ($filterBy === 'middle_initial') {
+                  $teacherQuery->where('middle_initial', 'like', "%{$search}%");
+              } elseif ($filterBy === 'surname') {
+                  $teacherQuery->where('surname', 'like', "%{$search}%");
+              } else {
+                  $teacherQuery->where('first_name', 'like', "%{$search}%")
+                      ->orWhere('middle_initial', 'like', "%{$search}%")
+                      ->orWhere('surname', 'like', "%{$search}%")
+                      ->orWhere('name', 'like', "%{$search}%");
+              }
+          });
+    });
+}
+
+        if ($sort === 'oldest') {
+            $query->orderBy('created_at', 'asc');
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
+        $classes = $query->paginate(10);
+
+        $activeTeachers = User::where('role', 'teacher')
+            ->where('status', 'active')
+            ->count();
+
+        $teachers = User::where('role', 'teacher')
+            ->where('status', 'active')
+            ->orderBy('first_name')
+            ->orderBy('surname')
+            ->orderBy('name')
+            ->get();
+
+        $studentsCount = User::where('role', 'student')->count();
+
+        $classesCount = ClassRoom::count();
+        $totalEnrollments = DB::table('class_students')->count();
+
+        if ($request->ajax()) {
+            return view('admin.classes.partials.table', compact('classes'))->render();
+        }
+
+        return view('admin.classes.index', compact(
+            'classes',
+            'activeTeachers',
+            'teachers',
+            'studentsCount',
+            'classesCount',
+            'totalEnrollments'
+        ));
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'teacher_id' => 'required|exists:users,id',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        $teacher = User::where('id', $request->teacher_id)
+            ->where('role', 'teacher')
+            ->where('status', 'active')
+            ->first();
+
+        if (!$teacher) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected teacher is invalid or inactive.'
+            ], 422);
+        }
+
+        $class = ClassRoom::create([
+            'teacher_id' => $teacher->id,
+            'name' => $request->name,
+            'description' => $request->description,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Class created successfully.',
+            'class' => $class,
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $class = ClassRoom::findOrFail($id);
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string'
+        ]);
+
+        $class->update([
+            'name' => $request->name,
+            'description' => $request->description
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function destroy($id)
+    {
+        $class = ClassRoom::findOrFail($id);
+        $class->delete();
+
+        return response()->json(['success' => true]);
+    }
+
+    public function details($id)
+    {
+        $class = ClassRoom::with([
+            'teacher',
+            'students',
+            'quizzes' => function ($query) {
+    $query->withCount(['questions', 'attempts'])
+        ->orderBy('created_at', 'desc');
+}
+        ])->findOrFail($id);
+
+        $studentsEnrolledCount = $class->students->count();
+        $quizzesCount = $class->quizzes->count();
+
+        return view('admin.classes.show', [
+            'class' => $class,
+            'studentsEnrolledCount' => $studentsEnrolledCount,
+            'quizzesCount' => $quizzesCount,
+        ]);
+    }
+
+    public function show($id)
+    {
+        $class = ClassRoom::with(['teacher', 'students'])->findOrFail($id);
+        return response()->json($class);
+    }
+}
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+
+class ClassRoom extends Model
+{
+    use HasFactory;
+
+    protected $table = 'classes';
+
+    protected $fillable = [
+        'teacher_id',
+        'name',
+        'description',
+        'class_code',
+    ];
+
+    // Auto-generate class code when creating
+    protected static function booted()
+    {
+        static::creating(function ($class) {
+            if (empty($class->class_code)) {
+                do {
+                    $code = strtoupper(Str::random(6));
+                } while (self::where('class_code', $code)->exists());
+                $class->class_code = $code;
+            }
+        });
+    }
+
+    public function teacher()
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function students()
+    {
+        return $this->belongsToMany(User::class, 'class_students', 'class_id', 'student_id')
+            ->withPivot('joined_at')
+            ->withTimestamps();
+    }
+
+    public function quizzes()
+    {
+        return $this->belongsToMany(Quiz::class, 'class_quizzes', 'class_id', 'quiz_id')
+            ->withPivot('assigned_at')
+            ->withTimestamps();
+    }
+}
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('quiz_attempts', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('student_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('quiz_id')->constrained('quizzes')->onDelete('cascade');
+            $table->integer('score')->default(0);
+            $table->integer('total_points')->default(0);
+            $table->enum('status', ['in_progress', 'completed'])->default('in_progress');
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('completed_at')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('quiz_attempts');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('quizzes', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
+            $table->string('title');
+            $table->text('description')->nullable();
+            $table->boolean('is_published')->default(false);
+            $table->string('cover_image')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('quizzes');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('quiz_attempts', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('student_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('quiz_id')->constrained('quizzes')->onDelete('cascade');
+            $table->integer('score')->default(0);
+            $table->integer('total_points')->default(0);
+            $table->enum('status', ['in_progress', 'completed'])->default('in_progress');
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('completed_at')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('quiz_attempts');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('class_quizzes', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('class_id')->constrained('classes')->onDelete('cascade');
+            $table->foreignId('quiz_id')->constrained('quizzes')->onDelete('cascade');
+            $table->timestamp('assigned_at')->useCurrent();
+            $table->unique(['class_id', 'quiz_id']);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('class_quizzes');
+    }
+};

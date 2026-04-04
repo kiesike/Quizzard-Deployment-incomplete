@@ -12,8 +12,8 @@ class AdminOnly
     {
         $user = $request->user();
 
-        if (!$user || $user->role !== 'admin') {
-            abort(403, 'Unauthorized. Admin access only.');
+        if (!$user || !in_array($user->role, ['admin', 'superadmin'])) {
+            abort(403, 'Unauthorized. Admin or SuperAdmin access only.');
         }
 
         return $next($request);

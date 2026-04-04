@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quizzard Admin</title>
+    <title>{{ auth()->check() && auth()->user()->role === 'superadmin' ? 'Quizzard SuperAdmin' : 'Quizzard Admin' }}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -12,8 +12,12 @@
         <aside class="bg-slate-900 text-white shadow-2xl">
             <div class="flex h-full flex-col">
                 <div class="border-b border-slate-800 px-6 py-6">
-                    <h1 class="text-2xl font-bold tracking-wide">Quizzard Admin</h1>
-                    <p class="mt-1 text-sm text-slate-400">Management Panel</p>
+                    <h1 class="text-2xl font-bold tracking-wide">
+    {{ auth()->check() && auth()->user()->role === 'superadmin' ? 'Quizzard SuperAdmin' : 'Quizzard Admin' }}
+</h1>
+<p class="mt-1 text-sm text-slate-400">
+    {{ auth()->check() && auth()->user()->role === 'superadmin' ? 'SuperAdmin Management Panel' : 'Admin Management Panel' }}
+</p>
                 </div>
 
                 <nav class="flex-1 space-y-2 px-4 py-6">

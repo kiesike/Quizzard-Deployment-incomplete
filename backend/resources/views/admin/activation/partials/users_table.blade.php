@@ -3,14 +3,15 @@
         <table class="min-w-full text-sm text-slate-700">
             <thead class="bg-slate-100 text-left text-xs font-bold uppercase tracking-wide text-slate-600">
                 <tr>
-                    <th class="px-6 py-4">ID</th>
-                    <th class="px-6 py-4">First Name</th>
-                    <th class="px-6 py-4">Middle Initial</th>
-                    <th class="px-6 py-4">Surname</th>
-                    <th class="px-6 py-4">Email</th>
-                    <th class="px-6 py-4">Status</th>
-                    <th class="px-6 py-4 text-center">Action</th>
-                </tr>
+    <th class="px-6 py-4">ID</th>
+    <th class="px-6 py-4">First Name</th>
+    <th class="px-6 py-4">Middle Initial</th>
+    <th class="px-6 py-4">Surname</th>
+    <th class="px-6 py-4">Email</th>
+    <th class="px-6 py-4">Role</th>
+    <th class="px-6 py-4">Status</th>
+    <th class="px-6 py-4 text-center">Action</th>
+</tr>
             </thead>
 
             <tbody class="divide-y divide-slate-200 bg-white">
@@ -22,14 +23,29 @@
                         <td class="px-6 py-4">{{ $user->surname ?? '-' }}</td>
                         <td class="px-6 py-4 text-slate-600">{{ $user->email }}</td>
 
-                        <td class="px-6 py-4">
-                            @php
-                                $statusClasses = match($user->status) {
-                                    'active' => 'bg-emerald-100 text-emerald-700',
-                                    'deactivated' => 'bg-red-100 text-red-700',
-                                    default => 'bg-amber-100 text-amber-700',
-                                };
-                            @endphp
+<td class="px-6 py-4">
+    @php
+        $roleClasses = match($user->role) {
+            'admin' => 'bg-violet-100 text-violet-700',
+            'teacher' => 'bg-blue-100 text-blue-700',
+            'student' => 'bg-slate-100 text-slate-700',
+            default => 'bg-slate-100 text-slate-700',
+        };
+    @endphp
+
+    <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize {{ $roleClasses }}">
+        {{ $user->role }}
+    </span>
+</td>
+
+<td class="px-6 py-4">
+    @php
+        $statusClasses = match($user->status) {
+            'active' => 'bg-emerald-100 text-emerald-700',
+            'deactivated' => 'bg-red-100 text-red-700',
+            default => 'bg-amber-100 text-amber-700',
+        };
+    @endphp
 
                             <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize {{ $statusClasses }}">
                                 {{ $user->status }}
@@ -64,7 +80,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-10 text-center text-slate-500">
+                        <td colspan="8" class="px-6 py-10 text-center text-slate-500">
                             No accounts found.
                         </td>
                     </tr>

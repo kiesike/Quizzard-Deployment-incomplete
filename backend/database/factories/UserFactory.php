@@ -23,22 +23,53 @@ class UserFactory extends Factory
      */
     public function definition(): array
     {
+        $firstName = fake()->firstName();
+        $middleInitial = strtoupper(fake()->randomLetter());
+        $surname = fake()->lastName();
+
         return [
-            'name' => fake()->name(),
+            'name' => "{$firstName} {$surname}",
+            'first_name' => $firstName,
+            'middle_initial' => $middleInitial,
+            'surname' => $surname,
             'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
+            'role' => 'student',
+            'status' => 'active',
+            'failed_login_attempts' => 0,
+            'locked_until' => null,
+            'profile_picture' => null,
+            'profile_image' => null,
+            'bio' => null,
             'remember_token' => Str::random(10),
         ];
     }
 
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
     public function unverified(): static
     {
+        return $this->state(fn (array $attributes) => []);
+    }
+
+    public function admin(): static
+    {
         return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
+            'role' => 'admin',
+            'status' => 'active',
+        ]);
+    }
+
+    public function superadmin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'superadmin',
+            'status' => 'active',
+        ]);
+    }
+
+    public function inactive(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'pending',
         ]);
     }
 }

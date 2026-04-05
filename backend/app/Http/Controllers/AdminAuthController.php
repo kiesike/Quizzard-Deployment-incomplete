@@ -19,7 +19,7 @@ class AdminAuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (!Auth::attempt($credentials)) {
+        if (!Auth::attempt($credentials, $request->boolean('remember'))) {
             return back()->withErrors([
                 'email' => 'Invalid credentials.',
             ])->onlyInput('email');
@@ -45,7 +45,13 @@ class AdminAuthController extends Controller
             ])->onlyInput('email');
         }
 
-        return redirect()->route('admin.dashboard');
+        $welcomeMessage = $user->role === 'superadmin'
+            ? 'Welcome back, Super Admin!'
+            : 'Welcome back, Admin!';
+
+        return redirect()
+            ->route('admin.dashboard')
+            ->with('success', $welcomeMessage);
     }
 
     public function logout(Request $request)

@@ -55,6 +55,41 @@
         </aside>
 
         <main class="min-w-0 p-4 sm:p-6 lg:p-8">
+            @if(session('success'))
+                <div
+                    id="globalSuccessToast"
+                    class="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-emerald-800 shadow-sm"
+                >
+                    <div class="mt-0.5">
+                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.172 7.707 8.879a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold">Login Successful</p>
+                        <p class="text-sm">{{ session('success') }}</p>
+                    </div>
+
+                    <button
+                        type="button"
+                        onclick="document.getElementById('globalSuccessToast').remove()"
+                        class="text-emerald-700 transition hover:text-emerald-900"
+                    >
+                        ×
+                    </button>
+                </div>
+
+                <script>
+                    setTimeout(() => {
+                        const toast = document.getElementById('globalSuccessToast');
+                        if (toast) {
+                            toast.remove();
+                        }
+                    }, 3500);
+                </script>
+            @endif
+
             @yield('content')
         </main>
     </div>

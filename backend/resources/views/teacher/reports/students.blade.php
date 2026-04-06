@@ -43,6 +43,24 @@
                                     Email
                                 </th>
                                 <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Student ID
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Gender
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Date of Birth
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Contact
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Grade Level
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Section
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     Classes Joined
                                 </th>
                                 <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -71,6 +89,24 @@
                                     </td>
                                     <td class="px-6 py-4 text-sm text-slate-700">
                                         {{ $student->email }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-slate-700">
+                                        {{ $student->studentProfile?->student_id ?? '—' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-slate-700">
+                                        {{ $student->studentProfile?->gender ? ucfirst($student->studentProfile->gender) : '—' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-slate-700">
+                                        {{ $student->studentProfile?->date_of_birth?->format('M d, Y') ?? '—' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-slate-700">
+                                        {{ $student->studentProfile?->contact_number ?? '—' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-slate-700">
+                                        {{ $student->studentProfile?->grade_level ?? '—' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-slate-700">
+                                        {{ $student->studentProfile?->section ?? '—' }}
                                     </td>
                                     <td class="px-6 py-4 text-sm text-slate-700">
                                         {{ $student->classes_joined_count }}

@@ -99,7 +99,7 @@ class TeacherDashboardController extends Controller
         $classes = ClassRoom::query()
             ->where('teacher_id', $teacher->id)
             ->with([
-                'students',
+                'students.studentProfile',
                 'quizzes.attempts' => function ($query) {
                     $query->where('status', 'completed');
                 },

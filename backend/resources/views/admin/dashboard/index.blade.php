@@ -459,7 +459,33 @@
             }
         });
 
-        const btnCreateTeacher = document.getElementById('btnCreateTeacher');
+        function setLocalButtonLoading(button, loadingText = 'Processing...') {
+    if (!button) return;
+
+    if (!button.dataset.originalHtml) {
+        button.dataset.originalHtml = button.innerHTML;
+    }
+
+    button.disabled = true;
+    button.innerHTML = `
+        <span class="inline-flex items-center justify-center gap-2">
+            <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+            <span>${loadingText}</span>
+        </span>
+    `;
+}
+
+function resetLocalButtonLoading(button) {
+    if (!button) return;
+
+    button.disabled = false;
+
+    if (button.dataset.originalHtml) {
+        button.innerHTML = button.dataset.originalHtml;
+    }
+}
+
+const btnCreateTeacher = document.getElementById('btnCreateTeacher');
         const btnCreateStudent = document.getElementById('btnCreateStudent');
         const btnCreateAdmin = document.getElementById('btnCreateAdmin');
 
@@ -631,43 +657,44 @@
 
         // Handle update form submission
         document.getElementById('editForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const submitBtn = this.querySelector('button[type="submit"]');
-            setButtonLoading(submitBtn);
+    e.preventDefault();
 
-            try {
-                const formData = new FormData(this);
-                const response = await fetch(this.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
+    const submitBtn = this.querySelector('button[type="submit"]');
+    setLocalButtonLoading(submitBtn, 'Updating...');
 
-                const data = await response.json();
-
-                if (response.ok) {
-                    loadUsers(dashboardUrl + window.location.search);
-                    closeModal(editModal);
-                } else {
-                    alert(data.message || 'Error updating user');
-                }
-            } catch (error) {
-                alert('Error updating user');
-            } finally {
-                resetButtonLoading(submitBtn);
+    try {
+        const formData = new FormData(this);
+        const response = await fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
             }
         });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            closeModal(editModal);
+            await loadUsers(dashboardUrl + window.location.search);
+        } else {
+            alert(data.message || 'Error updating user');
+        }
+    } catch (error) {
+        console.error(error);
+        alert('Error updating user');
+    } finally {
+        resetLocalButtonLoading(submitBtn);
+    }
+});
     </script>
 
     <script>
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('close-modal') || e.target.closest('.close-modal')) {
-                resetButtonLoading(document.getElementById('createTeacherBtn'));
-                resetButtonLoading(document.getElementById('createStudentBtn'));
-                resetButtonLoading(document.querySelector('#editForm button[type="submit"]'));
-            }
-        });
-    </script>
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('close-modal') || e.target.closest('.close-modal')) {
+            resetLocalButtonLoading(document.querySelector('#editForm button[type="submit"]'));
+        }
+    });
+</script>
 @endpush

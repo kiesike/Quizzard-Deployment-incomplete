@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Question;
 use App\Models\AnswerOption;
 use App\Models\Quiz;
+use App\Models\QuizAttempt;
 use Illuminate\Http\Request;
 
 class QuestionController extends Controller
@@ -66,6 +67,12 @@ class QuestionController extends Controller
         ]);
     }
 
+    // Check if quiz has attempts (helper)
+    private function quizHasAttempts($quizId)
+    {
+        return QuizAttempt::where('quiz_id', $quizId)->exists();
+    }
+
     // Create a multiple choice question
     public function storeMultipleChoice(Request $request, $quizId)
     {
@@ -73,6 +80,13 @@ class QuestionController extends Controller
 
         if ($quiz->teacher_id !== $request->user()->id) {
             return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        // Block if quiz has attempts
+        if ($this->quizHasAttempts($quizId)) {
+            return response()->json([
+                'message' => 'This quiz cannot be modified because students have already taken it.',
+            ], 403);
         }
 
         $request->validate([
@@ -137,6 +151,13 @@ class QuestionController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        // Block if quiz has attempts
+        if ($this->quizHasAttempts($quizId)) {
+            return response()->json([
+                'message' => 'This quiz cannot be modified because students have already taken it.',
+            ], 403);
+        }
+
         $request->validate([
             'question_text'  => 'required|string',
             'image_path'     => 'nullable|string',
@@ -186,6 +207,13 @@ class QuestionController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        // Block if quiz has attempts
+        if ($this->quizHasAttempts($quizId)) {
+            return response()->json([
+                'message' => 'This quiz cannot be modified because students have already taken it.',
+            ], 403);
+        }
+
         $request->validate([
             'question_text' => 'required|string',
             'image_path'    => 'nullable|string',
@@ -226,6 +254,13 @@ class QuestionController extends Controller
 
         if ($quiz->teacher_id !== $request->user()->id) {
             return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        // Block if quiz has attempts
+        if ($this->quizHasAttempts($quizId)) {
+            return response()->json([
+                'message' => 'This quiz cannot be modified because students have already taken it.',
+            ], 403);
         }
 
         $request->validate([
@@ -273,6 +308,13 @@ class QuestionController extends Controller
 
         if ($quiz->teacher_id !== $request->user()->id) {
             return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        // Block if quiz has attempts
+        if ($this->quizHasAttempts($quizId)) {
+            return response()->json([
+                'message' => 'This question cannot be edited because students have already taken this quiz.',
+            ], 403);
         }
 
         $question = Question::where('quiz_id', $quizId)->findOrFail($questionId);
@@ -388,6 +430,13 @@ class QuestionController extends Controller
 
         if ($quiz->teacher_id !== $request->user()->id) {
             return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        // Block if quiz has attempts
+        if ($this->quizHasAttempts($quizId)) {
+            return response()->json([
+                'message' => 'This question cannot be deleted because students have already taken this quiz.',
+            ], 403);
         }
 
         $question = Question::where('quiz_id', $quizId)

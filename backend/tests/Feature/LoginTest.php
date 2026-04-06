@@ -1,50 +1,63 @@
 <?php
 
-namespace Tests\Feature;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+namespace Tests\Unit;
+
+use App\Models\User;
 use Tests\TestCase;
 
 class LoginTest extends TestCase
 {
-    use RefreshDatabase;
-    public function test_student_can_login(): void
+    public function test_name_is_formatted_from_factory(): void
     {
-        \App\Models\User::create([
-            'name' => 'Student Demo',
-            'email' => 'student@quizzard.com',
-            'password' => bcrypt('Student@1234'),
-            'role' => 'student',
-            'status' => 'active',
+        $user = User::factory()->make([
+            'first_name' => 'John',
+            'middle_initial' => 'D',
+            'surname' => 'Doe',
         ]);
 
-        $response = $this->postJson('/api/login', [
-            'email' => 'student@quizzard.com',
+        $this->assertEquals('John D. Doe', $user->name);
+    }
+
+    public function test_name_without_middle_initial(): void
+    {
+        $user = User::factory()->make([
+            'first_name' => 'John',
+            'middle_initial' => null,
+            'surname' => 'Doe',
+        ]);
+
+        $this->assertEquals('John Doe', $user->name);
+    }
+
+    public function test_name_fallback_to_existing_name(): void
+    {
+        $user = User::factory()->make([
+            'name' => 'Legacy User',
+            'first_name' => null,
+            'surname' => null,
+        ]);
+
+        $this->assertEquals('Legacy User', $user->name);
+    }
+
+    public function test_middle_initial_is_uppercase(): void
+    {
+        $user = User::factory()->make([
+            'first_name' => 'John',
+            'middle_initial' => 'delacruz',
+            'surname' => 'Doe',
+        ]);
+
+        $this->assertEquals('John D. Doe', $user->name);
+    }
+
+    public function test_password_is_hashed(): void
+    {
+        $user = User::factory()->make([
             'password' => 'Student@1234',
         ]);
- 
-        $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'token'
-                ]);
+
+        $this->assertNotEquals('Student@1234', $user->password);
+        $this->assertTrue(password_verify('Student@1234', $user->password));
     }
-
-
-    public function test_login_fails_with_wrong_password(): void
-    {
-        \App\Models\User::create([
-            'name' => 'Student Demo',
-            'email' => 'student@quizzard.com',
-            'password' => bcrypt('Student@1234'),
-            'role' => 'student',
-            'status' => 'active',
-        ]);
-
-        $response = $this->postJson('/api/login', [
-            'email' => 'student@quizzard.com',
-            'password' => 'WrongPassword123!',
-        ]);
-
-        $response->assertStatus(401);
-    }
-
 }

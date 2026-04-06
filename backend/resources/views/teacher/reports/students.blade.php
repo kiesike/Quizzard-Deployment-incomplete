@@ -34,7 +34,10 @@
                         <thead class="bg-slate-50">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                    Student Name
+                                    First Name
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Last Name
                                 </th>
                                 <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     Email
@@ -58,7 +61,12 @@
                                 <tr class="hover:bg-slate-50">
                                     <td class="px-6 py-4">
                                         <div class="font-semibold text-slate-800">
-                                            {{ $student->name }}
+                                            {{ $student->first_name }}
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="font-semibold text-slate-800">
+                                            {{ $student->surname }}
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 text-sm text-slate-700">

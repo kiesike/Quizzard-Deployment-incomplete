@@ -151,7 +151,9 @@ class TeacherDashboardController extends Controller
 
                 return $student;
             })
-            ->sortBy('name')
+            ->sortBy(function ($student) {
+                return $student->first_name . ' ' . $student->surname;
+            })
             ->values();
 
         return view('teacher.reports.students', compact('students'));

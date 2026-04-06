@@ -3,6 +3,8 @@
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class UserFactory extends Factory
 {
@@ -18,7 +20,7 @@ class UserFactory extends Factory
             'middle_initial' => $middleInitial,
             'surname' => $surname,
             'email' => fake()->unique()->safeEmail(),
-            'password' => static::$password ??= Hash::make('password'),
+            'password' => Hash::make('password'),
             'role' => 'student',
             'status' => 'active',
             'failed_login_attempts' => 0,

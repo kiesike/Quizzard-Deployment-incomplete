@@ -19,7 +19,7 @@ class AdminAuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (!Auth::attempt($credentials)) {
+        if (!Auth::attempt($credentials, $request->boolean('remember'))) {
             return back()->withErrors([
                 'email' => 'Invalid credentials.',
             ])->onlyInput('email');
@@ -29,11 +29,11 @@ class AdminAuthController extends Controller
 
         $user = Auth::user();
 
-        if ($user->role !== 'admin') {
+        if (!in_array($user->role, ['admin', 'superadmin'])) {
             Auth::logout();
 
             return back()->withErrors([
-                'email' => 'Only admin accounts can access the admin panel.',
+                'email' => 'Only admin or superadmin accounts can access the admin panel.',
             ])->onlyInput('email');
         }
 
@@ -41,11 +41,17 @@ class AdminAuthController extends Controller
             Auth::logout();
 
             return back()->withErrors([
-                'email' => 'Your admin account is not active.',
+                'email' => 'Your account is not active.',
             ])->onlyInput('email');
         }
 
-        return redirect()->route('admin.dashboard');
+        $welcomeMessage = $user->role === 'superadmin'
+            ? 'Welcome back, Super Admin!'
+            : 'Welcome back, Admin!';
+
+        return redirect()
+            ->route('admin.dashboard')
+            ->with('success', $welcomeMessage);
     }
 
     public function logout(Request $request)

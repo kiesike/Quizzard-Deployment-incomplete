@@ -5,31 +5,41 @@
         <div class="rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-blue-900 p-6 text-white shadow-xl sm:p-8">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <p class="text-sm font-medium uppercase tracking-[0.2em] text-blue-200">Admin Panel</p>
+                    <p class="text-sm font-medium uppercase tracking-[0.2em] text-blue-200">
+    {{ $isSuperAdmin ? 'SuperAdmin Panel' : 'Admin Panel' }}
+</p>
                     <h2 class="mt-2 text-3xl font-bold sm:text-4xl">Menu Dashboard</h2>
                     <p class="mt-2 max-w-2xl text-sm text-slate-200 sm:text-base">
-                        Manage teacher and student accounts, review account details, and maintain the Quizzard admin system.
-                    </p>
+    {{ $isSuperAdmin
+        ? 'Manage teacher, student, and admin accounts, review account details, and oversee the full Quizzard management system.'
+        : 'Manage teacher and student accounts, review account details, and maintain the Quizzard management system.' }}
+</p>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
-                        <p class="text-xs uppercase tracking-wide text-slate-200">Teachers</p>
-                        <p class="mt-1 text-2xl font-bold">{{ $stats['teachers_count'] }}</p>
-                    </div>
-                    <div class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
-                        <p class="text-xs uppercase tracking-wide text-slate-200">Students</p>
-                        <p class="mt-1 text-2xl font-bold">{{ $stats['students_count'] }}</p>
-                    </div>
-                    <div class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
-                        <p class="text-xs uppercase tracking-wide text-slate-200">Activated</p>
-                        <p class="mt-1 text-2xl font-bold">{{ $stats['activated_count'] }}</p>
-                    </div>
-                    <div class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
-                        <p class="text-xs uppercase tracking-wide text-slate-200">Deactivated</p>
-                        <p class="mt-1 text-2xl font-bold">{{ $stats['deactivated_count'] }}</p>
-                    </div>
-                </div>
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
+    <div class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+        <p class="text-xs uppercase tracking-wide text-slate-200">Teachers</p>
+        <p class="mt-1 text-2xl font-bold">{{ $stats['teachers_count'] }}</p>
+    </div>
+    <div class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+        <p class="text-xs uppercase tracking-wide text-slate-200">Students</p>
+        <p class="mt-1 text-2xl font-bold">{{ $stats['students_count'] }}</p>
+    </div>
+    @if($isSuperAdmin)
+        <div class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+            <p class="text-xs uppercase tracking-wide text-slate-200">Admins</p>
+            <p class="mt-1 text-2xl font-bold">{{ $stats['admins_count'] }}</p>
+        </div>
+    @endif
+    <div class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+        <p class="text-xs uppercase tracking-wide text-slate-200">Activated</p>
+        <p class="mt-1 text-2xl font-bold">{{ $stats['activated_count'] }}</p>
+    </div>
+    <div class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+        <p class="text-xs uppercase tracking-wide text-slate-200">Deactivated</p>
+        <p class="mt-1 text-2xl font-bold">{{ $stats['deactivated_count'] }}</p>
+    </div>
+</div>
             </div>
         </div>
 
@@ -61,16 +71,23 @@
         <div class="rounded-3xl bg-white p-6 shadow-lg ring-1 ring-slate-200">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div class="flex flex-wrap gap-3">
-                    <a href="{{ route('admin.dashboard', ['type' => 'teacher', 'search' => $search]) }}"
-                       class="rounded-xl px-5 py-2.5 text-sm font-semibold transition {{ $type === 'teacher' ? 'bg-blue-700 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
-                        Teachers
-                    </a>
+    <a href="{{ route('admin.dashboard', ['type' => 'teacher', 'search' => $search]) }}"
+       class="rounded-xl px-5 py-2.5 text-sm font-semibold transition {{ $type === 'teacher' ? 'bg-blue-700 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
+        Teachers
+    </a>
 
-                    <a href="{{ route('admin.dashboard', ['type' => 'student', 'search' => $search]) }}"
-                       class="rounded-xl px-5 py-2.5 text-sm font-semibold transition {{ $type === 'student' ? 'bg-blue-700 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
-                        Students
-                    </a>
-                </div>
+    <a href="{{ route('admin.dashboard', ['type' => 'student', 'search' => $search]) }}"
+       class="rounded-xl px-5 py-2.5 text-sm font-semibold transition {{ $type === 'student' ? 'bg-blue-700 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
+        Students
+    </a>
+
+    @if($isSuperAdmin)
+    <a href="{{ route('admin.dashboard', ['type' => 'admin', 'search' => $search]) }}"
+       class="rounded-xl px-5 py-2.5 text-sm font-semibold transition {{ $type === 'admin' ? 'bg-blue-700 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
+        Admin Management
+    </a>
+@endif
+</div>
 
                 <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
                     <select id="filterBy" class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
@@ -87,20 +104,28 @@
                            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 xl:w-80">
 
                     @if($type === 'teacher')
-                        <button type="button"
-                                id="btnCreateTeacher"
-                                class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
-                            Create Teacher
-                        </button>
-                    @endif
+    <button type="button"
+            id="btnCreateTeacher"
+            class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+        Create Teacher
+    </button>
+@endif
 
-                    @if($type === 'student')
-                        <button type="button"
-                                id="btnCreateStudent"
-                                class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
-                            Create Student
-                        </button>
-                    @endif
+@if($type === 'student')
+    <button type="button"
+            id="btnCreateStudent"
+            class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+        Create Student
+    </button>
+@endif
+
+@if($type === 'admin' && $isSuperAdmin)
+    <button type="button"
+            id="btnCreateAdmin"
+            class="inline-flex items-center justify-center rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700">
+        Create Admin Account
+    </button>
+@endif
                 </div>
             </div>
 
@@ -153,6 +178,9 @@
                         <select name="role" id="createRole" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
                             <option value="teacher">Teacher</option>
                             <option value="student">Student</option>
+                            @if($isSuperAdmin)
+        <option value="admin">Admin</option>
+    @endif
                         </select>
                     </div>
 
@@ -292,6 +320,9 @@
                         <select name="role" id="editRole" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required>
                             <option value="teacher">Teacher</option>
                             <option value="student">Student</option>
+                            @if($isSuperAdmin)
+        <option value="admin">Admin</option>
+    @endif
                         </select>
                     </div>
 
@@ -430,6 +461,7 @@
 
         const btnCreateTeacher = document.getElementById('btnCreateTeacher');
         const btnCreateStudent = document.getElementById('btnCreateStudent');
+        const btnCreateAdmin = document.getElementById('btnCreateAdmin');
 
         if (btnCreateTeacher) {
             btnCreateTeacher.addEventListener('click', function () {
@@ -446,6 +478,14 @@
                 openModal(createModal);
             });
         }
+
+        if (btnCreateAdmin) {
+    btnCreateAdmin.addEventListener('click', function () {
+        document.getElementById('createRole').value = 'admin';
+        document.getElementById('createModalTitle').textContent = 'Create Admin Account';
+        openModal(createModal);
+    });
+}
 
         // Filter by name parts
         if (filterBySelect) {

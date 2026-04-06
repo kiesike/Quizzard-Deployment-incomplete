@@ -1,0 +1,248 @@
+==================== USERS MIGRATIONS ====================
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('users', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('email')->unique();
+            $table->string('password');
+            $table->enum('role', ['admin', 'teacher', 'student'])->default('student');
+            $table->enum('status', ['pending', 'active', 'deactivated'])->default('pending');
+            $table->integer('failed_login_attempts')->default(0);
+            $table->timestamp('locked_until')->nullable();
+            $table->string('profile_picture')->nullable();
+            $table->text('bio')->nullable();
+            $table->rememberToken();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('users');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('profile_image')->nullable()->after('password');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('profile_image');
+        });
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            if (!Schema::hasColumn('users', 'first_name')) {
+                $table->string('first_name')->nullable()->after('name');
+            }
+            if (!Schema::hasColumn('users', 'middle_initial')) {
+                $table->string('middle_initial', 1)->nullable()->after('first_name');
+            }
+            if (!Schema::hasColumn('users', 'surname')) {
+                $table->string('surname')->nullable()->after('middle_initial');
+            }
+        });
+
+        // Backfill existing name into parts when possible (simple split)
+        $users = \App\Models\User::all();
+        foreach ($users as $user) {
+            if (empty($user->first_name) && !empty($user->name)) {
+                $parts = preg_split('/\s+/', trim($user->name));
+                if (count($parts) === 1) {
+                    $user->first_name = $parts[0];
+                } elseif (count($parts) === 2) {
+                    $user->first_name = $parts[0];
+                    $user->surname = $parts[1];
+                } else {
+                    $user->first_name = array_shift($parts);
+                    $user->surname = array_pop($parts);
+                    $user->middle_initial = strtoupper(substr($parts[0], 0, 1));
+                }
+                $user->save();
+            }
+        }
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn(['first_name', 'middle_initial', 'surname']);
+        });
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration {
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('plain_password')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('plain_password');
+        });
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            // SQLite does not support MODIFY COLUMN ENUM.
+            // For tests, the existing role column is already usable as TEXT,
+            // so we skip the MySQL-specific alteration safely.
+            return;
+        }
+
+        DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('superadmin', 'admin', 'teacher', 'student') NOT NULL DEFAULT 'student'");
+    }
+
+    public function down(): void
+    {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            return;
+        }
+
+        DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('admin', 'teacher', 'student') NOT NULL DEFAULT 'student'");
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            if (Schema::hasColumn('users', 'plain_password')) {
+                $table->dropColumn('plain_password');
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            if (!Schema::hasColumn('users', 'plain_password')) {
+                $table->string('plain_password')->nullable();
+            }
+        });
+    }
+};
+
+==================== USER MODEL ====================
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Laravel\Sanctum\HasApiTokens;
+
+class User extends Authenticatable
+{
+    use HasApiTokens, HasFactory, Notifiable;
+
+    protected $fillable = [
+        'name',
+        'first_name',
+        'middle_initial',
+        'surname',
+        'email',
+        'password',
+        'role',
+        'status',
+        'failed_login_attempts',
+        'locked_until',
+        'profile_picture',
+        'profile_image',
+        'bio',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password'          => 'hashed',
+            'locked_until'      => 'datetime',
+        ];
+    }
+
+    public function getNameAttribute($value)
+    {
+        if (!empty($this->first_name) || !empty($this->surname)) {
+            $middle = $this->middle_initial ? ' ' . strtoupper(substr($this->middle_initial, 0, 1)) . '.' : '';
+            return trim("{$this->first_name}{$middle} {$this->surname}");
+        }
+        return $value;
+    }
+
+    public function getProfileImageUrlAttribute(): string
+    {
+        if ($this->profile_image) {
+            return asset('storage/' . $this->profile_image);
+        }
+        return asset('images/default-avatar.png');
+    }
+}

@@ -1,7 +1,78 @@
 import './bootstrap';
 
-// Activation / Deactivation AJAX logic
 document.addEventListener('DOMContentLoaded', function () {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+
+    function setButtonLoading(button, isLoading, loadingText = 'Processing...') {
+        if (!button) return;
+
+        if (isLoading) {
+            if (!button.dataset.originalHtml) {
+                button.dataset.originalHtml = button.innerHTML;
+            }
+
+            button.disabled = true;
+            button.innerHTML = `
+                <span class="inline-flex items-center gap-2">
+                    <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    <span>${loadingText}</span>
+                </span>
+            `;
+            return;
+        }
+
+        button.disabled = false;
+        if (button.dataset.originalHtml) {
+            button.innerHTML = button.dataset.originalHtml;
+        }
+    }
+
+    function showToast(message, type = 'success') {
+        const oldToast = document.getElementById('globalJsToast');
+        if (oldToast) {
+            oldToast.remove();
+        }
+
+        const toast = document.createElement('div');
+        toast.id = 'globalJsToast';
+
+        const toastStyles = {
+            success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+            error: 'border-red-200 bg-red-50 text-red-800',
+            info: 'border-blue-200 bg-blue-50 text-blue-800',
+        };
+
+        toast.className = `fixed right-4 top-4 z-[9999] w-full max-w-sm rounded-2xl border px-4 py-4 shadow-lg ${toastStyles[type] || toastStyles.info}`;
+        toast.innerHTML = `
+            <div class="flex items-start gap-3">
+                <div class="flex-1">
+                    <p class="text-sm font-semibold">${type === 'error' ? 'Action Failed' : 'Success'}</p>
+                    <p class="mt-1 text-sm">${message}</p>
+                </div>
+                <button type="button" class="text-lg leading-none opacity-70 hover:opacity-100" aria-label="Close notification">
+                    ×
+                </button>
+            </div>
+        `;
+
+        document.body.appendChild(toast);
+
+        const closeBtn = toast.querySelector('button');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => toast.remove());
+        }
+
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+
+    window.showToast = showToast;
+
+    // Activation / Deactivation AJAX logic
     const activationTable = document.getElementById('activationTableContainer');
 
     if (activationTable) {
@@ -17,18 +88,14 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             const submitBtn = form.querySelector('.activation-btn');
-            const originalText = submitBtn ? submitBtn.innerHTML : '';
-
-            if (submitBtn) {
-                submitBtn.innerHTML = 'Processing...';
-            }
+            setButtonLoading(submitBtn, true);
 
             try {
                 const response = await fetch(form.action, {
                     method: 'POST',
                     body: new FormData(form),
                     headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'X-CSRF-TOKEN': csrfToken,
                         'X-Requested-With': 'XMLHttpRequest',
                         'Accept': 'application/json',
                     },
@@ -51,18 +118,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 const data = await tableResponse.json();
                 activationTable.innerHTML = data.html;
+
+                showToast('Account status updated successfully.', 'success');
             } catch (error) {
                 console.error(error);
 
-                if (submitBtn) {
-                    submitBtn.innerHTML = originalText;
-                }
+                setButtonLoading(submitBtn, false);
 
                 allButtons.forEach((btn) => {
                     btn.disabled = false;
                 });
 
-                alert('Failed to update account status.');
+                showToast('Failed to update account status.', 'error');
             }
         });
     }
@@ -108,9 +175,15 @@ document.addEventListener('DOMContentLoaded', function () {
         viewPassword.style.userSelect = 'all';
         viewPassword.title = 'Click to copy';
 
-        viewPassword.addEventListener('click', function () {
-            if (viewPassword.textContent) {
-                navigator.clipboard.writeText(viewPassword.textContent);
+        viewPassword.addEventListener('click', async function () {
+            if (!viewPassword.textContent) return;
+
+            try {
+                await navigator.clipboard.writeText(viewPassword.textContent);
+                showToast('Password copied to clipboard.', 'info');
+            } catch (error) {
+                console.error(error);
+                showToast('Failed to copy password.', 'error');
             }
         });
     }

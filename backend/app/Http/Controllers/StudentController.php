@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Quiz;
 use App\Models\QuizAttempt;
+use App\Models\StudentProfile;
 use Illuminate\Http\Request;
 
 class StudentController extends Controller
@@ -24,7 +25,6 @@ class StudentController extends Controller
             ->distinct()
             ->get()
             ->map(function ($quiz) use ($student) {
-                // Check if student already attempted this quiz
                 $attempt = QuizAttempt::where('student_id', $student->id)
                     ->where('quiz_id', $quiz->id)
                     ->where('status', 'completed')
@@ -41,7 +41,6 @@ class StudentController extends Controller
                 ];
             });
 
-        // Get recent scores
         $recentScores = QuizAttempt::where('student_id', $student->id)
             ->where('status', 'completed')
             ->with('quiz:id,title')
@@ -79,6 +78,63 @@ class StudentController extends Controller
         ]);
     }
 
+    // Get student profile
+    public function getProfile(Request $request)
+    {
+        $student = $request->user();
+        $profile = $student->studentProfile;
+
+        return response()->json([
+            'profile' => [
+                'student_id'     => $profile?->student_id,
+                'gender'         => $profile?->gender,
+                'date_of_birth'  => $profile?->date_of_birth?->format('Y-m-d'),
+                'contact_number' => $profile?->contact_number,
+                'grade_level'    => $profile?->grade_level,
+                'section'        => $profile?->section,
+            ],
+        ]);
+    }
+
+    // Update student profile
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'student_id'     => 'nullable|string|max:50',
+            'gender'         => 'nullable|in:male,female,other',
+            'date_of_birth'  => 'nullable|date',
+            'contact_number' => 'nullable|string|max:20',
+            'grade_level'    => 'nullable|string|max:50',
+            'section'        => 'nullable|string|max:50',
+        ]);
+
+        $student = $request->user();
+
+        $profile = StudentProfile::updateOrCreate(
+            ['user_id' => $student->id],
+            $request->only([
+                'student_id',
+                'gender',
+                'date_of_birth',
+                'contact_number',
+                'grade_level',
+                'section',
+            ])
+        );
+
+        return response()->json([
+            'message' => 'Profile updated successfully.',
+            'profile' => [
+                'student_id'     => $profile->student_id,
+                'gender'         => $profile->gender,
+                'date_of_birth'  => $profile->date_of_birth?->format('Y-m-d'),
+                'contact_number' => $profile->contact_number,
+                'grade_level'    => $profile->grade_level,
+                'section'        => $profile->section,
+            ],
+        ]);
+    }
+
     // Get all classes student is enrolled in
     public function myClasses(Request $request)
     {
@@ -98,17 +154,17 @@ class StudentController extends Controller
         return response()->json([
             'classes' => $classes->map(function ($class) {
                 return [
-                    'id'             => $class->id,
-                    'name'           => $class->name,
-                    'description'    => $class->description,
-                    'class_code'     => $class->class_code,
-                    'teacher_name'   => $class->teacher->name,
-                    'teacher_first_name' => $class->teacher->first_name,
+                    'id'                     => $class->id,
+                    'name'                   => $class->name,
+                    'description'            => $class->description,
+                    'class_code'             => $class->class_code,
+                    'teacher_name'           => $class->teacher->name,
+                    'teacher_first_name'     => $class->teacher->first_name,
                     'teacher_middle_initial' => $class->teacher->middle_initial,
-                    'teacher_surname' => $class->teacher->surname,
-                    'teacher_email'  => $class->teacher->email,
-                    'students_count' => $class->students_count,
-                    'quizzes_count'  => $class->quizzes_count,
+                    'teacher_surname'        => $class->teacher->surname,
+                    'teacher_email'          => $class->teacher->email,
+                    'students_count'         => $class->students_count,
+                    'quizzes_count'          => $class->quizzes_count,
                 ];
             }),
         ]);
@@ -130,14 +186,12 @@ class StudentController extends Controller
             ], 404);
         }
 
-        // Check if already enrolled
         if ($class->students()->where('student_id', $request->user()->id)->exists()) {
             return response()->json([
                 'message' => 'You are already enrolled in this class.',
             ], 409);
         }
 
-        // Enroll student
         $class->students()->attach($request->user()->id, [
             'joined_at' => now(),
         ]);
@@ -158,7 +212,6 @@ class StudentController extends Controller
     {
         $class = \App\Models\ClassRoom::findOrFail($classId);
 
-        // Check if enrolled
         if (!$class->students()->where('student_id', $request->user()->id)->exists()) {
             return response()->json([
                 'message' => 'You are not enrolled in this class.',
@@ -177,7 +230,6 @@ class StudentController extends Controller
     {
         $student = $request->user();
 
-        // Make sure student is enrolled in this class
         $class = \App\Models\ClassRoom::whereHas('students', function ($q) use ($student) {
             $q->where('student_id', $student->id);
         })->findOrFail($classId);
@@ -187,7 +239,6 @@ class StudentController extends Controller
             ->withCount('questions')
             ->get();
 
-        // Check which quizzes student has already completed
         $completedQuizIds = \App\Models\QuizAttempt::where('student_id', $student->id)
             ->where('status', 'completed')
             ->pluck('quiz_id')

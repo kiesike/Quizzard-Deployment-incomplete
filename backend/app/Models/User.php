@@ -65,4 +65,9 @@ class User extends Authenticatable
         }
         return asset('images/default-avatar.png');
     }
+
+    public function studentProfile()
+    {
+        return $this->hasOne(StudentProfile::class);
+    }
 }

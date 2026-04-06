@@ -33,6 +33,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/student/classes/join', [StudentController::class, 'joinClass']);
     Route::delete('/student/classes/{classId}/leave', [StudentController::class, 'leaveClass']);
     Route::get('/student/classes/{classId}/quizzes', [StudentController::class, 'classQuizzes']);
+    Route::get('/student/profile', [StudentController::class, 'getProfile']);
+    Route::put('/student/profile', [StudentController::class, 'updateProfile']);
 
     // Teacher routes
     Route::get('/teacher/dashboard', [TeacherController::class, 'dashboard']);

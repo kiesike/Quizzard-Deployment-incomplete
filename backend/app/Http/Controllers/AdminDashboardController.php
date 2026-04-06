@@ -24,8 +24,8 @@ class AdminDashboardController extends Controller
         }
 
         if (!in_array($type, $allowedTypes)) {
-    $type = $allowedTypes[0];
-}
+            $type = $allowedTypes[0];
+        }
 
         $query = User::query()
             ->where('role', $type)

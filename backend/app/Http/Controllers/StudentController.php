@@ -104,7 +104,7 @@ class StudentController extends Controller
             'gender'         => 'nullable|in:male,female,other',
             'date_of_birth'  => 'nullable|date',
             'contact_number' => 'nullable|string|max:20',
-            'grade_level'    => 'nullable|string|max:50',
+            'grade_level'    => 'nullable|in:Grade 7,Grade 8,Grade 9,Grade 10,Grade 11,Grade 12,Year 1,Year 2,Year 3,Year 4',
             'section'        => 'nullable|string|max:50',
         ]);
 

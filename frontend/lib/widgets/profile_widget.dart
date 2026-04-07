@@ -57,109 +57,126 @@ class _ProfileWidgetState extends State<ProfileWidget> {
   }
 
   Future<void> _editName() async {
-    final firstNameController =
-        TextEditingController(text: _user?['first_name'] ?? '');
-    final middleInitialController =
-        TextEditingController(text: _user?['middle_initial'] ?? '');
-    final surnameController =
-        TextEditingController(text: _user?['surname'] ?? '');
+  final firstNameController =
+      TextEditingController(text: _user?['first_name'] ?? '');
+  final middleInitialController =
+      TextEditingController(text: _user?['middle_initial'] ?? '');
+  final surnameController =
+      TextEditingController(text: _user?['surname'] ?? '');
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
-        title: const Text('Edit Name'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: firstNameController,
-              decoration: InputDecoration(
-                labelText: 'First Name',
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16)),
+      title: const Text('Edit Name'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: firstNameController,
+            maxLength: 100,
+            decoration: InputDecoration(
+              labelText: 'First Name',
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: middleInitialController,
-              maxLength: 1,
-              decoration: InputDecoration(
-                labelText: 'Middle Initial (optional)',
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                helperText: 'Single letter',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: surnameController,
-              decoration: InputDecoration(
-                labelText: 'Surname',
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6C63FF),
+          const SizedBox(height: 12),
+          TextField(
+            controller: middleInitialController,
+            maxLength: 1,
+            decoration: InputDecoration(
+              labelText: 'Middle Initial (optional)',
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              helperText: 'Single letter',
             ),
-            child: const Text('Save',
-                style: TextStyle(color: Colors.white)),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: surnameController,
+            maxLength: 100,
+            decoration: InputDecoration(
+              labelText: 'Surname',
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
           ),
         ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF6C63FF),
+          ),
+          child: const Text('Save',
+              style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm != true) return;
+
+  final firstName = firstNameController.text.trim();
+  final surname = surnameController.text.trim();
+  final emojiRegex = RegExp(r'^[\p{L}\s\-\.]+$', unicode: true);
+
+  if (firstName.isEmpty || surname.isEmpty) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('First name and surname are required!'),
+        backgroundColor: Colors.red,
+      ),
     );
-
-    if (confirm != true) return;
-    if (firstNameController.text.trim().isEmpty ||
-        surnameController.text.trim().isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('First name and surname are required!'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    final result = await AuthService.authPut('/profile', {
-      'first_name': firstNameController.text.trim(),
-      'middle_initial': middleInitialController.text.trim().isEmpty
-          ? null
-          : middleInitialController.text.trim()[0],
-      'surname': surnameController.text.trim(),
-    });
-
-    if (result['success']) {
-      _loadProfile();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Name updated successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message']),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    return;
   }
+
+  if (!emojiRegex.hasMatch(firstName) || !emojiRegex.hasMatch(surname)) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Name must not contain emojis or special characters.'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
+  final result = await AuthService.authPut('/profile', {
+    'first_name': firstName,
+    'middle_initial': middleInitialController.text.trim().isEmpty
+        ? null
+        : middleInitialController.text.trim()[0],
+    'surname': surname,
+  });
+
+  if (result['success']) {
+    _loadProfile();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Name updated successfully!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  } else {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result['message']),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
 
   Future<void> _changePassword() async {
     final currentController = TextEditingController();
@@ -199,6 +216,7 @@ class _ProfileWidgetState extends State<ProfileWidget> {
               TextField(
                 controller: newController,
                 obscureText: !showNew,
+                maxLength: 50,
                 decoration: InputDecoration(
                   labelText: 'New Password',
                   border: OutlineInputBorder(
@@ -216,6 +234,7 @@ class _ProfileWidgetState extends State<ProfileWidget> {
               TextField(
                 controller: confirmController,
                 obscureText: !showConfirm,
+                maxLength: 50,
                 decoration: InputDecoration(
                   labelText: 'Confirm New Password',
                   border: OutlineInputBorder(
@@ -262,6 +281,28 @@ class _ProfileWidgetState extends State<ProfileWidget> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('New passwords do not match!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (newController.text == currentController.text) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('New password must be different from your current password.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (newController.text.length > 50) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password must not exceed 50 characters.'),
           backgroundColor: Colors.red,
         ),
       );

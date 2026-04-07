@@ -25,10 +25,18 @@ class ClassController extends Controller
     // Create a new class
     public function store(Request $request)
     {
-        $request->validate([
-            'name'        => 'required|string|max:255',
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'name'        => 'required|string|max:100',
             'description' => 'nullable|string',
+        ], [
+            'name.max' => 'Class name must not exceed 100 characters.',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
 
         $class = ClassRoom::create([
             'teacher_id'  => $request->user()->id,
@@ -69,7 +77,7 @@ class ClassController extends Controller
             ->firstOrFail();
 
         $request->validate([
-            'name'        => 'required|string|max:255',
+            'name'        => 'required|string|max:100',
             'description' => 'nullable|string',
         ]);
 

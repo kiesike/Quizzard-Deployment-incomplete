@@ -141,6 +141,12 @@ class AuthService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return {'success': true, 'data': data};
       } else {
+        // Extract first validation error if present
+        if (data['errors'] != null) {
+          final errors = data['errors'] as Map<String, dynamic>;
+          final firstError = errors.values.first as List<dynamic>;
+          return {'success': false, 'message': firstError.first.toString()};
+        }
         return {'success': false, 'message': data['message'] ?? 'Error'};
       }
     } catch (e) {

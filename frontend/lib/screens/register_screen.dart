@@ -303,6 +303,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(height: 16),
 
                     // Email field
+                   // Email field
                     _buildLabel('Email'),
                     const SizedBox(height: 8),
                     _buildTextField(
@@ -310,6 +311,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hint: 'Enter your email',
                       icon: Icons.email_outlined,
                       keyboardType: TextInputType.emailAddress,
+                      maxLength: 30,
                     ),
                     const SizedBox(height: 16),
 
@@ -413,6 +415,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       obscure: _obscurePassword,
                       onToggle: () =>
                           setState(() => _obscurePassword = !_obscurePassword),
+                      maxLength: 50,
                     ),
                     const SizedBox(height: 16),
 
@@ -425,6 +428,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       obscure: _obscureConfirmPassword,
                       onToggle: () => setState(() =>
                           _obscureConfirmPassword = !_obscureConfirmPassword),
+                      maxLength: 50,
                     ),
                     const SizedBox(height: 10),
 
@@ -553,15 +557,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildPasswordField({
-    required TextEditingController controller,
-    required String hint,
-    required bool obscure,
-    required VoidCallback onToggle,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
+ Widget _buildPasswordField({
+  required TextEditingController controller,
+  required String hint,
+  required bool obscure,
+  required VoidCallback onToggle,
+  int? maxLength,
+}) {
+  return TextField(
+    controller: controller,
+    obscureText: obscure,
+    maxLength: maxLength,
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon:

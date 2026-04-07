@@ -40,6 +40,27 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   }
 
   Future<void> _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Log Out'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Log Out', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
     await AuthService.logout();
     if (!mounted) return;
     Navigator.pushReplacementNamed(context, '/login');
@@ -676,7 +697,16 @@ class _StudentClassesTabState extends State<_StudentClassesTab> {
     );
 
     if (confirm != true) return;
-    if (codeController.text.trim().isEmpty) return;
+    if (codeController.text.trim().isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a class code.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     final result = await AuthService.authPost(
       '/student/classes/join',

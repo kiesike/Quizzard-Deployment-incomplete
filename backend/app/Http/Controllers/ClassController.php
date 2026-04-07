@@ -53,7 +53,8 @@ class ClassController extends Controller
             }])
             ->with(['quizzes' => function ($q) {
                 $q->select('quizzes.id', 'quizzes.title', 'quizzes.is_published')
-                  ->withCount('questions');
+                ->withCount('questions')
+                ->withCount('attempts');
             }])
             ->firstOrFail();
 

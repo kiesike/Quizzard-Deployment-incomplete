@@ -478,46 +478,48 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // Edit button
-                    TextButton.icon(
-                      onPressed: () async {
-                        final result = await Navigator.pushNamed(
-                          context,
-                          '/edit-quiz',
-                          arguments: {
-                            'quiz_id': quizId,
-                            'title': title,
-                            'description': description,
-                          },
-                        );
-                        if (result == true) _loadDashboard();
-                      },
-                      icon: const Icon(
-                        Icons.edit,
-                        size: 16,
-                        color: Color(0xFF6C63FF),
+                    // Edit button — hidden if quiz has attempts
+                    if (quiz['has_attempts'] != true) ...[
+                      TextButton.icon(
+                        onPressed: () async {
+                          final result = await Navigator.pushNamed(
+                            context,
+                            '/edit-quiz',
+                            arguments: {
+                              'quiz_id': quizId,
+                              'title': title,
+                              'description': description,
+                            },
+                          );
+                          if (result == true) _loadDashboard();
+                        },
+                        icon: const Icon(
+                          Icons.edit,
+                          size: 16,
+                          color: Color(0xFF6C63FF),
+                        ),
+                        label: const Text(
+                          'Edit',
+                          style: TextStyle(color: Color(0xFF6C63FF)),
+                        ),
                       ),
-                      label: const Text(
-                        'Edit',
-                        style: TextStyle(color: Color(0xFF6C63FF)),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
+                      const SizedBox(width: 4),
 
-                    // Delete button
-                    TextButton.icon(
-                      onPressed: () => _deleteQuiz(quiz),
-                      icon: const Icon(
-                        Icons.delete,
-                        size: 16,
-                        color: Colors.red,
+                      // Delete button
+                      TextButton.icon(
+                        onPressed: () => _deleteQuiz(quiz),
+                        icon: const Icon(
+                          Icons.delete,
+                          size: 16,
+                          color: Colors.red,
+                        ),
+                        label: const Text(
+                          'Delete',
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ),
-                      label: const Text(
-                        'Delete',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
+                      const SizedBox(width: 6),
+                    ],
 
                     // Results button
                     TextButton.icon(
@@ -593,35 +595,35 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
 
                     // Publish toggle
                     isToggling
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : OutlinedButton.icon(
-                            onPressed: () => _togglePublish(quiz),
-                            icon: Icon(
-                              isPublished
-                                  ? Icons.unpublished_outlined
-                                  : Icons.publish,
-                              size: 18,
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : OutlinedButton.icon(
+                          onPressed: () => _togglePublish(quiz),
+                          icon: Icon(
+                            isPublished
+                                ? Icons.unpublished_outlined
+                                : Icons.publish,
+                            size: 18,
+                            color: isPublished ? Colors.orange : _green,
+                          ),
+                          label: Text(
+                            isPublished ? 'Unpublish' : 'Publish',
+                            style: TextStyle(
                               color: isPublished ? Colors.orange : _green,
                             ),
-                            label: Text(
-                              isPublished ? 'Unpublish' : 'Publish',
-                              style: TextStyle(
-                                color: isPublished ? Colors.orange : _green,
-                              ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: isPublished ? Colors.orange : _green,
                             ),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(
-                                color: isPublished ? Colors.orange : _green,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
+                        ),
                   ],
                 ),
               ),

@@ -65,9 +65,12 @@ class QuizController extends Controller
             });
         }
 
+        $hasAttempts = QuizAttempt::where('quiz_id', $quizId)->exists();
+
         return response()->json([
-            'success' => true,
-            'data'    => $quiz,
+            'success'      => true,
+            'has_attempts' => $hasAttempts,
+            'data'         => $quiz,
         ]);
     }
 

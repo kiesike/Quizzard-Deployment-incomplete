@@ -30,14 +30,15 @@ class TeacherController extends Controller
                     ->avg('score');
 
                 return [
-                    'id'             => $quiz->id,
-                    'title'          => $quiz->title,
-                    'description'    => $quiz->description,
-                    'is_published'   => $quiz->is_published,
+                    'id'              => $quiz->id,
+                    'title'           => $quiz->title,
+                    'description'     => $quiz->description,
+                    'is_published'    => $quiz->is_published,
                     'questions_count' => $quiz->questions_count,
-                    'attempts_count' => $attemptCount,
-                    'average_score'  => $avgScore ? round($avgScore, 1) : null,
-                    'created_at'     => $quiz->created_at,
+                    'attempts_count'  => $attemptCount,
+                    'has_attempts'    => $attemptCount > 0,
+                    'average_score'   => $avgScore ? round($avgScore, 1) : null,
+                    'created_at'      => $quiz->created_at,
                 ];
             });
 

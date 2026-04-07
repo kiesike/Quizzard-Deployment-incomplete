@@ -20,6 +20,7 @@ class _QuizDetailScreenState extends State<QuizDetailScreen> {
 
   List<dynamic> _questions = [];
   bool _loading = true;
+  bool _hasAttempts = false;
   String? _error;
 
   @override
@@ -39,6 +40,7 @@ class _QuizDetailScreenState extends State<QuizDetailScreen> {
     if (result['success']) {
       setState(() {
         _questions = result['data']['data']['questions'] ?? [];
+        _hasAttempts = result['data']['has_attempts'] ?? false;
         _loading = false;
       });
     } else {
@@ -144,29 +146,62 @@ class _QuizDetailScreenState extends State<QuizDetailScreen> {
         foregroundColor: Colors.white,
         title: Text(widget.quizTitle, overflow: TextOverflow.ellipsis),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            tooltip: 'Edit Quiz',
-            onPressed: _navigateToEditQuiz,
-          ),
+          if (!_hasAttempts)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              tooltip: 'Edit Quiz',
+              onPressed: _navigateToEditQuiz,
+            ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _navigateToAddQuestion,
-        backgroundColor: primaryColor,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Add Question',
-            style: TextStyle(color: Colors.white)),
-      ),
+      floatingActionButton: _hasAttempts
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _navigateToAddQuestion,
+              backgroundColor: primaryColor,
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text('Add Question',
+                  style: TextStyle(color: Colors.white)),
+            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(
                   child: Text(_error!,
                       style: const TextStyle(color: Colors.red)))
-              : _questions.isEmpty
-                  ? _buildEmptyState()
-                  : _buildQuestionList(),
+              : Column(
+                  children: [
+                    if (_hasAttempts)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        color: Colors.orange.shade100,
+                        child: Row(
+                          children: [
+                            Icon(Icons.lock_outline,
+                                color: Colors.orange.shade800, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'This quiz has been taken by students and cannot be modified.',
+                                style: TextStyle(
+                                  color: Colors.orange.shade800,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Expanded(
+                      child: _questions.isEmpty
+                          ? _buildEmptyState()
+                          : _buildQuestionList(),
+                    ),
+                  ],
+                ),
     );
   }
 
@@ -209,8 +244,7 @@ class _QuizDetailScreenState extends State<QuizDetailScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color:
-                            _questionTypeColor(type).withOpacity(0.15),
+                        color: _questionTypeColor(type).withOpacity(0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -236,33 +270,39 @@ class _QuizDetailScreenState extends State<QuizDetailScreen> {
                   style: const TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () async {
-                        final result = await Navigator.pushNamed(
-                          context,
-                          '/edit-question',
-                          arguments: {
-                            'quiz_id':  widget.quizId,
-                            'question': Map<String, dynamic>.from(q),
-                          },
-                        );
-                        if (result == true) _loadQuiz();
-                      },
-                      icon: const Icon(Icons.edit, size: 16, color: Color(0xFF6C63FF)),
-                      label: const Text('Edit', style: TextStyle(color: Color(0xFF6C63FF))),
-                    ),
-                    const SizedBox(width: 8),
-                    TextButton.icon(
-                      onPressed: () => _deleteQuestion(q['id']),
-                      icon: const Icon(Icons.delete, size: 16, color: Colors.red),
-                      label: const Text('Delete', style: TextStyle(color: Colors.red)),
-                    ),
-                  ],
-                ),
+                if (!_hasAttempts) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () async {
+                          final result = await Navigator.pushNamed(
+                            context,
+                            '/edit-question',
+                            arguments: {
+                              'quiz_id':  widget.quizId,
+                              'question': Map<String, dynamic>.from(q),
+                            },
+                          );
+                          if (result == true) _loadQuiz();
+                        },
+                        icon: const Icon(Icons.edit, size: 16,
+                            color: Color(0xFF6C63FF)),
+                        label: const Text('Edit',
+                            style: TextStyle(color: Color(0xFF6C63FF))),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        onPressed: () => _deleteQuestion(q['id']),
+                        icon: const Icon(Icons.delete, size: 16,
+                            color: Colors.red),
+                        label: const Text('Delete',
+                            style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

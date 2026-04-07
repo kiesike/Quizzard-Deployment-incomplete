@@ -538,7 +538,37 @@ class _ProfileWidgetState extends State<ProfileWidget> {
                   ),
                 ),
 
+                
+                const SizedBox(height: 12),
+
+                // Student Info button (only for students)
+                if (role == 'student')
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/student-info');
+                      },
+                      icon: const Icon(Icons.info_outline,
+                          color: Color(0xFF6C63FF)),
+                      label: const Text(
+                        'Edit Student Info',
+                        style: TextStyle(
+                            color: Color(0xFF6C63FF), fontSize: 15),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                            color: Color(0xFF6C63FF)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+
                 const SizedBox(height: 30),
+
+                
 
                 // Logout button
                 SizedBox(

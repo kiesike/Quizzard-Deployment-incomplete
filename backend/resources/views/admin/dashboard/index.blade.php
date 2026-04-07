@@ -321,8 +321,8 @@
                             <option value="teacher">Teacher</option>
                             <option value="student">Student</option>
                             @if($isSuperAdmin)
-        <option value="admin">Admin</option>
-    @endif
+                                <option value="admin">Admin</option>
+                            @endif
                         </select>
                     </div>
 

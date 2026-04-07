@@ -19,6 +19,7 @@ import 'screens/class_list_screen.dart';
 import 'screens/class_detail_screen.dart';
 import 'screens/student_class_quizzes_screen.dart';
 import 'screens/quiz_analytics_screen.dart';
+import 'screens/student_info_screen.dart';
 
 void main() {
   runApp(const QuizzardApp());
@@ -49,32 +50,28 @@ class QuizzardApp extends StatelessWidget {
         '/create-quiz':        (context) => const CreateQuizScreen(),
         '/quiz-result':        (context) => const QuizResultScreen(),
         '/quiz-analytics': (context) {
-  final args = ModalRoute.of(context)!.settings.arguments
-      as Map<String, dynamic>;
-  return QuizAnalyticsScreen(
-    quizId: args['quiz_id'],
-    quizTitle: args['quiz_title'],
-  );
-},
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            return QuizAnalyticsScreen(
+              quizId: args['quiz_id'],
+              quizTitle: args['quiz_title'],
+            );
+        },
         '/quiz-taking': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments
-              as Map<String, dynamic>;
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return QuizTakingScreen(
             quizId: args['quiz_id'],
             quizTitle: args['quiz_title'],
           );
         },
         '/quiz-detail': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments
-              as Map<String, dynamic>;
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return QuizDetailScreen(
             quizId: args['quiz_id'],
             quizTitle: args['quiz_title'],
           );
         },
         '/edit-quiz': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments
-              as Map<String, dynamic>;
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return EditQuizScreen(
             quizId: args['quiz_id'],
             initialTitle: args['title'],
@@ -82,29 +79,25 @@ class QuizzardApp extends StatelessWidget {
           );
         },
         '/add-question': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments
-              as Map<String, dynamic>;
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return AddQuestionScreen(quizId: args['quiz_id']);
         },
         '/edit-question': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments
-              as Map<String, dynamic>;
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return EditQuestionScreen(
             quizId: args['quiz_id'],
             question: args['question'],
           );
         },
         '/quiz-results': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments
-              as Map<String, dynamic>;
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return QuizResultsScreen(
             quizId: args['quiz_id'],
             quizTitle: args['quiz_title'],
           );
         },
         '/student-attempt-detail': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments
-              as Map<String, dynamic>;
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return StudentAttemptDetailScreen(
             quizId: args['quiz_id'],
             quizTitle: args['quiz_title'],
@@ -114,21 +107,21 @@ class QuizzardApp extends StatelessWidget {
         },
         '/class-list': (context) => const ClassListScreen(),
         '/class-detail': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments
-              as Map<String, dynamic>;
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return ClassDetailScreen(
             classId: args['class_id'],
             className: args['class_name'],
           );
         },
         '/student-class-quizzes': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments
-              as Map<String, dynamic>;
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return StudentClassQuizzesScreen(
             classId: args['class_id'],
             className: args['class_name'],
           );
         },
+        '/student-info': (context) => const StudentInfoScreen(),
+        
       },
     );
   }

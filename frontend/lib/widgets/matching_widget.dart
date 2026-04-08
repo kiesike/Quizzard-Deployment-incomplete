@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import 'video_player_widget.dart';
+import 'audio_player_widget.dart';
 
 class MatchingWidget extends StatefulWidget {
   final Map<String, dynamic> question;
@@ -17,7 +20,6 @@ class MatchingWidget extends StatefulWidget {
 }
 
 class _MatchingWidgetState extends State<MatchingWidget> {
-  // Maps Column A item -> selected Column B item
   late Map<String, String?> _selectedMatches;
   late List<String> _columnBOptions;
 
@@ -26,14 +28,12 @@ class _MatchingWidgetState extends State<MatchingWidget> {
     super.initState();
     final options = widget.question['answer_options'] as List;
 
-    // Initialize selected matches
     _selectedMatches = {};
     for (var option in options) {
       _selectedMatches[option['option_text']] =
           widget.currentAnswers?[option['option_text']];
     }
 
-    // Build Column B options (shuffled)
     _columnBOptions =
         options.map((o) => o['match_pair'].toString()).toList();
     _columnBOptions.shuffle();
@@ -42,7 +42,6 @@ class _MatchingWidgetState extends State<MatchingWidget> {
   void _updateAnswer(String columnA, String? columnB) {
     setState(() => _selectedMatches[columnA] = columnB);
 
-    // Build answer map and notify parent
     final answers = <String, String>{};
     _selectedMatches.forEach((key, value) {
       if (value != null) answers[key] = value;
@@ -53,11 +52,14 @@ class _MatchingWidgetState extends State<MatchingWidget> {
   @override
   Widget build(BuildContext context) {
     final options = widget.question['answer_options'] as List;
+    final imagePath = widget.question['image_path'];
+    final videoPath = widget.question['video_path'];
+    final audioPath = widget.question['audio_path'];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Question text
+        // Question container
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -108,6 +110,34 @@ class _MatchingWidgetState extends State<MatchingWidget> {
                   color: Color(0xFF333333),
                 ),
               ),
+              // Question image
+              if (imagePath != null && imagePath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    AuthService.fixImageUrl(imagePath),
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox(),
+                  ),
+                ),
+              ],
+              // Question video
+              if (videoPath != null && videoPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                VideoPlayerWidget(
+                  videoUrl: AuthService.fixImageUrl(videoPath),
+                ),
+              ],
+              // Question audio
+              if (audioPath != null && audioPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                AudioPlayerWidget(
+                  audioUrl: AuthService.fixImageUrl(audioPath),
+                ),
+              ],
             ],
           ),
         ),
@@ -135,8 +165,7 @@ class _MatchingWidgetState extends State<MatchingWidget> {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.arrow_forward,
-                color: Color(0xFF6C63FF)),
+            const Icon(Icons.arrow_forward, color: Color(0xFF6C63FF)),
             const SizedBox(width: 8),
             Expanded(
               child: Container(
@@ -162,8 +191,7 @@ class _MatchingWidgetState extends State<MatchingWidget> {
 
         // Matching rows
         ...options.asMap().entries.map((entry) {
-          final option =
-              Map<String, dynamic>.from(entry.value);
+          final option = Map<String, dynamic>.from(entry.value);
           final columnA = option['option_text'].toString();
           final selectedB = _selectedMatches[columnA];
 
@@ -171,15 +199,13 @@ class _MatchingWidgetState extends State<MatchingWidget> {
             margin: const EdgeInsets.only(bottom: 10),
             child: Row(
               children: [
-                // Column A item
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: Colors.grey.shade300),
+                      border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: Text(
                       columnA,
@@ -195,16 +221,13 @@ class _MatchingWidgetState extends State<MatchingWidget> {
                 const Icon(Icons.arrow_forward,
                     color: Colors.grey, size: 16),
                 const SizedBox(width: 8),
-
-                // Column B dropdown
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8),
                     decoration: BoxDecoration(
                       color: selectedB != null
-                          ? const Color(0xFF6C63FF)
-                              .withOpacity(0.1)
+                          ? const Color(0xFF6C63FF).withOpacity(0.1)
                           : Colors.white,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
@@ -219,36 +242,30 @@ class _MatchingWidgetState extends State<MatchingWidget> {
                         hint: const Text(
                           'Select...',
                           style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey),
+                              fontSize: 12, color: Colors.grey),
                         ),
                         isExpanded: true,
-                        icon: const Icon(
-                          Icons.arrow_drop_down,
-                          color: Color(0xFF6C63FF),
-                        ),
+                        icon: const Icon(Icons.arrow_drop_down,
+                            color: Color(0xFF6C63FF)),
                         items: [
-                          // Add a "clear" option
                           const DropdownMenuItem<String>(
                             value: null,
                             child: Text(
                               'Select...',
                               style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12),
+                                  color: Colors.grey, fontSize: 12),
                             ),
                           ),
-                          ..._columnBOptions
-                              .map((b) => DropdownMenuItem(
-                                    value: b,
-                                    child: Text(
-                                      b,
-                                      style: const TextStyle(
-                                          fontSize: 12),
-                                      overflow:
-                                          TextOverflow.ellipsis,
-                                    ),
-                                  )),
+                          ..._columnBOptions.map((b) =>
+                              DropdownMenuItem(
+                                value: b,
+                                child: Text(
+                                  b,
+                                  style:
+                                      const TextStyle(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              )),
                         ],
                         onChanged: (val) =>
                             _updateAnswer(columnA, val),

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import 'video_player_widget.dart';
+import 'audio_player_widget.dart';
 
 class MultipleChoiceResultWidget extends StatelessWidget {
   final Map<String, dynamic> question;
@@ -13,8 +16,10 @@ class MultipleChoiceResultWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final options = question['answer_options'] as List;
-    
-    // Find correct option safely without orElse
+    final imagePath = question['image_path'];
+    final videoPath = question['video_path'];
+    final audioPath = question['audio_path'];
+
     Map<String, dynamic>? correctOption;
     for (var option in options) {
       if (option['is_correct'] == true) {
@@ -30,7 +35,7 @@ class MultipleChoiceResultWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Question text with result indicator
+        // Question container
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -96,6 +101,34 @@ class MultipleChoiceResultWidget extends StatelessWidget {
                   color: Color(0xFF333333),
                 ),
               ),
+              // Question image
+              if (imagePath != null && imagePath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    AuthService.fixImageUrl(imagePath),
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox(),
+                  ),
+                ),
+              ],
+              // Question video
+              if (videoPath != null && videoPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                VideoPlayerWidget(
+                  videoUrl: AuthService.fixImageUrl(videoPath),
+                ),
+              ],
+              // Question audio
+              if (audioPath != null && audioPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                AudioPlayerWidget(
+                  audioUrl: AuthService.fixImageUrl(audioPath),
+                ),
+              ],
             ],
           ),
         ),
@@ -136,42 +169,78 @@ class MultipleChoiceResultWidget extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: borderColor),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (icon != null)
-                  Icon(icon, color: iconColor, size: 20)
-                else
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Center(
+                Row(
+                  children: [
+                    if (icon != null)
+                      Icon(icon, color: iconColor, size: 20)
+                    else
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Center(
+                          child: Text(
+                            String.fromCharCode(65 + index),
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 12),
+                    Expanded(
                       child: Text(
-                        String.fromCharCode(65 + index),
+                        option['option_text'],
                         style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                          fontWeight: isCorrectOption || isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                         ),
                       ),
                     ),
-                  ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    option['option_text'],
-                    style: TextStyle(
-                      color: textColor,
-                      fontWeight: isCorrectOption || isSelected
-                          ? FontWeight.bold
-                          : FontWeight.normal,
+                  ],
+                ),
+                // Option image
+                if (option['image_path'] != null &&
+                    option['image_path'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      AuthService.fixImageUrl(option['image_path']),
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const SizedBox(),
                     ),
                   ),
-                ),
+                ],
+                // Option video
+                if (option['video_path'] != null &&
+                    option['video_path'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  VideoPlayerWidget(
+                    videoUrl: AuthService.fixImageUrl(option['video_path']),
+                  ),
+                ],
+                // Option audio
+                if (option['audio_path'] != null &&
+                    option['audio_path'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  AudioPlayerWidget(
+                    audioUrl: AuthService.fixImageUrl(option['audio_path']),
+                  ),
+                ],
               ],
             ),
           );

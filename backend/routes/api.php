@@ -7,6 +7,12 @@ use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\QuizController;
 use App\Http\Controllers\ClassController;
+use App\Http\Controllers\ImageController;
+use App\Http\Controllers\VideoController;
+use App\Http\Controllers\AudioController;
+
+
+
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -17,12 +23,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/profile', [AuthController::class, 'updateProfile']);
+    Route::post('/upload-image', [ImageController::class, 'upload']);
+    Route::post('/upload-video', [VideoController::class, 'upload']);
+    Route::post('/upload-audio', [AudioController::class, 'upload']);
+
     // Student routes
     Route::get('/student/dashboard', [StudentController::class, 'dashboard']);
     Route::get('/student/classes', [StudentController::class, 'myClasses']);
     Route::post('/student/classes/join', [StudentController::class, 'joinClass']);
     Route::delete('/student/classes/{classId}/leave', [StudentController::class, 'leaveClass']);
     Route::get('/student/classes/{classId}/quizzes', [StudentController::class, 'classQuizzes']);
+    Route::get('/student/profile', [StudentController::class, 'getProfile']);
+    Route::put('/student/profile', [StudentController::class, 'updateProfile']);
 
     // Teacher routes
     Route::get('/teacher/dashboard', [TeacherController::class, 'dashboard']);

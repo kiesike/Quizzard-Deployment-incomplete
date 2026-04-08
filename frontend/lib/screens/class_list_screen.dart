@@ -52,6 +52,7 @@ class _ClassListScreenState extends State<ClassListScreen> {
           children: [
             TextField(
               controller: nameController,
+              maxLength: 100,
               decoration: InputDecoration(
                 labelText: 'Class Name',
                 hintText: 'e.g. Math 101',
@@ -63,6 +64,7 @@ class _ClassListScreenState extends State<ClassListScreen> {
             TextField(
               controller: descController,
               maxLines: 3,
+              maxLength: 200,
               decoration: InputDecoration(
                 labelText: 'Description (optional)',
                 hintText: 'e.g. Introduction to Mathematics',
@@ -142,6 +144,7 @@ class _ClassListScreenState extends State<ClassListScreen> {
           children: [
             TextField(
               controller: nameController,
+              maxLength: 100,
               decoration: InputDecoration(
                 labelText: 'Class Name',
                 border: OutlineInputBorder(
@@ -152,6 +155,7 @@ class _ClassListScreenState extends State<ClassListScreen> {
             TextField(
               controller: descController,
               maxLines: 3,
+              maxLength: 200,
               decoration: InputDecoration(
                 labelText: 'Description (optional)',
                 border: OutlineInputBorder(

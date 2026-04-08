@@ -97,14 +97,15 @@ class AuthController extends Controller
     public function register(Request $request)
 {
     $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
-        'first_name' => 'required|string|max:255',
+        'first_name' => ['required', 'string', 'max:50', 'regex:/^[\pL\s\-\.]+$/u'],
         'middle_initial' => 'nullable|string|size:1|alpha',
-        'surname' => 'required|string|max:255',
-        'email' => 'required|email|unique:users,email',
+        'surname' => ['required', 'string', 'max:50', 'regex:/^[\pL\s\-\.]+$/u'],
+        'email' => 'required|email|max:30|unique:users,email',
         'password' => [
             'required',
             'string',
             'min:8',
+            'max:50',
             'confirmed',
             'regex:/[A-Z]/',
             'regex:/[a-z]/',
@@ -113,10 +114,14 @@ class AuthController extends Controller
         ],
         'role' => 'required|in:teacher,student',
     ], [
+        'first_name.regex' => 'First name must not contain emojis or special characters.',
+        'surname.regex' => 'Last name must not contain emojis or special characters.',
         'password.regex' => 'Password must contain uppercase, lowercase, number, and special character (@$!%*#?&).',
         'password.min' => 'Password must be at least 8 characters.',
+        'password.max' => 'Password must not exceed 50 characters.',
         'password.confirmed' => 'Passwords do not match.',
         'email.unique' => 'This email is already registered.',
+        'email.max' => 'Email must not exceed 30 characters.',
     ]);
 
     if ($validator->fails()) {
@@ -177,14 +182,24 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
-        $request->validate([
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'first_name'       => 'sometimes|required|string|max:255',
             'middle_initial'   => 'nullable|string|size:1',
             'surname'          => 'sometimes|required|string|max:255',
             'current_password' => 'required_with:new_password|string',
-            'new_password'     => 'sometimes|string|min:8|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&]).+$/',
+            'new_password'     => 'sometimes|string|min:8|max:50|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&]).+$/',
             'profile_picture'  => 'sometimes|string',
+        ], [
+            'new_password.regex' => 'Password must contain uppercase, lowercase, number, and special character (@$!%*#?&).',
+            'new_password.min'   => 'Password must be at least 8 characters.',
+            'new_password.max'   => 'Password must not exceed 50 characters.',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
 
         if ($request->has('first_name')) {
             $user->first_name = $request->first_name;
@@ -217,6 +232,15 @@ class AuthController extends Controller
             )) {
                 return response()->json([
                     'message' => 'Current password is incorrect.',
+                ], 422);
+            }
+
+            if (\Illuminate\Support\Facades\Hash::check(
+                $request->new_password,
+                $user->password
+            )) {
+                return response()->json([
+                    'message' => 'New password must be different from your current password.',
                 ], 422);
             }
 

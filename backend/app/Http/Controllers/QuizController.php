@@ -65,9 +65,12 @@ class QuizController extends Controller
             });
         }
 
+        $hasAttempts = QuizAttempt::where('quiz_id', $quizId)->exists();
+
         return response()->json([
-            'success' => true,
-            'data'    => $quiz,
+            'success'      => true,
+            'has_attempts' => $hasAttempts,
+            'data'         => $quiz,
         ]);
     }
 
@@ -78,6 +81,14 @@ class QuizController extends Controller
 
         if ($quiz->teacher_id !== Auth::id()) {
             return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        // Block edit if quiz has attempts
+        $hasAttempts = QuizAttempt::where('quiz_id', $quizId)->exists();
+        if ($hasAttempts) {
+            return response()->json([
+                'message' => 'This quiz cannot be edited because students have already taken it.',
+            ], 403);
         }
 
         $validated = $request->validate([
@@ -104,6 +115,14 @@ class QuizController extends Controller
 
         if ($quiz->teacher_id !== Auth::id()) {
             return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        // Block delete if quiz has attempts
+        $hasAttempts = QuizAttempt::where('quiz_id', $quizId)->exists();
+        if ($hasAttempts) {
+            return response()->json([
+                'message' => 'This quiz cannot be deleted because students have already taken it.',
+            ], 403);
         }
 
         $quiz->delete();
@@ -264,7 +283,6 @@ class QuizController extends Controller
         $quiz = Quiz::with(['questions' => function ($q) {
             $q->orderBy('order')->with('answerOptions');
         }])->findOrFail($quizId);
-    
 
         // Recalculate total_points from actual questions at submit time
         $actualTotalPoints = $quiz->questions()->sum('points');
@@ -275,8 +293,6 @@ class QuizController extends Controller
             'status'       => 'completed',
             'completed_at' => now(),
         ]);
-
-        
 
         $questionResults = [];
         foreach ($quiz->questions as $question) {
@@ -304,11 +320,9 @@ class QuizController extends Controller
             ];
         }
 
-
         $percentage = $actualTotalPoints > 0
             ? round(($totalScore / $actualTotalPoints) * 100)
             : 0;
-
 
         return response()->json([
             'message'          => 'Quiz submitted successfully!',

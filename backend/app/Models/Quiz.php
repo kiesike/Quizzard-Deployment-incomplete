@@ -31,8 +31,18 @@ class Quiz extends Model
         return $this->hasMany(Question::class)->orderBy('order');
     }
 
+    public function classes()
+    {
+        return $this->belongsToMany(
+            ClassRoom::class,
+            'class_quizzes',
+            'quiz_id',
+            'class_id'
+        );
+    }
+
     public function attempts()
-{
-    return $this->hasMany(\App\Models\QuizAttempt::class, 'quiz_id');
-}
+    {
+        return $this->hasMany(QuizAttempt::class);
+    }
 }

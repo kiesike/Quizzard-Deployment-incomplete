@@ -43,10 +43,18 @@ class User extends Authenticatable
 
     public function getNameAttribute($value)
     {
-        if (!empty($this->first_name) || !empty($this->surname)) {
-            $middle = $this->middle_initial ? ' ' . strtoupper(substr($this->middle_initial, 0, 1)) . '.' : '';
-            return trim("{$this->first_name}{$middle} {$this->surname}");
+        $first = trim((string) $this->first_name);
+        $middle = trim((string) $this->middle_initial);
+        $last = trim((string) $this->surname);
+
+        if ($first !== '' || $last !== '') {
+            $middleFormatted = $middle !== ''
+                ? ' ' . strtoupper(substr($middle, 0, 1)) . '.'
+                : '';
+
+            return trim("{$first}{$middleFormatted} {$last}");
         }
+
         return $value;
     }
 
@@ -56,5 +64,10 @@ class User extends Authenticatable
             return asset('storage/' . $this->profile_image);
         }
         return asset('images/default-avatar.png');
+    }
+
+    public function studentProfile()
+    {
+        return $this->hasOne(StudentProfile::class);
     }
 }

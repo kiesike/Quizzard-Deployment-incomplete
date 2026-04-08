@@ -16,6 +16,9 @@ RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 # Install Composer (PHP package manager)
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# Copy custom PHP settings (upload size, etc.)
+COPY local.ini /usr/local/etc/php/conf.d/local.ini
+
 # Set working directory
 WORKDIR /var/www
 

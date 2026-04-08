@@ -573,13 +573,30 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton.icon(
-                    onPressed: () => _unassignQuiz(quiz),
-                    icon: const Icon(Icons.remove_circle,
-                        size: 16, color: Colors.red),
-                    label: const Text('Remove',
-                        style: TextStyle(color: Colors.red)),
-                  ),
+                  if ((quiz['attempts_count'] ?? 0) == 0)
+                    TextButton.icon(
+                      onPressed: () => _unassignQuiz(quiz),
+                      icon: const Icon(Icons.remove_circle,
+                          size: 16, color: Colors.red),
+                      label: const Text('Remove',
+                          style: TextStyle(color: Colors.red)),
+                    )
+                  else
+                    Row(
+                      children: [
+                        Icon(Icons.lock_outline,
+                            size: 14, color: Colors.orange.shade700),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Has attempts — cannot remove',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ],

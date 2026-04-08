@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -76,22 +77,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final response = await http.post(
-  Uri.parse('http://localhost:8000/api/register'),
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  },
-  body: jsonEncode({
-    'first_name': _firstNameController.text.trim(),
-    'middle_initial': middleInitial.isEmpty ? null : middleInitial,
-    'surname': _surnameController.text.trim(),
-    'name': '${_firstNameController.text.trim()}${middleInitial.isEmpty ? '' : ' $middleInitial.'} ${_surnameController.text.trim()}',
-    'email': _emailController.text.trim(),
-    'password': _passwordController.text,
-    'password_confirmation': _confirmPasswordController.text,
-    'role': _selectedRole,
-  }),
-);
+        Uri.parse('${AuthService.baseUrl}/register'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'first_name': _firstNameController.text.trim(),
+          'middle_initial': middleInitial.isEmpty ? null : middleInitial,
+          'surname': _surnameController.text.trim(),
+          'name': '${_firstNameController.text.trim()}${middleInitial.isEmpty ? '' : ' $middleInitial.'} ${_surnameController.text.trim()}',
+          'email': _emailController.text.trim(),
+          'password': _passwordController.text,
+          'password_confirmation': _confirmPasswordController.text,
+          'role': _selectedRole,
+        }),
+      );
+ 
 
       final data = jsonDecode(response.body);
 
@@ -301,6 +303,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(height: 16),
 
                     // Email field
+                   // Email field
                     _buildLabel('Email'),
                     const SizedBox(height: 8),
                     _buildTextField(
@@ -308,6 +311,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hint: 'Enter your email',
                       icon: Icons.email_outlined,
                       keyboardType: TextInputType.emailAddress,
+                      maxLength: 30,
                     ),
                     const SizedBox(height: 16),
 
@@ -411,6 +415,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       obscure: _obscurePassword,
                       onToggle: () =>
                           setState(() => _obscurePassword = !_obscurePassword),
+                      maxLength: 50,
                     ),
                     const SizedBox(height: 16),
 
@@ -423,6 +428,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       obscure: _obscureConfirmPassword,
                       onToggle: () => setState(() =>
                           _obscureConfirmPassword = !_obscureConfirmPassword),
+                      maxLength: 50,
                     ),
                     const SizedBox(height: 10),
 
@@ -551,15 +557,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildPasswordField({
-    required TextEditingController controller,
-    required String hint,
-    required bool obscure,
-    required VoidCallback onToggle,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
+ Widget _buildPasswordField({
+  required TextEditingController controller,
+  required String hint,
+  required bool obscure,
+  required VoidCallback onToggle,
+  int? maxLength,
+}) {
+  return TextField(
+    controller: controller,
+    obscureText: obscure,
+    maxLength: maxLength,
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon:

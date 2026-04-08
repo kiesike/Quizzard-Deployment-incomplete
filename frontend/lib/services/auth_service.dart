@@ -6,11 +6,12 @@ class AuthService {
 
   // static const String baseUrl = 'http://localhost:8000/api'; // browser
   // static const String baseUrl = 'http://10.0.2.2:8000/api'; //emulator
-  //static const String baseUrl = 'http://192.168.1.12:8000/api'; //
+  // static const String baseUrl = 'http://192.168.100.31:8000/api';
+  // static const String baseUrl = 'http://172.30.160.1:8000/api';
+  static const String ip = '10.207.84.155'; 
+  static const String baseUrl    = 'http://$ip:8000/api';
+  static const String storageUrl = 'http://$ip:8000/storage';
 
-  static const String baseUrl = 'http://localhost:8000/api';
-
-// static const String baseUrl = 'http://172.30.160.1:8000/api';
 
 
   static Future<Map> login(String email, String password) async {
@@ -140,6 +141,12 @@ class AuthService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return {'success': true, 'data': data};
       } else {
+        // Extract first validation error if present
+        if (data['errors'] != null) {
+          final errors = data['errors'] as Map<String, dynamic>;
+          final firstError = errors.values.first as List<dynamic>;
+          return {'success': false, 'message': firstError.first.toString()};
+        }
         return {'success': false, 'message': data['message'] ?? 'Error'};
       }
     } catch (e) {
@@ -191,4 +198,26 @@ class AuthService {
       return {'success': false, 'message': 'Cannot connect to server. Please check your connection.'};
     }
   }
+
+  static String fixImageUrl(dynamic url) {
+    if (url == null) return '';
+    String urlStr = url.toString();
+    if (urlStr.isEmpty) return '';
+    // If it's already a full URL, just replace localhost
+    if (urlStr.startsWith('http')) {
+      return urlStr
+          .replaceAll('http://localhost', 'http://$ip')
+          .replaceAll('http://127.0.0.1', 'http://$ip');
+    }
+    // If it's a relative path, prepend the storage URL
+    return 'http://$ip:8000/storage/$urlStr';
+  }
+
+  static Map<String, dynamic> parseJson(String body) {
+    return jsonDecode(body) as Map<String, dynamic>;
+  }
+
+
+
+
 }

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\ClassRoom;
 use App\Models\Quiz;
+use App\Models\QuizAttempt;
+use App\Models\StudentAnswer;
 use Illuminate\Http\Request;
 
 class ClassController extends Controller
@@ -23,10 +25,18 @@ class ClassController extends Controller
     // Create a new class
     public function store(Request $request)
     {
-        $request->validate([
-            'name'        => 'required|string|max:255',
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'name'        => 'required|string|max:100',
             'description' => 'nullable|string',
+        ], [
+            'name.max' => 'Class name must not exceed 100 characters.',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
 
         $class = ClassRoom::create([
             'teacher_id'  => $request->user()->id,
@@ -51,7 +61,8 @@ class ClassController extends Controller
             }])
             ->with(['quizzes' => function ($q) {
                 $q->select('quizzes.id', 'quizzes.title', 'quizzes.is_published')
-                  ->withCount('questions');
+                ->withCount('questions')
+                ->withCount('attempts');
             }])
             ->firstOrFail();
 
@@ -66,7 +77,7 @@ class ClassController extends Controller
             ->firstOrFail();
 
         $request->validate([
-            'name'        => 'required|string|max:255',
+            'name'        => 'required|string|max:100',
             'description' => 'nullable|string',
         ]);
 
@@ -81,16 +92,50 @@ class ClassController extends Controller
         ]);
     }
 
-    // Delete a class
+    // Delete a class and cascade related student data
     public function destroy(Request $request, $classId)
     {
         $class = ClassRoom::where('id', $classId)
             ->where('teacher_id', $request->user()->id)
+            ->with('quizzes')
             ->firstOrFail();
 
+        // Get all quiz IDs assigned to this class
+        $quizIds = $class->quizzes->pluck('id')->toArray();
+
+        if (!empty($quizIds)) {
+            // Get all student IDs in this class
+            $studentIds = $class->students()->pluck('users.id')->toArray();
+
+            // Get all attempt IDs for students in this class for these quizzes
+            $attemptIds = QuizAttempt::whereIn('quiz_id', $quizIds)
+                ->whereIn('student_id', $studentIds)
+                ->pluck('id')
+                ->toArray();
+
+            // Delete student answers tied to those attempts
+            if (!empty($attemptIds)) {
+                StudentAnswer::whereIn('attempt_id', $attemptIds)->delete();
+            }
+
+            // Delete quiz attempts
+            QuizAttempt::whereIn('quiz_id', $quizIds)
+                ->whereIn('student_id', $studentIds)
+                ->delete();
+
+            // Detach all quizzes from the class
+            $class->quizzes()->detach();
+        }
+
+        // Detach all students from the class
+        $class->students()->detach();
+
+        // Delete the class
         $class->delete();
 
-        return response()->json(['message' => 'Class deleted successfully.']);
+        return response()->json([
+            'message' => 'Class deleted successfully.',
+        ]);
     }
 
     // Assign a quiz to a class

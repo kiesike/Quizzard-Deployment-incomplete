@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import 'video_player_widget.dart';
+import 'audio_player_widget.dart';
 
 class MatchingResultWidget extends StatelessWidget {
   final Map<String, dynamic> question;
@@ -13,8 +16,10 @@ class MatchingResultWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final options = question['answer_options'] as List;
+    final imagePath = question['image_path'];
+    final videoPath = question['video_path'];
+    final audioPath = question['audio_path'];
 
-    // Count correct matches
     int correctCount = 0;
     for (var option in options) {
       final columnA = option['option_text'].toString();
@@ -27,8 +32,7 @@ class MatchingResultWidget extends StatelessWidget {
     }
 
     final totalPairs = options.length;
-    final pointsPerPair =
-        (question['points'] as int) ~/ totalPairs;
+    final pointsPerPair = (question['points'] as int) ~/ totalPairs;
     final earnedPoints = correctCount * pointsPerPair;
     final allCorrect = correctCount == totalPairs;
 
@@ -85,9 +89,7 @@ class MatchingResultWidget extends StatelessWidget {
                   Text(
                     '+$earnedPoints pts',
                     style: TextStyle(
-                      color: allCorrect
-                          ? Colors.green
-                          : Colors.orange,
+                      color: allCorrect ? Colors.green : Colors.orange,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -102,6 +104,34 @@ class MatchingResultWidget extends StatelessWidget {
                   color: Color(0xFF333333),
                 ),
               ),
+              // Question image
+              if (imagePath != null && imagePath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    AuthService.fixImageUrl(imagePath),
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox(),
+                  ),
+                ),
+              ],
+              // Question video
+              if (videoPath != null && videoPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                VideoPlayerWidget(
+                  videoUrl: AuthService.fixImageUrl(videoPath),
+                ),
+              ],
+              // Question audio
+              if (audioPath != null && audioPath.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                AudioPlayerWidget(
+                  audioUrl: AuthService.fixImageUrl(audioPath),
+                ),
+              ],
             ],
           ),
         ),
@@ -109,8 +139,7 @@ class MatchingResultWidget extends StatelessWidget {
 
         // Results for each pair
         ...options.asMap().entries.map((entry) {
-          final option =
-              Map<String, dynamic>.from(entry.value);
+          final option = Map<String, dynamic>.from(entry.value);
           final columnA = option['option_text'].toString();
           final correctB = option['match_pair'].toString();
           final studentB = studentAnswers?[columnA] ?? '';
@@ -132,11 +161,8 @@ class MatchingResultWidget extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  isPairCorrect
-                      ? Icons.check_circle
-                      : Icons.cancel,
-                  color:
-                      isPairCorrect ? Colors.green : Colors.red,
+                  isPairCorrect ? Icons.check_circle : Icons.cancel,
+                  color: isPairCorrect ? Colors.green : Colors.red,
                   size: 20,
                 ),
                 const SizedBox(width: 10),
@@ -153,19 +179,15 @@ class MatchingResultWidget extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      // Student's answer
                       Row(
                         children: [
                           const Text(
                             'Your answer: ',
                             style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey),
+                                fontSize: 12, color: Colors.grey),
                           ),
                           Text(
-                            studentB.isEmpty
-                                ? '(no answer)'
-                                : studentB,
+                            studentB.isEmpty ? '(no answer)' : studentB,
                             style: TextStyle(
                               fontSize: 12,
                               color: isPairCorrect
@@ -176,7 +198,6 @@ class MatchingResultWidget extends StatelessWidget {
                           ),
                         ],
                       ),
-                      // Show correct answer if wrong
                       if (!isPairCorrect) ...[
                         const SizedBox(height: 2),
                         Row(
@@ -184,8 +205,7 @@ class MatchingResultWidget extends StatelessWidget {
                             const Text(
                               'Correct: ',
                               style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey),
+                                  fontSize: 12, color: Colors.grey),
                             ),
                             Text(
                               correctB,

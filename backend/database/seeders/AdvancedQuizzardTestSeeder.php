@@ -276,22 +276,22 @@ class AdvancedQuizzardTestSeeder extends Seeder
 
         if ($existing) {
             DB::table($table)->where('id', $existing->id)->update([
-                'teacher_id' => $teacherId,
-                'description' => $data['description'],
-                'status' => 'published',
-                'updated_at' => now(),
+                'teacher_id'   => $teacherId,
+                'description'  => $data['description'],
+                'is_published' => true,
+                'updated_at'   => now(),
             ]);
 
             return (int) $existing->id;
         }
 
         return DB::table($table)->insertGetId([
-            'teacher_id' => $teacherId,
-            'title' => $data['title'],
-            'description' => $data['description'],
-            'status' => 'published',
-            'created_at' => $data['created_at'],
-            'updated_at' => $data['updated_at'],
+            'teacher_id'   => $teacherId,
+            'title'        => $data['title'],
+            'description'  => $data['description'],
+            'is_published' => true,
+            'created_at'   => $data['created_at'],
+            'updated_at'   => $data['updated_at'],
         ]);
     }
 

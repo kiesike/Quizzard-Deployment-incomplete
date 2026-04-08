@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../widgets/image_picker_widget.dart';
+import '../widgets/video_picker_widget.dart';
+import '../widgets/video_player_widget.dart';
+import '../widgets/audio_picker_widget.dart';
+import '../widgets/audio_player_widget.dart';
 
 class EditQuestionScreen extends StatefulWidget {
   final int quizId;
@@ -25,8 +30,22 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
   late TextEditingController _questionTextController;
   late TextEditingController _pointsController;
 
+  // Question media — all 3 separate
+  String? _questionImagePath;
+  String? _questionImageUrl;
+  String? _questionVideoPath;
+  String? _questionVideoUrl;
+  String? _questionAudioPath;
+  String? _questionAudioUrl;
+
   // Multiple choice
   late List<TextEditingController> _mcOptions;
+  final List<String?> _mcOptionImagePaths = List.generate(4, (_) => null);
+  final List<String?> _mcOptionImageUrls  = List.generate(4, (_) => null);
+  final List<String?> _mcOptionVideoPaths = List.generate(4, (_) => null);
+  final List<String?> _mcOptionVideoUrls  = List.generate(4, (_) => null);
+  final List<String?> _mcOptionAudioPaths = List.generate(4, (_) => null);
+  final List<String?> _mcOptionAudioUrls  = List.generate(4, (_) => null);
   int _mcCorrectIndex = 0;
 
   // True/False
@@ -51,7 +70,27 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
       text: '${widget.question['points'] ?? 1}',
     );
 
-    // Pre-fill based on question type
+    // Load existing question image
+    final existingImagePath = widget.question['image_path'];
+    if (existingImagePath != null && existingImagePath.toString().isNotEmpty) {
+      _questionImageUrl = AuthService.fixImageUrl(existingImagePath);
+      _questionImagePath = existingImagePath;
+    }
+
+    // Load existing question video
+    final existingVideoPath = widget.question['video_path'];
+    if (existingVideoPath != null && existingVideoPath.toString().isNotEmpty) {
+      _questionVideoUrl = AuthService.fixImageUrl(existingVideoPath);
+      _questionVideoPath = existingVideoPath;
+    }
+
+    // Load existing question audio
+    final existingAudioPath = widget.question['audio_path'];
+    if (existingAudioPath != null && existingAudioPath.toString().isNotEmpty) {
+      _questionAudioUrl = AuthService.fixImageUrl(existingAudioPath);
+      _questionAudioPath = existingAudioPath;
+    }
+
     final options = List<Map<String, dynamic>>.from(
       widget.question['answer_options'] ?? [],
     );
@@ -65,7 +104,24 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
     for (int i = 0; i < options.length; i++) {
       if (options[i]['is_correct'] == true || options[i]['is_correct'] == 1) {
         _mcCorrectIndex = i;
-        break;
+      }
+      // Load existing option images
+      final optionImage = options[i]['image_path'];
+      if (optionImage != null && optionImage.toString().isNotEmpty) {
+        _mcOptionImageUrls[i] = AuthService.fixImageUrl(optionImage);
+        _mcOptionImagePaths[i] = optionImage;
+      }
+      // Load existing option videos
+      final optionVideo = options[i]['video_path'];
+      if (optionVideo != null && optionVideo.toString().isNotEmpty) {
+        _mcOptionVideoUrls[i] = AuthService.fixImageUrl(optionVideo);
+        _mcOptionVideoPaths[i] = optionVideo;
+      }
+      // Load existing option audios
+      final optionAudio = options[i]['audio_path'];
+      if (optionAudio != null && optionAudio.toString().isNotEmpty) {
+        _mcOptionAudioUrls[i] = AuthService.fixImageUrl(optionAudio);
+        _mcOptionAudioPaths[i] = optionAudio;
       }
     }
 
@@ -75,8 +131,8 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
         (o) => (o['option_text'] ?? '').toString().toLowerCase() == 'true',
         orElse: () => {},
       );
-      _tfCorrectAnswer = trueOption['is_correct'] == true ||
-          trueOption['is_correct'] == 1;
+      _tfCorrectAnswer =
+          trueOption['is_correct'] == true || trueOption['is_correct'] == 1;
     }
 
     // Identification
@@ -85,12 +141,12 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
     );
 
     // Matching
-    _matchLeft  = List.generate(4, (i) => TextEditingController(
-      text: i < options.length ? (options[i]['option_text'] ?? '') : '',
-    ));
+    _matchLeft = List.generate(4, (i) => TextEditingController(
+          text: i < options.length ? (options[i]['option_text'] ?? '') : '',
+        ));
     _matchRight = List.generate(4, (i) => TextEditingController(
-      text: i < options.length ? (options[i]['match_pair'] ?? '') : '',
-    ));
+          text: i < options.length ? (options[i]['match_pair'] ?? '') : '',
+        ));
   }
 
   @override
@@ -99,7 +155,7 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
     _pointsController.dispose();
     for (var c in _mcOptions) c.dispose();
     _identAnswerController.dispose();
-    for (var c in _matchLeft)  c.dispose();
+    for (var c in _matchLeft) c.dispose();
     for (var c in _matchRight) c.dispose();
     super.dispose();
   }
@@ -119,6 +175,9 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
     Map<String, dynamic> body = {
       'question_text': _questionTextController.text.trim(),
       'points': int.tryParse(_pointsController.text) ?? 1,
+      'image_path': _questionImagePath,
+      'video_path': _questionVideoPath,
+      'audio_path': _questionAudioPath,
     };
 
     switch (_questionType) {
@@ -134,9 +193,12 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
           return;
         }
         body['options'] = List.generate(4, (i) => {
-          'option_text': options[i],
-          'is_correct':  i == _mcCorrectIndex,
-        });
+              'option_text': options[i],
+              'is_correct': i == _mcCorrectIndex,
+              'image_path': _mcOptionImagePaths[i],
+              'video_path': _mcOptionVideoPaths[i],
+              'audio_path': _mcOptionAudioPaths[i],
+            });
         break;
 
       case 'true_false':
@@ -157,7 +219,7 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
         break;
 
       case 'matching':
-        final lefts  = _matchLeft.map((c) => c.text.trim()).toList();
+        final lefts = _matchLeft.map((c) => c.text.trim()).toList();
         final rights = _matchRight.map((c) => c.text.trim()).toList();
         if (lefts.any((v) => v.isEmpty) || rights.any((v) => v.isEmpty)) {
           setState(() => _loading = false);
@@ -169,9 +231,9 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
           return;
         }
         body['pairs'] = List.generate(4, (i) => {
-          'left':  lefts[i],
-          'right': rights[i],
-        });
+              'left': lefts[i],
+              'right': rights[i],
+            });
         break;
     }
 
@@ -227,7 +289,7 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Question type label (read only — cannot change type)
+            // Question type label
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -259,9 +321,94 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
                     borderRadius: BorderRadius.circular(12)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: primaryColor, width: 2),
+                  borderSide: const BorderSide(color: primaryColor, width: 2),
                 ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Question media section
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Question Media (optional)',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: primaryColor)),
+                  const SizedBox(height: 12),
+
+                  // Image
+                  const Text('Image',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Colors.grey)),
+                  const SizedBox(height: 4),
+                  ImagePickerWidget(
+                    currentImageUrl: _questionImageUrl,
+                    label: 'Add image to question',
+                    onImageSelected: (path, url) => setState(() {
+                      _questionImagePath = path;
+                      _questionImageUrl = url;
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Video
+                  const Text('Video',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Colors.grey)),
+                  const SizedBox(height: 4),
+                  VideoPickerWidget(
+                    initialVideoUrl: _questionVideoUrl,
+                    onVideoUploaded: (videoUrl, videoPath) => setState(() {
+                      _questionVideoPath = videoPath;
+                      _questionVideoUrl = videoUrl;
+                    }),
+                    onVideoRemoved: () => setState(() {
+                      _questionVideoPath = null;
+                      _questionVideoUrl = null;
+                    }),
+                  ),
+                  if (_questionVideoUrl != null) ...[
+                    const SizedBox(height: 8),
+                    VideoPlayerWidget(videoUrl: _questionVideoUrl!),
+                  ],
+                  const SizedBox(height: 12),
+
+                  // Audio
+                  const Text('Audio',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Colors.grey)),
+                  const SizedBox(height: 4),
+                  AudioPickerWidget(
+                    initialAudioUrl: _questionAudioUrl,
+                    onAudioUploaded: (audioUrl, audioPath) => setState(() {
+                      _questionAudioPath = audioPath;
+                      _questionAudioUrl = audioUrl;
+                    }),
+                    onAudioRemoved: () => setState(() {
+                      _questionAudioPath = null;
+                      _questionAudioUrl = null;
+                    }),
+                  ),
+                  if (_questionAudioUrl != null) ...[
+                    const SizedBox(height: 8),
+                    AudioPlayerWidget(audioUrl: _questionAudioUrl!),
+                  ],
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -272,14 +419,12 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: 'Points',
-                prefixIcon:
-                    const Icon(Icons.star, color: primaryColor),
+                prefixIcon: const Icon(Icons.star, color: primaryColor),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: primaryColor, width: 2),
+                  borderSide: const BorderSide(color: primaryColor, width: 2),
                 ),
               ),
             ),
@@ -333,29 +478,108 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
         const Text('Tap the circle to mark the correct answer',
             style: TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 12),
-        ...List.generate(4, (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Row(
-            children: [
-              Radio<int>(
-                value: i,
-                groupValue: _mcCorrectIndex,
-                activeColor: primaryColor,
-                onChanged: (v) => setState(() => _mcCorrectIndex = v!),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: _mcOptions[i],
-                  decoration: InputDecoration(
-                    labelText: 'Option ${i + 1}',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10)),
+        ...List.generate(
+            4,
+            (i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Radio<int>(
+                            value: i,
+                            groupValue: _mcCorrectIndex,
+                            activeColor: primaryColor,
+                            onChanged: (v) =>
+                                setState(() => _mcCorrectIndex = v!),
+                          ),
+                          Expanded(
+                            child: TextField(
+                              controller: _mcOptions[i],
+                              decoration: InputDecoration(
+                                labelText: 'Option ${i + 1}',
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 48),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border:
+                                Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Option Media',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey)),
+                              const SizedBox(height: 6),
+                              ImagePickerWidget(
+                                currentImageUrl: _mcOptionImageUrls[i],
+                                label: 'Add image to option ${i + 1}',
+                                onImageSelected: (path, url) =>
+                                    setState(() {
+                                  _mcOptionImagePaths[i] = path;
+                                  _mcOptionImageUrls[i] = url;
+                                }),
+                              ),
+                              const SizedBox(height: 6),
+                              VideoPickerWidget(
+                                initialVideoUrl: _mcOptionVideoUrls[i],
+                                onVideoUploaded: (videoUrl, videoPath) =>
+                                    setState(() {
+                                  _mcOptionVideoPaths[i] = videoPath;
+                                  _mcOptionVideoUrls[i] = videoUrl;
+                                }),
+                                onVideoRemoved: () => setState(() {
+                                  _mcOptionVideoPaths[i] = null;
+                                  _mcOptionVideoUrls[i] = null;
+                                }),
+                              ),
+                              if (_mcOptionVideoUrls[i] != null) ...[
+                                const SizedBox(height: 6),
+                                VideoPlayerWidget(
+                                  videoUrl: _mcOptionVideoUrls[i]!,
+                                ),
+                              ],
+                              const SizedBox(height: 6),
+                              AudioPickerWidget(
+                                initialAudioUrl: _mcOptionAudioUrls[i],
+                                onAudioUploaded: (audioUrl, audioPath) =>
+                                    setState(() {
+                                  _mcOptionAudioPaths[i] = audioPath;
+                                  _mcOptionAudioUrls[i] = audioUrl;
+                                }),
+                                onAudioRemoved: () => setState(() {
+                                  _mcOptionAudioPaths[i] = null;
+                                  _mcOptionAudioUrls[i] = null;
+                                }),
+                              ),
+                              if (_mcOptionAudioUrls[i] != null) ...[
+                                const SizedBox(height: 6),
+                                AudioPlayerWidget(
+                                  audioUrl: _mcOptionAudioUrls[i]!,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-            ],
-          ),
-        )),
+                )),
       ],
     );
   }
@@ -435,8 +659,7 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
                 borderRadius: BorderRadius.circular(12)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: primaryColor, width: 2),
+              borderSide: const BorderSide(color: primaryColor, width: 2),
             ),
           ),
         ),
@@ -453,37 +676,40 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
         const Text('Left column → Right column',
             style: TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 12),
-        ...List.generate(4, (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _matchLeft[i],
-                  decoration: InputDecoration(
-                    labelText: 'Left ${i + 1}',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10)),
+        ...List.generate(
+            4,
+            (i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _matchLeft[i],
+                          decoration: InputDecoration(
+                            labelText: 'Left ${i + 1}',
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child:
+                            Icon(Icons.arrow_forward, color: Colors.grey),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _matchRight[i],
+                          decoration: InputDecoration(
+                            labelText: 'Right ${i + 1}',
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(Icons.arrow_forward, color: Colors.grey),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: _matchRight[i],
-                  decoration: InputDecoration(
-                    labelText: 'Right ${i + 1}',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        )),
+                )),
       ],
     );
   }

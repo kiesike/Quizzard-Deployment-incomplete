@@ -51,8 +51,11 @@
                                         Attempts
                                     </th>
                                     <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                        Avg Score
+                                        Actions
                                     </th>
+                                    {{-- <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        Avg Score
+                                    </th> --}}
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 bg-white">
@@ -74,8 +77,18 @@
                                             {{ $class->attempts_count }}
                                         </td>
                                         <td class="px-6 py-4 text-sm text-slate-600">
-                                            {{ $class->average_score !== null ? $class->average_score . '%' : 'N/A' }}
+                                            <a href="{{ route('teacher.reports.class.detail', $class->id) }}"
+                                                class="inline-flex items-center rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700">
+                                                View Report
+                                            </a>
+                                            <a href="{{ route('teacher.reports.class.quizzes', $class->id) }}"
+                                                class="inline-flex items-center rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
+                                                View Quizzes
+                                            </a>
                                         </td>
+                                        {{-- <td class="px-6 py-4 text-sm text-slate-600">
+                                            {{ $class->average_score !== null ? $class->average_score . '%' : 'N/A' }}
+                                        </td> --}}
                                     </tr>
                                 @endforeach
                             </tbody>

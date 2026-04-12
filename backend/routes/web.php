@@ -75,7 +75,19 @@ Route::prefix('teacher')->group(function () {
         Route::get('/dashboard', [TeacherDashboardController::class, 'index'])->name('teacher.dashboard');
 
         Route::get('/reports/classes', [TeacherDashboardController::class, 'classes'])->name('teacher.reports.classes');
+        Route::get('/reports/classes/{classId}', [TeacherDashboardController::class, 'classDetail'])->name('teacher.reports.class.detail');
+        Route::get('/reports/classes/{classId}/export', [TeacherDashboardController::class, 'exportClassDetail'])->name('teacher.reports.class.export');
+        Route::get('/reports/classes/{classId}/quizzes', [TeacherDashboardController::class, 'classQuizzes'])->name('teacher.reports.class.quizzes');
+        Route::get('/reports/classes/{classId}/quizzes/{quizId}', [TeacherDashboardController::class, 'classQuizDetail'])->name('teacher.reports.class.quiz.detail');
         Route::get('/reports/quizzes', [TeacherDashboardController::class, 'quizzes'])->name('teacher.reports.quizzes');
         Route::get('/reports/students', [TeacherDashboardController::class, 'students'])->name('teacher.reports.students');
+        Route::get('/reports/students/export', [TeacherDashboardController::class, 'exportStudents'])->name('teacher.reports.students.export');
+        Route::get('/reports/students/{studentId}/classes/{classId}', [TeacherDashboardController::class, 'studentQuizInfo'])->name('teacher.reports.student.quiz.info');
+        Route::get('/reports/students/{studentId}/classes/{classId}/export', [TeacherDashboardController::class, 'exportStudentQuizInfo'])->name('teacher.reports.student.quiz.info.export');
+
+
+
+        
+
     });
 });

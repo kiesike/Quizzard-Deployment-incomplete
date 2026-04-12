@@ -8,7 +8,7 @@ class AuthService {
   // static const String baseUrl = 'http://10.0.2.2:8000/api'; //emulator
   // static const String baseUrl = 'http://192.168.100.31:8000/api';
   // static const String baseUrl = 'http://172.30.160.1:8000/api';
-  static const String ip = '10.207.84.155'; 
+  static const String ip = 'localhost'; 
   static const String baseUrl    = 'http://$ip:8000/api';
   static const String storageUrl = 'http://$ip:8000/storage';
 

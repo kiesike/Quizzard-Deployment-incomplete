@@ -38,10 +38,15 @@ Route::prefix('admin')->group(function () {
         Route::put('/users/{user}', [AdminUserController::class, 'update'])->name('admin.users.update');
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('admin.users.destroy');
 
-        Route::get('/activation', [AdminActivationController::class, 'index'])->name('admin.activation.index');
-        Route::patch('/activation/{user}/activate', [AdminActivationController::class, 'activate'])->name('admin.activation.activate');
-        Route::patch('/activation/{user}/deactivate', [AdminActivationController::class, 'deactivate'])->name('admin.activation.deactivate');
+        Route::get('/activation', function () {
+    return redirect()->route('admin.dashboard', [
+        'type' => 'teacher',
+        'status' => 'all',
+    ]);
+})->name('admin.activation.index');
 
+Route::patch('/activation/{user}/activate', [AdminActivationController::class, 'activate'])->name('admin.activation.activate');
+Route::patch('/activation/{user}/deactivate', [AdminActivationController::class, 'deactivate'])->name('admin.activation.deactivate');
         Route::get('/profile', [AdminProfileController::class, 'index'])->name('admin.profile');
         Route::post('/profile', [AdminProfileController::class, 'update'])->name('admin.profile.update');
 

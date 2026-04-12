@@ -1,31 +1,55 @@
-<div class="overflow-x-auto">
-    <table class="min-w-full text-sm text-slate-700">
-        <thead class="bg-slate-100 text-left text-xs font-bold uppercase tracking-wide text-slate-600">
+<div class="overflow-x-auto p-2">
+    <table class="min-w-full border-separate border-spacing-y-3 text-sm text-slate-700">
+        <thead class="text-left text-xs font-bold uppercase tracking-wide text-slate-600">
             <tr>
-                <th class="px-4 py-4">ID</th>
-                <th class="px-4 py-4">First Name</th>
-                <th class="px-4 py-4">Middle Initial</th>
-                <th class="px-4 py-4">Surname</th>
-                <th class="px-4 py-4">Email</th>
-                <th class="px-4 py-4">Role</th>
-                <th class="px-4 py-4">Status</th>
-                <th class="px-4 py-4">Actions</th>
+                <th class="px-4 py-3">ID</th>
+                <th class="px-4 py-3">First Name</th>
+                <th class="px-4 py-3">Middle Initial</th>
+                <th class="px-4 py-3">Surname</th>
+                <th class="px-4 py-3">Email</th>
+                <th class="px-4 py-3">Role</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3">Actions</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-slate-200 bg-white">
+        <tbody>
             @forelse($users as $user)
-                <tr class="transition hover:bg-slate-50">
-                    <td class="px-4 py-4 font-medium text-slate-800">{{ $user->id }}</td>
-                    <td class="px-4 py-4">{{ $user->first_name ?? '-' }}</td>
-                    <td class="px-4 py-4">{{ $user->middle_initial ?? '-' }}</td>
-                    <td class="px-4 py-4">{{ $user->surname ?? '-' }}</td>
-                    <td class="px-4 py-4">{{ $user->email }}</td>
-                    <td class="px-4 py-4">
+                <tr
+                    class="group cursor-pointer"
+                    data-view-url="{{ route('admin.dashboard', ['type' => $type, 'search' => request('search'), 'filter_by' => request('filter_by', 'all'), 'status' => request('status', 'all'), 'view_user' => $user->id]) }}">
+
+                    <td class="rounded-l-2xl border-y border-l border-slate-200 bg-white px-4 py-4 font-semibold text-slate-800 shadow-sm transition-all duration-200 ease-out group-hover:bg-blue-50 group-hover:text-blue-700 group-hover:shadow-[0_0_0_3px_rgba(59,130,246,0.18),0_16px_30px_-12px_rgba(15,23,42,0.25)] group-hover:border-blue-500 group-hover:scale-[1.01]">
+                        #{{ $user->id }}
+                    </td>
+
+                    <td class="border-y border-slate-200 bg-white px-4 py-4 font-medium text-slate-800 shadow-sm transition-all duration-200 ease-out group-hover:bg-blue-50 group-hover:border-y-blue-500 group-hover:shadow-[0_16px_30px_-12px_rgba(15,23,42,0.25)] group-hover:scale-[1.01]">
+                        {{ $user->first_name ?? '-' }}
+                    </td>
+
+                    <td class="border-y border-slate-200 bg-white px-4 py-4 shadow-sm transition-all duration-200 ease-out group-hover:bg-blue-50 group-hover:border-y-blue-500 group-hover:shadow-[0_16px_30px_-12px_rgba(15,23,42,0.25)] group-hover:scale-[1.01]">
+                        {{ $user->middle_initial ?? '-' }}
+                    </td>
+
+                    <td class="border-y border-slate-200 bg-white px-4 py-4 shadow-sm transition-all duration-200 ease-out group-hover:bg-blue-50 group-hover:border-y-blue-500 group-hover:shadow-[0_16px_30px_-12px_rgba(15,23,42,0.25)] group-hover:scale-[1.01]">
+                        {{ $user->surname ?? '-' }}
+                    </td>
+
+                    <td class="border-y border-slate-200 bg-white px-4 py-4 shadow-sm transition-all duration-200 ease-out group-hover:bg-blue-50 group-hover:border-y-blue-500 group-hover:shadow-[0_16px_30px_-12px_rgba(15,23,42,0.25)] group-hover:scale-[1.01]">
+                        <div class="flex flex-col">
+                            <span class="text-slate-800">{{ $user->email }}</span>
+                            <span class="mt-1 text-xs font-medium text-blue-600 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                                Click to view full account details
+                            </span>
+                        </div>
+                    </td>
+
+                    <td class="border-y border-slate-200 bg-white px-4 py-4 shadow-sm transition-all duration-200 ease-out group-hover:bg-blue-50 group-hover:border-y-blue-500 group-hover:shadow-[0_16px_30px_-12px_rgba(15,23,42,0.25)] group-hover:scale-[1.01]">
                         <span class="inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold capitalize text-blue-700">
                             {{ $user->role }}
                         </span>
                     </td>
-                    <td class="px-4 py-4">
+
+                    <td class="border-y border-slate-200 bg-white px-4 py-4 shadow-sm transition-all duration-200 ease-out group-hover:bg-blue-50 group-hover:border-y-blue-500 group-hover:shadow-[0_16px_30px_-12px_rgba(15,23,42,0.25)] group-hover:scale-[1.01]">
                         @php
                             $statusClasses = match($user->status) {
                                 'active' => 'bg-emerald-100 text-emerald-700',
@@ -38,17 +62,12 @@
                             {{ $user->status }}
                         </span>
                     </td>
-                    <td class="px-4 py-4">
+
+                    <td class="rounded-r-2xl border-y border-r border-slate-200 bg-white px-4 py-4 shadow-sm transition-all duration-200 ease-out group-hover:bg-blue-50 group-hover:border-blue-500 group-hover:shadow-[0_0_0_3px_rgba(59,130,246,0.18),0_16px_30px_-12px_rgba(15,23,42,0.25)] group-hover:scale-[1.01]">
                         <div class="flex flex-wrap gap-2">
                             <button
                                 type="button"
-                                class="btn-view-user inline-flex items-center rounded-xl bg-blue-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-800"
-                                data-id="{{ $user->id }}">
-                                View
-                            </button>
-
-                            <button
-                                type="button"
+                                onclick="event.stopPropagation();"
                                 class="btn-edit-user inline-flex items-center rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-600"
                                 data-id="{{ $user->id }}"
                                 data-first-name="{{ $user->first_name }}"
@@ -63,6 +82,7 @@
 
                             <button
                                 type="button"
+                                onclick="event.stopPropagation();"
                                 class="btn-delete-user inline-flex items-center rounded-xl bg-red-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700"
                                 data-name="{{ $user->name }}"
                                 data-delete-url="{{ route('admin.users.destroy', $user) }}">
@@ -73,7 +93,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8" class="px-4 py-10 text-center text-slate-500">
+                    <td colspan="8" class="rounded-2xl bg-white px-4 py-10 text-center text-slate-500 shadow-sm ring-1 ring-slate-200">
                         No users found.
                     </td>
                 </tr>

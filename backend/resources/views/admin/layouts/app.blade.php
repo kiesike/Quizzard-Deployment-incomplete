@@ -31,11 +31,6 @@
                         Profile
                     </a>
 
-                    <a href="{{ route('admin.activation.index') }}"
-                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.activation*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
-                        Activation
-                    </a>
-
                     <a href="{{ route('admin.classes') }}"
                        class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.classes*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
                         Classes

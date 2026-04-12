@@ -1,3 +1,286 @@
+===== backend\app\Http\Controllers\AdminDashboardController.php =====
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class AdminDashboardController extends Controller
+{
+    public function index(Request $request)
+    {
+        $loggedInUser = Auth::user();
+        $isSuperAdmin = $loggedInUser && $loggedInUser->role === 'superadmin';
+
+        $type = $request->get('type', 'teacher');
+        $search = trim($request->get('search', ''));
+        $filterBy = $request->get('filter_by', 'all'); // all, first_name, middle_initial, surname
+        $status = $request->get('status', 'all'); // all, pending, active, deactivated
+
+        $allowedTypes = ['teacher', 'student'];
+
+        if ($isSuperAdmin) {
+            $allowedTypes[] = 'admin';
+        }
+
+        if (!in_array($type, $allowedTypes, true)) {
+            $type = $allowedTypes[0];
+        }
+
+        $allowedStatuses = ['all', 'pending', 'active', 'deactivated'];
+        if (!in_array($status, $allowedStatuses, true)) {
+            $status = 'all';
+        }
+
+        $query = User::query()
+            ->where('role', $type)
+            ->when($status !== 'all', function ($q) use ($status) {
+                $q->where('status', $status);
+            })
+            ->when($search !== '', function ($q) use ($search, $filterBy) {
+                $q->where(function ($sub) use ($search, $filterBy) {
+                    if ($filterBy === 'first_name') {
+                        $sub->where('first_name', 'like', "%{$search}%");
+                    } elseif ($filterBy === 'middle_initial') {
+                        $sub->where('middle_initial', 'like', "%{$search}%");
+                    } elseif ($filterBy === 'surname') {
+                        $sub->where('surname', 'like', "%{$search}%");
+                    } else {
+                        $sub->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('middle_initial', 'like', "%{$search}%")
+                            ->orWhere('surname', 'like', "%{$search}%")
+                            ->orWhere('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    }
+                });
+            })
+            ->orderByDesc('created_at');
+
+        $users = $query->paginate(10)->withQueryString();
+
+        $stats = [
+            'teachers_count'    => User::where('role', 'teacher')->count(),
+            'students_count'    => User::where('role', 'student')->count(),
+            'admins_count'      => User::where('role', 'admin')->count(),
+            'activated_count'   => User::where('status', 'active')->count(),
+            'deactivated_count' => User::where('status', 'deactivated')->count(),
+        ];
+
+        $roleScopedStatsQuery = User::where('role', $type);
+
+        $roleStats = [
+            'total'        => (clone $roleScopedStatsQuery)->count(),
+            'pending'      => (clone $roleScopedStatsQuery)->where('status', 'pending')->count(),
+            'active'       => (clone $roleScopedStatsQuery)->where('status', 'active')->count(),
+            'deactivated'  => (clone $roleScopedStatsQuery)->where('status', 'deactivated')->count(),
+        ];
+
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('admin.dashboard.partials.users_table', compact('users', 'type', 'isSuperAdmin'))->render(),
+            ]);
+        }
+
+        return view('admin.dashboard.index', compact(
+            'users',
+            'stats',
+            'roleStats',
+            'type',
+            'search',
+            'filterBy',
+            'status',
+            'isSuperAdmin'
+        ));
+    }
+}
+
+===== backend\app\Http\Controllers\AdminUserController.php =====
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
+
+class AdminUserController extends Controller
+{
+    private function allowedRoles(): array
+    {
+        $user = Auth::user();
+
+        if ($user && $user->role === 'superadmin') {
+            return ['teacher', 'student', 'admin'];
+        }
+
+        return ['teacher', 'student'];
+    }
+
+    private function ensureManageableUser(User $user): void
+    {
+        abort_if(!in_array($user->role, $this->allowedRoles()), 404);
+    }
+
+    public function index(Request $request)
+    {
+        return redirect()->route('admin.dashboard', $request->only('type', 'search'));
+    }
+
+    public function create(Request $request)
+    {
+        $allowedRoles = $this->allowedRoles();
+        $type = $request->get('type', 'teacher');
+
+        if (!in_array($type, $allowedRoles)) {
+            $type = 'teacher';
+        }
+
+        return view('admin.users.create', compact('type'));
+    }
+
+    public function store(Request $request)
+    {
+        $allowedRoles = $this->allowedRoles();
+
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_initial' => ['nullable', 'string', 'size:1', 'alpha'],
+            'surname' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'role' => ['required', Rule::in($allowedRoles)],
+            'status' => ['required', Rule::in(['pending', 'active', 'deactivated'])],
+        ]);
+
+        $middleInitial = $validated['middle_initial']
+            ? strtoupper(substr($validated['middle_initial'], 0, 1))
+            : null;
+
+        $fullName = trim(sprintf(
+            '%s%s %s',
+            $validated['first_name'],
+            $middleInitial ? ' ' . $middleInitial . '.' : '',
+            $validated['surname']
+        ));
+
+        User::create([
+            'name' => $fullName,
+            'first_name' => $validated['first_name'],
+            'middle_initial' => $middleInitial,
+            'surname' => $validated['surname'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'role' => $validated['role'],
+            'status' => $validated['status'],
+        ]);
+
+        return redirect()
+            ->route('admin.dashboard', ['type' => $validated['role']])
+            ->with('success', ucfirst($validated['role']) . ' account created successfully.');
+    }
+
+    public function show(User $user)
+    {
+        $this->ensureManageableUser($user);
+
+        if (request()->ajax()) {
+            return response()->json([
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'status' => $user->status,
+                'password' => 'Hidden for security',
+                'created_at' => optional($user->created_at)->format('F d, Y h:i A'),
+                'updated_at' => optional($user->updated_at)->format('F d, Y h:i A'),
+            ]);
+        }
+
+        return view('admin.users.show', compact('user'));
+    }
+
+    public function edit(User $user)
+    {
+        $this->ensureManageableUser($user);
+
+        return view('admin.users.edit', compact('user'));
+    }
+
+    public function update(Request $request, User $user)
+    {
+        $this->ensureManageableUser($user);
+
+        $allowedRoles = $this->allowedRoles();
+
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_initial' => ['nullable', 'string', 'size:1', 'alpha'],
+            'surname' => ['required', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($user->id),
+            ],
+            'role' => ['required', Rule::in($allowedRoles)],
+            'status' => ['required', Rule::in(['pending', 'active', 'deactivated'])],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $middleInitial = $validated['middle_initial']
+            ? strtoupper(substr($validated['middle_initial'], 0, 1))
+            : null;
+
+        $fullName = trim(sprintf(
+            '%s%s %s',
+            $validated['first_name'],
+            $middleInitial ? ' ' . $middleInitial . '.' : '',
+            $validated['surname']
+        ));
+
+        $user->name = $fullName;
+        $user->first_name = $validated['first_name'];
+        $user->middle_initial = $middleInitial;
+        $user->surname = $validated['surname'];
+        $user->email = $validated['email'];
+        $user->role = $validated['role'];
+        $user->status = $validated['status'];
+
+        if (!empty($validated['password'])) {
+            $user->password = Hash::make($validated['password']);
+        }
+
+        $user->save();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => ucfirst($validated['role']) . ' account updated successfully'
+            ]);
+        }
+
+        return redirect()
+            ->route('admin.dashboard', ['type' => $validated['role']])
+            ->with('success', ucfirst($validated['role']) . ' account updated successfully.');
+    }
+
+    public function destroy(User $user)
+    {
+        $this->ensureManageableUser($user);
+
+        $role = $user->role;
+        $user->delete();
+
+        return redirect()
+            ->route('admin.dashboard', ['type' => $role])
+            ->with('success', ucfirst($role) . ' account deleted successfully.');
+    }
+}
+
+===== backend\resources\views\admin\dashboard\index.blade.php =====
 @extends('admin.layouts.app')
 
 @section('content')
@@ -69,235 +352,104 @@
         @endif
 
         <div class="rounded-3xl bg-white p-6 shadow-lg ring-1 ring-slate-200">
-    @if(!$selectedUser)
-        <div class="space-y-4">
-            {{-- Row 1: role buttons + filter + search --}}
-            <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                <div class="flex flex-wrap items-center gap-3">
-                    <a href="{{ route('admin.dashboard', ['type' => 'teacher', 'search' => $search, 'filter_by' => $filterBy, 'status' => $status]) }}"
-                       class="rounded-xl px-5 py-2.5 text-sm font-semibold transition {{ $type === 'teacher' ? 'bg-blue-700 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
-                        Teachers
+    <div class="space-y-4">
+        {{-- Row 1: role buttons + filter + search --}}
+        <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div class="flex flex-wrap items-center gap-3">
+                <a href="{{ route('admin.dashboard', ['type' => 'teacher', 'search' => $search, 'filter_by' => $filterBy, 'status' => $status]) }}"
+                   class="rounded-xl px-5 py-2.5 text-sm font-semibold transition {{ $type === 'teacher' ? 'bg-blue-700 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
+                    Teachers
+                </a>
+
+                <a href="{{ route('admin.dashboard', ['type' => 'student', 'search' => $search, 'filter_by' => $filterBy, 'status' => $status]) }}"
+                   class="rounded-xl px-5 py-2.5 text-sm font-semibold transition {{ $type === 'student' ? 'bg-blue-700 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
+                    Students
+                </a>
+
+                @if($isSuperAdmin)
+                    <a href="{{ route('admin.dashboard', ['type' => 'admin', 'search' => $search, 'filter_by' => $filterBy, 'status' => $status]) }}"
+                       class="rounded-xl px-5 py-2.5 text-sm font-semibold transition {{ $type === 'admin' ? 'bg-blue-700 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
+                        Admin Management
                     </a>
-
-                    <a href="{{ route('admin.dashboard', ['type' => 'student', 'search' => $search, 'filter_by' => $filterBy, 'status' => $status]) }}"
-                       class="rounded-xl px-5 py-2.5 text-sm font-semibold transition {{ $type === 'student' ? 'bg-blue-700 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
-                        Students
-                    </a>
-
-                    @if($isSuperAdmin)
-                        <a href="{{ route('admin.dashboard', ['type' => 'admin', 'search' => $search, 'filter_by' => $filterBy, 'status' => $status]) }}"
-                           class="rounded-xl px-5 py-2.5 text-sm font-semibold transition {{ $type === 'admin' ? 'bg-blue-700 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
-                            Admin Management
-                        </a>
-                    @endif
-                </div>
-
-                <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
-                    <select id="filterBy" class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
-                        <option value="all">All Fields</option>
-                        <option value="first_name">First Name</option>
-                        <option value="middle_initial">Middle Initial</option>
-                        <option value="surname">Surname</option>
-                    </select>
-
-                    <input type="text"
-                           id="searchInput"
-                           value="{{ $search }}"
-                           placeholder="Search by name or email"
-                           class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 xl:w-80">
-                </div>
+                @endif
             </div>
 
-            {{-- Row 2: status buttons + create button --}}
-            <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                <div class="flex flex-wrap gap-3">
-                    @php
-                        $statusButtonBase = 'rounded-xl border px-5 py-2.5 text-sm font-semibold transition';
-                    @endphp
+            <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+                <select id="filterBy" class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                    <option value="all">All Fields</option>
+                    <option value="first_name">First Name</option>
+                    <option value="middle_initial">Middle Initial</option>
+                    <option value="surname">Surname</option>
+                </select>
 
-                    <a href="{{ route('admin.dashboard', ['type' => $type, 'search' => $search, 'filter_by' => $filterBy, 'status' => 'all']) }}"
-                       class="{{ $statusButtonBase }} {{ $status === 'all' ? 'border-slate-900 bg-slate-900 text-white shadow-md' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}">
-                        All Status
-                    </a>
-
-                    <a href="{{ route('admin.dashboard', ['type' => $type, 'search' => $search, 'filter_by' => $filterBy, 'status' => 'pending']) }}"
-                       class="{{ $statusButtonBase }} {{ $status === 'pending' ? 'border-amber-500 bg-amber-500 text-white shadow-md' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}">
-                        Pending
-                    </a>
-
-                    <a href="{{ route('admin.dashboard', ['type' => $type, 'search' => $search, 'filter_by' => $filterBy, 'status' => 'active']) }}"
-                       class="{{ $statusButtonBase }} {{ $status === 'active' ? 'border-emerald-600 bg-emerald-600 text-white shadow-md' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}">
-                        Active
-                    </a>
-
-                    <a href="{{ route('admin.dashboard', ['type' => $type, 'search' => $search, 'filter_by' => $filterBy, 'status' => 'deactivated']) }}"
-                       class="{{ $statusButtonBase }} {{ $status === 'deactivated' ? 'border-red-600 bg-red-600 text-white shadow-md' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}">
-                        Deactivated
-                    </a>
-                </div>
-
-                <div class="flex flex-wrap gap-3">
-                    @if($type === 'teacher')
-                        <button type="button"
-                                id="btnCreateTeacher"
-                                class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
-                            Create Teacher
-                        </button>
-                    @endif
-
-                    @if($type === 'student')
-                        <button type="button"
-                                id="btnCreateStudent"
-                                class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
-                            Create Student
-                        </button>
-                    @endif
-
-                    @if($type === 'admin' && $isSuperAdmin)
-                        <button type="button"
-                                id="btnCreateAdmin"
-                                class="inline-flex items-center justify-center rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700">
-                            Create Admin Account
-                        </button>
-                    @endif
-                </div>
+                <input type="text"
+                       id="searchInput"
+                       value="{{ $search }}"
+                       placeholder="Search by name or email"
+                       class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 xl:w-80">
             </div>
         </div>
-    @endif
 
-    <div class="{{ $selectedUser ? 'mt-0' : 'mt-6' }} overflow-hidden rounded-2xl border border-slate-200">
+        {{-- Row 2: status buttons + create button --}}
+        <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div class="flex flex-wrap gap-3">
+                @php
+                    $statusButtonBase = 'rounded-xl border px-5 py-2.5 text-sm font-semibold transition';
+                @endphp
+
+                <a href="{{ route('admin.dashboard', ['type' => $type, 'search' => $search, 'filter_by' => $filterBy, 'status' => 'all']) }}"
+                   class="{{ $statusButtonBase }} {{ $status === 'all' ? 'border-slate-900 bg-slate-900 text-white shadow-md' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}">
+                    All Status
+                </a>
+
+                <a href="{{ route('admin.dashboard', ['type' => $type, 'search' => $search, 'filter_by' => $filterBy, 'status' => 'pending']) }}"
+                   class="{{ $statusButtonBase }} {{ $status === 'pending' ? 'border-amber-500 bg-amber-500 text-white shadow-md' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}">
+                    Pending
+                </a>
+
+                <a href="{{ route('admin.dashboard', ['type' => $type, 'search' => $search, 'filter_by' => $filterBy, 'status' => 'active']) }}"
+                   class="{{ $statusButtonBase }} {{ $status === 'active' ? 'border-emerald-600 bg-emerald-600 text-white shadow-md' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}">
+                    Active
+                </a>
+
+                <a href="{{ route('admin.dashboard', ['type' => $type, 'search' => $search, 'filter_by' => $filterBy, 'status' => 'deactivated']) }}"
+                   class="{{ $statusButtonBase }} {{ $status === 'deactivated' ? 'border-red-600 bg-red-600 text-white shadow-md' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}">
+                    Deactivated
+                </a>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+                @if($type === 'teacher')
+                    <button type="button"
+                            id="btnCreateTeacher"
+                            class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+                        Create Teacher
+                    </button>
+                @endif
+
+                @if($type === 'student')
+                    <button type="button"
+                            id="btnCreateStudent"
+                            class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+                        Create Student
+                    </button>
+                @endif
+
+                @if($type === 'admin' && $isSuperAdmin)
+                    <button type="button"
+                            id="btnCreateAdmin"
+                            class="inline-flex items-center justify-center rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700">
+                        Create Admin Account
+                    </button>
+                @endif
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-6 overflow-hidden rounded-2xl border border-slate-200">
         <div id="usersTableContainer" class="bg-white">
-            @if($selectedUser)
-    <div class="flex justify-center bg-slate-50 px-4 py-8 sm:px-6">
-        <div class="w-full max-w-4xl">
-            <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-                <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-900 px-6 py-8 text-white sm:px-8 sm:py-9">
-                    <div class="flex flex-col gap-6">
-                        <div class="flex items-center justify-between gap-4">
-                            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-blue-200">Account Information</p>
-
-                            <a href="{{ route('admin.dashboard', ['type' => $type, 'search' => $search, 'filter_by' => $filterBy, 'status' => $status]) }}"
-   class="js-dashboard-back-link inline-flex items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-100">
-    ← Back to List
-</a>
-                        </div>
-
-                        <div class="min-w-0">
-                            <h3 class="text-3xl font-bold tracking-tight sm:text-4xl">
-                                {{ $selectedUser->name }}
-                            </h3>
-
-                            <p class="mt-3 text-sm leading-6 text-slate-200 sm:text-base">
-                                Detailed profile view for this {{ $selectedUser->role }} account.
-                            </p>
-
-                            <div class="mt-5 flex flex-wrap gap-3">
-                                <span class="inline-flex rounded-full bg-white/15 px-4 py-2.5 text-sm font-semibold capitalize text-white backdrop-blur">
-                                    Role: {{ $selectedUser->role }}
-                                </span>
-
-                                @php
-                                    $heroStatusClasses = match($selectedUser->status) {
-                                        'active' => 'bg-emerald-400/20 text-emerald-200 ring-1 ring-emerald-300/30',
-                                        'deactivated' => 'bg-red-400/20 text-red-200 ring-1 ring-red-300/30',
-                                        default => 'bg-amber-400/20 text-amber-200 ring-1 ring-amber-300/30',
-                                    };
-                                @endphp
-
-                                <span class="inline-flex rounded-full px-4 py-2.5 text-sm font-semibold capitalize backdrop-blur {{ $heroStatusClasses }}">
-                                    Status: {{ $selectedUser->status }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="p-7 sm:p-8">
-                    <div class="grid gap-5 sm:grid-cols-2">
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">User ID</p>
-                            <p class="mt-2 text-lg font-bold text-slate-900">#{{ $selectedUser->id }}</p>
-                        </div>
-
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Email Address</p>
-                            <p class="mt-2 break-all text-lg font-bold text-slate-900">{{ $selectedUser->email }}</p>
-                        </div>
-
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">First Name</p>
-                            <p class="mt-2 text-lg font-bold text-slate-900">{{ $selectedUser->first_name ?? '-' }}</p>
-                        </div>
-
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Surname</p>
-                            <p class="mt-2 text-lg font-bold text-slate-900">{{ $selectedUser->surname ?? '-' }}</p>
-                        </div>
-
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Middle Initial</p>
-                            <p class="mt-2 text-lg font-bold text-slate-900">{{ $selectedUser->middle_initial ?? '-' }}</p>
-                        </div>
-
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Password</p>
-                            <p class="mt-2 text-base font-semibold text-slate-700">Hidden for security</p>
-                        </div>
-
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Created At</p>
-                            <p class="mt-2 text-base font-semibold text-slate-900">
-                                {{ optional($selectedUser->created_at)->format('F d, Y h:i A') ?? '-' }}
-                            </p>
-                        </div>
-
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Updated At</p>
-                            <p class="mt-2 text-base font-semibold text-slate-900">
-                                {{ optional($selectedUser->updated_at)->format('F d, Y h:i A') ?? '-' }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="mt-6 flex flex-col gap-3 sm:flex-row">
-                        <button
-                            type="button"
-                            class="btn-edit-user inline-flex items-center justify-center rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600"
-                            data-id="{{ $selectedUser->id }}"
-                            data-first-name="{{ $selectedUser->first_name }}"
-                            data-middle-initial="{{ $selectedUser->middle_initial }}"
-                            data-surname="{{ $selectedUser->surname }}"
-                            data-email="{{ $selectedUser->email }}"
-                            data-role="{{ $selectedUser->role }}"
-                            data-status="{{ $selectedUser->status }}"
-                            data-update-url="{{ route('admin.users.update', $selectedUser) }}">
-                            Update Account
-                        </button>
-
-                        <button
-                            type="button"
-                            class="btn-delete-user inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
-                            data-name="{{ $selectedUser->name }}"
-                            data-delete-url="{{ route('admin.users.destroy', $selectedUser) }}">
-                            Delete Account
-                        </button>
-                    </div>
-                </div>
-            </div>
+            @include('admin.dashboard.partials.users_table', ['users' => $users, 'type' => $type, 'isSuperAdmin' => $isSuperAdmin])
         </div>
-    </div>
-            @else
-                @include('admin.dashboard.partials.users_table', ['users' => $users, 'type' => $type, 'isSuperAdmin' => $isSuperAdmin])
-            @endif
-        </div>
-    </div>
-</div>
-
-<div id="rowNavigationLoader" class="fixed inset-0 z-[99999] hidden items-center justify-center bg-slate-950/55 backdrop-blur-sm">
-    <div class="flex flex-col items-center rounded-3xl bg-white px-8 py-7 shadow-2xl ring-1 ring-slate-200">
-        <div class="h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-700"></div>
-        <p class="mt-4 text-sm font-semibold text-slate-800">Loading account details...</p>
-        <p class="mt-1 text-xs text-slate-500">Please wait</p>
     </div>
 </div>
 @endsection
@@ -565,9 +717,6 @@
         const searchInput = document.getElementById('searchInput');
         const filterBySelect = document.getElementById('filterBy');
         const usersTableContainer = document.getElementById('usersTableContainer');
-        const rowNavigationLoader = document.getElementById('rowNavigationLoader');
-
-        let isRowNavigating = false;
 
         // @ts-ignore
         let currentFilterBy = @json($filterBy ?? 'all');
@@ -576,10 +725,11 @@
         }
 
         const createModal = document.getElementById('createModal');
-const editModal = document.getElementById('editModal');
-const deleteModal = document.getElementById('deleteModal');
+        const viewModal = document.getElementById('viewModal');
+        const editModal = document.getElementById('editModal');
+        const deleteModal = document.getElementById('deleteModal');
 
-const allModals = [createModal, editModal, deleteModal];
+        const allModals = [createModal, viewModal, editModal, deleteModal];
 
         function openModal(modal) {
             if (!modal) return;
@@ -602,15 +752,6 @@ const allModals = [createModal, editModal, deleteModal];
         function closeAllModals() {
             allModals.forEach(modal => closeModal(modal));
         }
-
-        function showRowNavigationLoader() {
-    if (!rowNavigationLoader || isRowNavigating) return;
-
-    isRowNavigating = true;
-    rowNavigationLoader.classList.remove('hidden');
-    rowNavigationLoader.classList.add('flex');
-    document.body.classList.add('overflow-hidden');
-}
 
         allModals.forEach(modal => {
             if (!modal) return;
@@ -716,38 +857,56 @@ const btnCreateTeacher = document.getElementById('btnCreateTeacher');
 }
 
         document.addEventListener('click', async function (e) {
-            const row = e.target.closest('tr[data-view-url]');
-            const backLink = e.target.closest('.js-dashboard-back-link');
+            const viewBtn = e.target.closest('.btn-view-user');
             const editBtn = e.target.closest('.btn-edit-user');
             const deleteBtn = e.target.closest('.btn-delete-user');
             const paginationLink = e.target.closest('#usersPagination a');
 
-        
-        if (backLink) {
-        e.preventDefault();
+            if (viewBtn) {
+                openModal(viewModal);
 
-        const backUrl = backLink.getAttribute('href');
+                document.getElementById('viewId').textContent = 'Loading...';
+                document.getElementById('viewName').textContent = 'Loading...';
+                document.getElementById('viewEmail').textContent = 'Loading...';
+                document.getElementById('viewRole').textContent = 'Loading...';
+                document.getElementById('viewStatus').textContent = 'Loading...';
+                document.getElementById('viewCreatedAt').textContent = 'Loading...';
+                document.getElementById('viewUpdatedAt').textContent = 'Loading...';
+                document.getElementById('viewPassword').textContent = 'Loading...';
 
-        if (backUrl && !isRowNavigating) {
-            showRowNavigationLoader();
-            window.location.href = backUrl;
-        }
+                try {
+                    const id = viewBtn.dataset.id;
+                    const response = await fetch(`/admin/users/${id}`, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        }
+                    });
 
-        return;
-    }
+                    const user = await response.json();
 
-             if (row && !editBtn && !deleteBtn) {
-        const viewUrl = row.dataset.viewUrl;
+                    document.getElementById('viewId').textContent = user.id ?? '';
+                    document.getElementById('viewName').textContent = user.name ?? '';
+                    document.getElementById('viewEmail').textContent = user.email ?? '';
+                    document.getElementById('viewRole').textContent = user.role ?? '';
+                    document.getElementById('viewStatus').textContent = user.status ?? '';
+                    document.getElementById('viewCreatedAt').textContent = user.created_at ?? '';
+                    document.getElementById('viewUpdatedAt').textContent = user.updated_at ?? '';
+                    document.getElementById('viewPassword').textContent = user.password ?? '';
+                } catch (error) {
+                    document.getElementById('viewId').textContent = '-';
+                    document.getElementById('viewName').textContent = 'Failed to load user';
+                    document.getElementById('viewEmail').textContent = '-';
+                    document.getElementById('viewRole').textContent = '-';
+                    document.getElementById('viewStatus').textContent = '-';
+                    document.getElementById('viewCreatedAt').textContent = '-';
+                    document.getElementById('viewUpdatedAt').textContent = '-';
+                    document.getElementById('viewPassword').textContent = '-';
+                    console.error(error);
+                }
 
-        if (viewUrl && !isRowNavigating) {
-            showRowNavigationLoader();
-            window.location.href = viewUrl;
-        }
-
-        return;
-    }
-
-            
+                return;
+            }
 
             if (editBtn) {
                 document.getElementById('editFirstName').value = editBtn.dataset.firstName ?? '';
@@ -856,3 +1015,96 @@ const btnCreateTeacher = document.getElementById('btnCreateTeacher');
     });
 </script>
 @endpush
+
+===== backend\resources\views\admin\dashboard\partials\users_table.blade.php =====
+<div class="overflow-x-auto">
+    <table class="min-w-full text-sm text-slate-700">
+        <thead class="bg-slate-100 text-left text-xs font-bold uppercase tracking-wide text-slate-600">
+            <tr>
+                <th class="px-4 py-4">ID</th>
+                <th class="px-4 py-4">First Name</th>
+                <th class="px-4 py-4">Middle Initial</th>
+                <th class="px-4 py-4">Surname</th>
+                <th class="px-4 py-4">Email</th>
+                <th class="px-4 py-4">Role</th>
+                <th class="px-4 py-4">Status</th>
+                <th class="px-4 py-4">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 bg-white">
+            @forelse($users as $user)
+                <tr class="transition hover:bg-slate-50">
+                    <td class="px-4 py-4 font-medium text-slate-800">{{ $user->id }}</td>
+                    <td class="px-4 py-4">{{ $user->first_name ?? '-' }}</td>
+                    <td class="px-4 py-4">{{ $user->middle_initial ?? '-' }}</td>
+                    <td class="px-4 py-4">{{ $user->surname ?? '-' }}</td>
+                    <td class="px-4 py-4">{{ $user->email }}</td>
+                    <td class="px-4 py-4">
+                        <span class="inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold capitalize text-blue-700">
+                            {{ $user->role }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-4">
+                        @php
+                            $statusClasses = match($user->status) {
+                                'active' => 'bg-emerald-100 text-emerald-700',
+                                'deactivated' => 'bg-red-100 text-red-700',
+                                default => 'bg-amber-100 text-amber-700',
+                            };
+                        @endphp
+
+                        <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize {{ $statusClasses }}">
+                            {{ $user->status }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-4">
+                        <div class="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                class="btn-view-user inline-flex items-center rounded-xl bg-blue-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                                data-id="{{ $user->id }}">
+                                View
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn-edit-user inline-flex items-center rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-600"
+                                data-id="{{ $user->id }}"
+                                data-first-name="{{ $user->first_name }}"
+                                data-middle-initial="{{ $user->middle_initial }}"
+                                data-surname="{{ $user->surname }}"
+                                data-email="{{ $user->email }}"
+                                data-role="{{ $user->role }}"
+                                data-status="{{ $user->status }}"
+                                data-update-url="{{ route('admin.users.update', $user) }}">
+                                Update
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn-delete-user inline-flex items-center rounded-xl bg-red-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700"
+                                data-name="{{ $user->name }}"
+                                data-delete-url="{{ route('admin.users.destroy', $user) }}">
+                                Delete
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="8" class="px-4 py-10 text-center text-slate-500">
+                        No users found.
+                    </td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
+</div>
+
+@if ($users->hasPages())
+    <div id="usersPagination" class="border-t border-slate-200 bg-slate-50 px-4 py-4">
+        {{ $users->links() }}
+    </div>
+@endif
+
+===== backend\resources\views\admin\users\show.blade.php =====

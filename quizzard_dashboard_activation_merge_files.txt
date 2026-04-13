@@ -8,6 +8,8 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminActivationController;
 use App\Http\Controllers\AdminProfileController;
 use App\Http\Controllers\AdminQuizController;
+use App\Http\Controllers\TeacherAuthController;
+use App\Http\Controllers\TeacherDashboardController;
 
 Route::get('/', function () {
     return redirect()->route('admin.login');
@@ -24,7 +26,6 @@ Route::prefix('admin')->group(function () {
         Route::post('/login', [AdminAuthController::class, 'login'])->name('admin.login.submit');
     });
 
-    // Authenticated admin routes
     Route::middleware(['auth', 'admin'])->group(function () {
         Route::post('/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
@@ -58,12 +59,28 @@ Route::prefix('admin')->group(function () {
             ->name('admin.classes.quizzes.details');
 
         Route::get('/classes/{id}', [AdminQuizController::class, 'show']);
-
         Route::put('/classes/{id}', [AdminQuizController::class, 'update']);
-
         Route::delete('/classes/{id}', [AdminQuizController::class, 'destroy']);
     });
 });
+
+Route::prefix('teacher')->group(function () {
+    Route::middleware('guest')->group(function () {
+        Route::get('/login', [TeacherAuthController::class, 'showLoginForm'])->name('teacher.login');
+        Route::post('/login', [TeacherAuthController::class, 'login'])->name('teacher.login.submit');
+    });
+
+    Route::middleware(['auth', 'teacher'])->group(function () {
+        Route::post('/logout', [TeacherAuthController::class, 'logout'])->name('teacher.logout');
+
+        Route::get('/dashboard', [TeacherDashboardController::class, 'index'])->name('teacher.dashboard');
+
+        Route::get('/reports/classes', [TeacherDashboardController::class, 'classes'])->name('teacher.reports.classes');
+        Route::get('/reports/quizzes', [TeacherDashboardController::class, 'quizzes'])->name('teacher.reports.quizzes');
+        Route::get('/reports/students', [TeacherDashboardController::class, 'students'])->name('teacher.reports.students');
+    });
+});
+
 ===== backend\app\Http\Controllers\AdminDashboardController.php =====
 <?php
 
@@ -91,8 +108,8 @@ class AdminDashboardController extends Controller
         }
 
         if (!in_array($type, $allowedTypes)) {
-    $type = $allowedTypes[0];
-}
+            $type = $allowedTypes[0];
+        }
 
         $query = User::query()
             ->where('role', $type)
@@ -141,6 +158,139 @@ class AdminDashboardController extends Controller
         ));
     }
 }
+
+===== backend\app\Http\Controllers\AdminActivationController.php =====
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class AdminActivationController extends Controller
+{
+    public function index(Request $request)
+    {
+        $loggedInUser = Auth::user();
+        $isSuperAdmin = $loggedInUser && $loggedInUser->role === 'superadmin';
+
+        $search = trim($request->get('search', ''));
+        $status = $request->get('status', 'all');
+        $filterBy = $request->get('filter_by', 'all');
+        $roleType = $request->get('role_type', 'all');
+
+        $allowedRoles = ['teacher', 'student'];
+        if ($isSuperAdmin) {
+            $allowedRoles[] = 'admin';
+        }
+
+        if (!in_array($roleType, array_merge(['all'], $allowedRoles))) {
+            $roleType = 'all';
+        }
+
+        $query = User::query()
+            ->whereIn('role', $allowedRoles);
+
+        if ($roleType !== 'all') {
+            $query->where('role', $roleType);
+        }
+
+        if ($status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search, $filterBy) {
+                if ($filterBy === 'first_name') {
+                    $q->where('first_name', 'like', "%{$search}%");
+                } elseif ($filterBy === 'middle_initial') {
+                    $q->where('middle_initial', 'like', "%{$search}%");
+                } elseif ($filterBy === 'surname') {
+                    $q->where('surname', 'like', "%{$search}%");
+                } else {
+                    $q->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('middle_initial', 'like', "%{$search}%")
+                        ->orWhere('surname', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('role', 'like', "%{$search}%");
+                }
+            });
+        }
+
+        $users = $query
+            ->orderByDesc('created_at')
+            ->paginate(10)
+            ->withQueryString();
+
+        $statsBaseQuery = User::whereIn('role', $allowedRoles);
+
+        if ($roleType !== 'all') {
+            $statsBaseQuery->where('role', $roleType);
+        }
+
+        $stats = [
+            'total' => (clone $statsBaseQuery)->count(),
+            'pending' => (clone $statsBaseQuery)->where('status', 'pending')->count(),
+            'active' => (clone $statsBaseQuery)->where('status', 'active')->count(),
+            'deactivated' => (clone $statsBaseQuery)->where('status', 'deactivated')->count(),
+        ];
+
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('admin.activation.partials.users_table', compact('users', 'isSuperAdmin'))->render(),
+            ]);
+        }
+
+        return view('admin.activation.index', compact(
+            'users',
+            'search',
+            'status',
+            'stats',
+            'filterBy',
+            'isSuperAdmin',
+            'roleType'
+        ));
+    }
+
+    public function activate(User $user)
+    {
+        $loggedInUser = Auth::user();
+        $isSuperAdmin = $loggedInUser && $loggedInUser->role === 'superadmin';
+
+        $allowedRoles = ['teacher', 'student'];
+        if ($isSuperAdmin) {
+            $allowedRoles[] = 'admin';
+        }
+
+        abort_if(!in_array($user->role, $allowedRoles), 404);
+
+        $user->status = 'active';
+        $user->save();
+
+        return back()->with('success', ucfirst($user->role) . ' account activated successfully.');
+    }
+
+    public function deactivate(User $user)
+    {
+        $loggedInUser = Auth::user();
+        $isSuperAdmin = $loggedInUser && $loggedInUser->role === 'superadmin';
+
+        $allowedRoles = ['teacher', 'student'];
+        if ($isSuperAdmin) {
+            $allowedRoles[] = 'admin';
+        }
+
+        abort_if(!in_array($user->role, $allowedRoles), 404);
+
+        $user->status = 'deactivated';
+        $user->save();
+
+        return back()->with('success', ucfirst($user->role) . ' account deactivated successfully.');
+    }
+}
+
 ===== backend\app\Http\Controllers\AdminUserController.php =====
 <?php
 
@@ -324,73 +474,109 @@ class AdminUserController extends Controller
             ->with('success', ucfirst($role) . ' account deleted successfully.');
     }
 }
-===== backend\app\Http\Controllers\AdminAuthController.php =====
-<?php
 
-namespace App\Http\Controllers;
+===== backend\resources\views\admin\layouts\app.blade.php =====
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ auth()->check() && auth()->user()->role === 'superadmin' ? 'Quizzard SuperAdmin' : 'Quizzard Admin' }}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+    <div class="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
+        <aside class="bg-slate-900 text-white shadow-2xl">
+            <div class="flex h-full flex-col">
+                <div class="border-b border-slate-800 px-6 py-6">
+                    <h1 class="text-2xl font-bold tracking-wide">
+    {{ auth()->check() && auth()->user()->role === 'superadmin' ? 'Quizzard SuperAdmin' : 'Quizzard Admin' }}
+</h1>
+<p class="mt-1 text-sm text-slate-400">
+    {{ auth()->check() && auth()->user()->role === 'superadmin' ? 'SuperAdmin Management Panel' : 'Admin Management Panel' }}
+</p>
+                </div>
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+                <nav class="flex-1 space-y-2 px-4 py-6">
+                    <a href="{{ route('admin.dashboard') }}"
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.dashboard*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
+                        Menu Dashboard
+                    </a>
 
-class AdminAuthController extends Controller
-{
-    public function showLoginForm()
-    {
-        return view('admin.auth.login');
-    }
+                    <a href="{{ route('admin.profile') }}"
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.profile*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
+                        Profile
+                    </a>
 
-    public function login(Request $request)
-    {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+                    <a href="{{ route('admin.activation.index') }}"
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.activation*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
+                        Activation
+                    </a>
 
-        if (!Auth::attempt($credentials, $request->boolean('remember'))) {
-            return back()->withErrors([
-                'email' => 'Invalid credentials.',
-            ])->onlyInput('email');
-        }
+                    <a href="{{ route('admin.classes') }}"
+                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.classes*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
+                        Classes
+                    </a>
+                </nav>
 
-        $request->session()->regenerate();
+                <div class="border-t border-slate-800 p-4">
+                    <form action="{{ route('admin.logout') }}" method="POST">
+                        @csrf
+                        <button type="submit"
+                                class="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700">
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </aside>
 
-        $user = Auth::user();
+        <main class="min-w-0 p-4 sm:p-6 lg:p-8">
+            @if(session('success'))
+                <div
+                    id="globalSuccessToast"
+                    class="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-emerald-800 shadow-sm"
+                >
+                    <div class="mt-0.5">
+                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.172 7.707 8.879a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
 
-        if (!in_array($user->role, ['admin', 'superadmin'])) {
-            Auth::logout();
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold">Login Successful</p>
+                        <p class="text-sm">{{ session('success') }}</p>
+                    </div>
 
-            return back()->withErrors([
-                'email' => 'Only admin or superadmin accounts can access the admin panel.',
-            ])->onlyInput('email');
-        }
+                    <button
+                        type="button"
+                        onclick="document.getElementById('globalSuccessToast').remove()"
+                        class="text-emerald-700 transition hover:text-emerald-900"
+                    >
+                        ×
+                    </button>
+                </div>
 
-        if ($user->status !== 'active') {
-            Auth::logout();
+                <script>
+                    setTimeout(() => {
+                        const toast = document.getElementById('globalSuccessToast');
+                        if (toast) {
+                            toast.remove();
+                        }
+                    }, 3500);
+                </script>
+            @endif
 
-            return back()->withErrors([
-                'email' => 'Your account is not active.',
-            ])->onlyInput('email');
-        }
+            @yield('content')
+        </main>
+    </div>
 
-        $welcomeMessage = $user->role === 'superadmin'
-            ? 'Welcome back, Super Admin!'
-            : 'Welcome back, Admin!';
+    @stack('modals')
+    @stack('scripts')
+</body>
+</html>
 
-        return redirect()
-            ->route('admin.dashboard')
-            ->with('success', $welcomeMessage);
-    }
-
-    public function logout(Request $request)
-    {
-        Auth::logout();
-
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        return redirect()->route('admin.login');
-    }
-}
 ===== backend\resources\views\admin\dashboard\index.blade.php =====
 @extends('admin.layouts.app')
 
@@ -715,8 +901,8 @@ class AdminAuthController extends Controller
                             <option value="teacher">Teacher</option>
                             <option value="student">Student</option>
                             @if($isSuperAdmin)
-        <option value="admin">Admin</option>
-    @endif
+                                <option value="admin">Admin</option>
+                            @endif
                         </select>
                     </div>
 
@@ -853,7 +1039,33 @@ class AdminAuthController extends Controller
             }
         });
 
-        const btnCreateTeacher = document.getElementById('btnCreateTeacher');
+        function setLocalButtonLoading(button, loadingText = 'Processing...') {
+    if (!button) return;
+
+    if (!button.dataset.originalHtml) {
+        button.dataset.originalHtml = button.innerHTML;
+    }
+
+    button.disabled = true;
+    button.innerHTML = `
+        <span class="inline-flex items-center justify-center gap-2">
+            <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+            <span>${loadingText}</span>
+        </span>
+    `;
+}
+
+function resetLocalButtonLoading(button) {
+    if (!button) return;
+
+    button.disabled = false;
+
+    if (button.dataset.originalHtml) {
+        button.innerHTML = button.dataset.originalHtml;
+    }
+}
+
+const btnCreateTeacher = document.getElementById('btnCreateTeacher');
         const btnCreateStudent = document.getElementById('btnCreateStudent');
         const btnCreateAdmin = document.getElementById('btnCreateAdmin');
 
@@ -1025,46 +1237,48 @@ class AdminAuthController extends Controller
 
         // Handle update form submission
         document.getElementById('editForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const submitBtn = this.querySelector('button[type="submit"]');
-            setButtonLoading(submitBtn);
+    e.preventDefault();
 
-            try {
-                const formData = new FormData(this);
-                const response = await fetch(this.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
+    const submitBtn = this.querySelector('button[type="submit"]');
+    setLocalButtonLoading(submitBtn, 'Updating...');
 
-                const data = await response.json();
-
-                if (response.ok) {
-                    loadUsers(dashboardUrl + window.location.search);
-                    closeModal(editModal);
-                } else {
-                    alert(data.message || 'Error updating user');
-                }
-            } catch (error) {
-                alert('Error updating user');
-            } finally {
-                resetButtonLoading(submitBtn);
+    try {
+        const formData = new FormData(this);
+        const response = await fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
             }
         });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            closeModal(editModal);
+            await loadUsers(dashboardUrl + window.location.search);
+        } else {
+            alert(data.message || 'Error updating user');
+        }
+    } catch (error) {
+        console.error(error);
+        alert('Error updating user');
+    } finally {
+        resetLocalButtonLoading(submitBtn);
+    }
+});
     </script>
 
     <script>
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('close-modal') || e.target.closest('.close-modal')) {
-                resetButtonLoading(document.getElementById('createTeacherBtn'));
-                resetButtonLoading(document.getElementById('createStudentBtn'));
-                resetButtonLoading(document.querySelector('#editForm button[type="submit"]'));
-            }
-        });
-    </script>
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('close-modal') || e.target.closest('.close-modal')) {
+            resetLocalButtonLoading(document.querySelector('#editForm button[type="submit"]'));
+        }
+    });
+</script>
 @endpush
+
 ===== backend\resources\views\admin\dashboard\partials\users_table.blade.php =====
 <div class="overflow-x-auto">
     <table class="min-w-full text-sm text-slate-700">
@@ -1155,9 +1369,279 @@ class AdminAuthController extends Controller
         {{ $users->links() }}
     </div>
 @endif
+
+===== backend\resources\views\admin\activation\index.blade.php =====
+@extends('admin.layouts.app')
+
+@section('content')
+    <div class="space-y-6">
+        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-8 text-white shadow-2xl">
+
+    <!-- soft glow background -->
+    <div class="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-emerald-500/20 blur-3xl"></div>
+    <div class="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl"></div>
+
+    <div class="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+
+        <div>
+            <p class="text-xs uppercase tracking-[0.3em] text-emerald-300">
+    {{ $isSuperAdmin ? 'SuperAdmin Control' : 'Admin Control' }}
+</p>
+            <h2 class="mt-2 text-3xl font-bold">Account Activation</h2>
+            <p class="mt-2 text-sm text-slate-300">
+                Manage teacher, student, and admin account access across the Quizzard platform.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div class="rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 px-4 py-3">
+                <p class="text-xs text-slate-300">Total</p>
+                <p class="text-2xl font-bold">{{ $stats['total'] }}</p>
+            </div>
+
+            <div class="rounded-2xl bg-amber-400/10 backdrop-blur-xl border border-amber-400/20 px-4 py-3">
+                <p class="text-xs text-amber-300">Pending</p>
+                <p class="text-2xl font-bold text-amber-300">{{ $stats['pending'] }}</p>
+            </div>
+
+            <div class="rounded-2xl bg-emerald-400/10 backdrop-blur-xl border border-emerald-400/20 px-4 py-3">
+                <p class="text-xs text-emerald-300">Active</p>
+                <p class="text-2xl font-bold text-emerald-300">{{ $stats['active'] }}</p>
+            </div>
+
+            <div class="rounded-2xl bg-red-400/10 backdrop-blur-xl border border-red-400/20 px-4 py-3">
+                <p class="text-xs text-red-300">Deactivated</p>
+                <p class="text-2xl font-bold text-red-300">{{ $stats['deactivated'] }}</p>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+        @if(session('success'))
+            <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 shadow-sm">
+                <div class="flex items-start gap-3">
+                    <div class="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                        ✓
+                    </div>
+                    <div>
+                        <p class="font-semibold text-emerald-800">Success</p>
+                        <p class="text-sm text-emerald-700">{{ session('success') }}</p>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        <div class="rounded-3xl bg-white p-6 shadow-lg ring-1 ring-slate-200">
+            <div class="flex flex-wrap items-center gap-3">
+
+    <!-- STATUS BUTTONS -->
+    <button type="button"
+        class="status-filter rounded-xl border px-5 py-2.5 text-sm font-semibold transition {{ $status === 'all' ? 'bg-slate-900 text-white shadow-md border-slate-900' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}"
+        data-status="all">
+        All Status
+    </button>
+
+    <button type="button"
+        class="status-filter rounded-xl border px-5 py-2.5 text-sm font-semibold transition {{ $status === 'pending' ? 'bg-amber-500 text-white shadow-md border-amber-500' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}"
+        data-status="pending">
+        Pending
+    </button>
+
+    <button type="button"
+        class="status-filter rounded-xl border px-5 py-2.5 text-sm font-semibold transition {{ $status === 'active' ? 'bg-emerald-600 text-white shadow-md border-emerald-600' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}"
+        data-status="active">
+        Active
+    </button>
+
+    <button type="button"
+        class="status-filter rounded-xl border px-5 py-2.5 text-sm font-semibold transition {{ $status === 'deactivated' ? 'bg-red-600 text-white shadow-md border-red-600' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}"
+        data-status="deactivated">
+        Deactivated
+    </button>
+
+    <!-- ROLE DROPDOWN -->
+    <select id="roleTypeSelect"
+        class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100">
+        <option value="all" {{ $roleType === 'all' ? 'selected' : '' }}>All Roles</option>
+        <option value="teacher" {{ $roleType === 'teacher' ? 'selected' : '' }}>Teacher</option>
+        <option value="student" {{ $roleType === 'student' ? 'selected' : '' }}>Student</option>
+        @if($isSuperAdmin)
+            <option value="admin" {{ $roleType === 'admin' ? 'selected' : '' }}>Admin</option>
+        @endif
+    </select>
+
+    <!-- FILTER DROPDOWN -->
+    <select id="filterBy"
+        class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100">
+        <option value="all">All Fields</option>
+        <option value="first_name">First Name</option>
+        <option value="middle_initial">Middle Initial</option>
+        <option value="surname">Surname</option>
+    </select>
+
+    <!-- SEARCH -->
+    <input type="text"
+           id="searchInput"
+           value="{{ $search }}"
+           placeholder="Search..."
+           class="min-w-[220px] flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100">
+
+</div>
+
+            <div class="mt-6 overflow-hidden rounded-2xl border border-slate-200">
+                <div id="activationTableContainer" class="bg-white">
+                    @include('admin.activation.partials.users_table', ['users' => $users, 'isSuperAdmin' => $isSuperAdmin])
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@push('scripts')
+<script>
+    const activationBaseUrl = "{{ route('admin.activation.index') }}";
+const searchInput = document.getElementById('searchInput');
+const filterBySelect = document.getElementById('filterBy');
+const roleTypeSelect = document.getElementById('roleTypeSelect');
+const activationTableContainer = document.getElementById('activationTableContainer');
+const statusButtons = document.querySelectorAll('.status-filter');
+
+let currentStatus = "{{ $status }}";
+let currentFilterBy = "{{ $filterBy ?? 'all' }}";
+let currentRoleType = "{{ $roleType ?? 'all' }}";
+let searchTimeout;
+
+    filterBySelect.value = currentFilterBy;
+
+    function setActiveStatusButton(status) {
+        statusButtons.forEach(button => {
+            const buttonStatus = button.dataset.status;
+
+            button.classList.remove(
+    'bg-slate-900', 'bg-amber-500', 'bg-emerald-600', 'bg-red-600',
+    'bg-white',
+    'text-white', 'text-slate-700',
+    'shadow-md',
+    'border-slate-900', 'border-slate-300', 'border-amber-500', 'border-emerald-600', 'border-red-600'
+);
+
+            if (buttonStatus === status) {
+    if (status === 'all') {
+        button.classList.add('bg-slate-900', 'text-white', 'shadow-md', 'border-slate-900');
+    } else if (status === 'pending') {
+        button.classList.add('bg-amber-500', 'text-white', 'shadow-md', 'border-amber-500');
+    } else if (status === 'active') {
+        button.classList.add('bg-emerald-600', 'text-white', 'shadow-md', 'border-emerald-600');
+    } else if (status === 'deactivated') {
+        button.classList.add('bg-red-600', 'text-white', 'shadow-md', 'border-red-600');
+    }
+} else {
+    button.classList.add('bg-white', 'text-slate-700', 'border-slate-300');
+}
+        });
+    }
+
+    
+
+    function activationSkeleton() {
+        return `
+            <div class="px-4 py-6">
+                <div class="space-y-3">
+                    ${Array.from({ length: 5 }).map(() => `
+                        <div class="h-6 w-full rounded-lg bg-slate-200 animate-pulse"></div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    async function loadActivationUsers(url) {
+        try {
+            activationTableContainer.innerHTML = activationSkeleton();
+
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            activationTableContainer.innerHTML = data.html;
+        } catch (error) {
+            activationTableContainer.innerHTML = `
+                <div class="py-8 text-center text-red-600">
+                    Failed to load accounts.
+                </div>
+            `;
+            console.error(error);
+        }
+    }
+
+    function buildUrl() {
+    const search = encodeURIComponent(searchInput.value || '');
+    const status = encodeURIComponent(currentStatus || 'all');
+    const filterBy = encodeURIComponent(currentFilterBy || 'all');
+    const roleType = encodeURIComponent(currentRoleType || 'all');
+    return `${activationBaseUrl}?search=${search}&status=${status}&filter_by=${filterBy}&role_type=${roleType}`;
+}
+    if (roleTypeSelect) {
+    roleTypeSelect.addEventListener('change', function () {
+        currentRoleType = this.value;
+        loadActivationUsers(buildUrl());
+    });
+}
+
+    statusButtons.forEach(button => {
+        button.addEventListener('click', function () {
+            currentStatus = this.dataset.status;
+            setActiveStatusButton(currentStatus);
+            loadActivationUsers(buildUrl());
+        });
+    });
+
+    filterBySelect.addEventListener('change', function() {
+        currentFilterBy = this.value;
+        loadActivationUsers(buildUrl());
+    });
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function () {
+            clearTimeout(searchTimeout);
+
+            searchTimeout = setTimeout(function () {
+                loadActivationUsers(buildUrl());
+            }, 250);
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        const paginationLink = e.target.closest('#activationPagination a');
+
+        if (paginationLink) {
+            e.preventDefault();
+            const url = paginationLink.getAttribute('href');
+            if (url) {
+                loadActivationUsers(url);
+            }
+        }
+    });
+
+    setActiveStatusButton(currentStatus);
+
+if (roleTypeSelect) {
+    roleTypeSelect.value = currentRoleType;
+}
+</script>
+@endpush
+
 ===== backend\resources\views\admin\users\create.blade.php =====
+
 ===== backend\resources\views\admin\users\edit.blade.php =====
+
 ===== backend\resources\views\admin\users\show.blade.php =====
+
 ===== backend\resources\views\admin\users\partials\table_rows.blade.php =====
 @if($users->count())
     @foreach($users as $user)
@@ -1209,295 +1693,3 @@ class AdminAuthController extends Controller
         <td colspan="6" class="text-center">No users found.</td>
     </tr>
 @endif
-===== backend\resources\views\admin\layouts\app.blade.php =====
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ auth()->check() && auth()->user()->role === 'superadmin' ? 'Quizzard SuperAdmin' : 'Quizzard Admin' }}</title>
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-</head>
-<body class="min-h-screen bg-slate-100 text-slate-800">
-    <div class="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
-        <aside class="bg-slate-900 text-white shadow-2xl">
-            <div class="flex h-full flex-col">
-                <div class="border-b border-slate-800 px-6 py-6">
-                    <h1 class="text-2xl font-bold tracking-wide">
-    {{ auth()->check() && auth()->user()->role === 'superadmin' ? 'Quizzard SuperAdmin' : 'Quizzard Admin' }}
-</h1>
-<p class="mt-1 text-sm text-slate-400">
-    {{ auth()->check() && auth()->user()->role === 'superadmin' ? 'SuperAdmin Management Panel' : 'Admin Management Panel' }}
-</p>
-                </div>
-
-                <nav class="flex-1 space-y-2 px-4 py-6">
-                    <a href="{{ route('admin.dashboard') }}"
-                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.dashboard*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
-                        Menu Dashboard
-                    </a>
-
-                    <a href="{{ route('admin.profile') }}"
-                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.profile*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
-                        Profile
-                    </a>
-
-                    <a href="{{ route('admin.activation.index') }}"
-                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.activation*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
-                        Activation
-                    </a>
-
-                    <a href="{{ route('admin.classes') }}"
-                       class="block rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('admin.classes*') ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800' }}">
-                        Classes
-                    </a>
-                </nav>
-
-                <div class="border-t border-slate-800 p-4">
-                    <form action="{{ route('admin.logout') }}" method="POST">
-                        @csrf
-                        <button type="submit"
-                                class="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700">
-                            Logout
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </aside>
-
-        <main class="min-w-0 p-4 sm:p-6 lg:p-8">
-            @if(session('success'))
-                <div
-                    id="globalSuccessToast"
-                    class="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-emerald-800 shadow-sm"
-                >
-                    <div class="mt-0.5">
-                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.172 7.707 8.879a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                        </svg>
-                    </div>
-
-                    <div class="flex-1">
-                        <p class="text-sm font-semibold">Login Successful</p>
-                        <p class="text-sm">{{ session('success') }}</p>
-                    </div>
-
-                    <button
-                        type="button"
-                        onclick="document.getElementById('globalSuccessToast').remove()"
-                        class="text-emerald-700 transition hover:text-emerald-900"
-                    >
-                        ×
-                    </button>
-                </div>
-
-                <script>
-                    setTimeout(() => {
-                        const toast = document.getElementById('globalSuccessToast');
-                        if (toast) {
-                            toast.remove();
-                        }
-                    }, 3500);
-                </script>
-            @endif
-
-            @yield('content')
-        </main>
-    </div>
-
-    @stack('modals')
-    @stack('scripts')
-</body>
-</html>
-===== backend\resources\js\app.js =====
-import './bootstrap';
-
-document.addEventListener('DOMContentLoaded', function () {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
-
-    function setButtonLoading(button, isLoading, loadingText = 'Processing...') {
-        if (!button) return;
-
-        if (isLoading) {
-            if (!button.dataset.originalHtml) {
-                button.dataset.originalHtml = button.innerHTML;
-            }
-
-            button.disabled = true;
-            button.innerHTML = `
-                <span class="inline-flex items-center gap-2">
-                    <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                    </svg>
-                    <span>${loadingText}</span>
-                </span>
-            `;
-            return;
-        }
-
-        button.disabled = false;
-        if (button.dataset.originalHtml) {
-            button.innerHTML = button.dataset.originalHtml;
-        }
-    }
-
-    function showToast(message, type = 'success') {
-        const oldToast = document.getElementById('globalJsToast');
-        if (oldToast) {
-            oldToast.remove();
-        }
-
-        const toast = document.createElement('div');
-        toast.id = 'globalJsToast';
-
-        const toastStyles = {
-            success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-            error: 'border-red-200 bg-red-50 text-red-800',
-            info: 'border-blue-200 bg-blue-50 text-blue-800',
-        };
-
-        toast.className = `fixed right-4 top-4 z-[9999] w-full max-w-sm rounded-2xl border px-4 py-4 shadow-lg ${toastStyles[type] || toastStyles.info}`;
-        toast.innerHTML = `
-            <div class="flex items-start gap-3">
-                <div class="flex-1">
-                    <p class="text-sm font-semibold">${type === 'error' ? 'Action Failed' : 'Success'}</p>
-                    <p class="mt-1 text-sm">${message}</p>
-                </div>
-                <button type="button" class="text-lg leading-none opacity-70 hover:opacity-100" aria-label="Close notification">
-                    ×
-                </button>
-            </div>
-        `;
-
-        document.body.appendChild(toast);
-
-        const closeBtn = toast.querySelector('button');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => toast.remove());
-        }
-
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
-    }
-
-    window.showToast = showToast;
-
-    // Activation / Deactivation AJAX logic
-    const activationTable = document.getElementById('activationTableContainer');
-
-    if (activationTable) {
-        activationTable.addEventListener('submit', async function (e) {
-            const form = e.target.closest('form');
-            if (!form) return;
-
-            e.preventDefault();
-
-            const allButtons = activationTable.querySelectorAll('.activation-btn');
-            allButtons.forEach((btn) => {
-                btn.disabled = true;
-            });
-
-            const submitBtn = form.querySelector('.activation-btn');
-            setButtonLoading(submitBtn, true);
-
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    body: new FormData(form),
-                    headers: {
-                        'X-CSRF-TOKEN': csrfToken,
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json',
-                    },
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to update status.');
-                }
-
-                const tableResponse = await fetch(window.location.href, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json',
-                    },
-                });
-
-                if (!tableResponse.ok) {
-                    throw new Error('Failed to reload activation table.');
-                }
-
-                const data = await tableResponse.json();
-                activationTable.innerHTML = data.html;
-
-                showToast('Account status updated successfully.', 'success');
-            } catch (error) {
-                console.error(error);
-
-                setButtonLoading(submitBtn, false);
-
-                allButtons.forEach((btn) => {
-                    btn.disabled = false;
-                });
-
-                showToast('Failed to update account status.', 'error');
-            }
-        });
-    }
-
-    // Close modal when clicking outside
-    document.querySelectorAll('[id$="Modal"]').forEach(function (modal) {
-        modal.addEventListener('click', function (e) {
-            if (e.target === modal) {
-                modal.classList.add('hidden');
-            }
-        });
-    });
-
-    // Close modal buttons
-    document.querySelectorAll('.close-modal').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            const modal = btn.closest('[id$="Modal"]');
-            if (modal) {
-                modal.classList.add('hidden');
-            }
-        });
-    });
-
-    // View modal skeleton loader
-    window.showViewModalSkeleton = function (show = true) {
-        const skeleton = document.getElementById('viewModalSkeleton');
-        if (skeleton) {
-            skeleton.classList.toggle('hidden', !show);
-        }
-    };
-
-    // Edit modal spinner
-    window.showEditModalSpinner = function (show = true) {
-        const spinner = document.getElementById('editModalSpinner');
-        if (spinner) {
-            spinner.classList.toggle('hidden', !show);
-        }
-    };
-
-    // Copy password on click
-    const viewPassword = document.getElementById('viewPassword');
-    if (viewPassword) {
-        viewPassword.style.userSelect = 'all';
-        viewPassword.title = 'Click to copy';
-
-        viewPassword.addEventListener('click', async function () {
-            if (!viewPassword.textContent) return;
-
-            try {
-                await navigator.clipboard.writeText(viewPassword.textContent);
-                showToast('Password copied to clipboard.', 'info');
-            } catch (error) {
-                console.error(error);
-                showToast('Failed to copy password.', 'error');
-            }
-        });
-    }
-});

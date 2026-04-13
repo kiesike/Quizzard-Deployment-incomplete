@@ -56,8 +56,8 @@
                             @foreach ($quizzes as $quiz)
                                 <tr class="">
                                     <td class="px-6 py-4 text-sm font-semibold text-slate-800 whitespace-nowrap">{{ $quiz->name }}</td>
-                                    <td class="px-6 py-4 text-sm text-slate-700 whitespace-nowrap">{{ !is_null($quiz->score) ? number_format($quiz->score, 2) : '—' }}</td>
-                                    <td class="px-6 py-4 text-sm text-slate-700 whitespace-nowrap">{{ !is_null($quiz->total) ? number_format($quiz->total, 2) : '—' }}</td>
+                                    <td class="px-6 py-4 text-sm text-slate-700 whitespace-nowrap">{{ !is_null($quiz->score) ? number_format($quiz->score, ) : '—' }}</td>
+                                    <td class="px-6 py-4 text-sm text-slate-700 whitespace-nowrap">{{ !is_null($quiz->total) ? number_format($quiz->total, ) : '—' }}</td>
                                     <td class="px-6 py-4 text-sm whitespace-nowrap">
                                         <span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">{{$quiz->status}}</span>
                                     </td>

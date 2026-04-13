@@ -10,6 +10,13 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\StudentsExport;
 use App\Exports\StudentQuizInfoExport;
 
+use PhpOffice\PhpWord\PhpWord;
+use PhpOffice\PhpWord\IOFactory;
+use Dompdf\Dompdf;
+use Dompdf\Options;
+
+
+
 class TeacherDashboardController extends Controller
 {
     public function index(Request $request)
@@ -426,6 +433,284 @@ class TeacherDashboardController extends Controller
 
         return Excel::download(new ClassDetailExport($students, $totalQuizzes), $filename);
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public function quizQuestions(Request $request, $quizId)
+    {
+        $teacher = $request->user();
+
+        $quiz = Quiz::where('teacher_id', $teacher->id)
+            ->where('id', $quizId)
+            ->with(['questions' => function ($query) {
+                $query->orderBy('order')->with('answerOptions');
+            }])
+            ->firstOrFail();
+
+        return view('teacher.reports.quiz_questions', compact('quiz'));
+    }
+
+    public function quizAnswers(Request $request, $quizId)
+    {
+        $teacher = $request->user();
+
+        $quiz = Quiz::where('teacher_id', $teacher->id)
+            ->where('id', $quizId)
+            ->with(['questions' => function ($query) {
+                $query->orderBy('order')->with('answerOptions');
+            }])
+            ->firstOrFail();
+
+        return view('teacher.reports.quiz_answers', compact('quiz'));
+    }
+
+    public function exportQuizQuestionsDocx(Request $request, $quizId)
+    {
+        $teacher = $request->user();
+
+        $quiz = Quiz::where('teacher_id', $teacher->id)
+            ->where('id', $quizId)
+            ->with(['questions' => function ($query) {
+                $query->orderBy('order')->with('answerOptions');
+            }])
+            ->firstOrFail();
+
+        $phpWord = new PhpWord();
+        $phpWord->setDefaultFontName('Times New Roman');
+        $phpWord->setDefaultFontSize(12);
+
+        $section = $phpWord->addSection([
+            'marginTop'    => 1440,
+            'marginBottom' => 1440,
+            'marginLeft'   => 1440,
+            'marginRight'  => 1440,
+        ]);
+
+        // Title
+        $titleStyle = ['bold' => true, 'size' => 16, 'name' => 'Times New Roman'];
+        $section->addText($quiz->title, $titleStyle, ['alignment' => 'center']);
+        $section->addText('Test Questionnaire', ['size' => 12, 'italic' => true, 'name' => 'Times New Roman'], ['alignment' => 'center']);
+        $section->addTextBreak(1);
+
+        $questionNumber = 1;
+
+        foreach ($quiz->questions as $question) {
+            $qLabel = $questionNumber .  $question->question_text . '. (' . $question->points . ' ' . ($question->points == 1 ? 'pt' : 'pts') . ') ';
+            $section->addText($qLabel, ['bold' => true, 'name' => 'Times New Roman', 'size' => 12]);
+
+            switch ($question->question_type) {
+                case 'multiple_choice':
+                    $letters = ['A', 'B', 'C', 'D'];
+                    foreach ($question->answerOptions->sortBy('order') as $i => $option) {
+                        $letter = $letters[$i] ?? chr(65 + $i);
+                        $section->addText('    ' . $letter . '. ' . $option->option_text, ['name' => 'Times New Roman', 'size' => 12]);
+                    }
+                    break;
+
+                case 'true_false':
+                    $section->addText('    A. True', ['name' => 'Times New Roman', 'size' => 12]);
+                    $section->addText('    B. False', ['name' => 'Times New Roman', 'size' => 12]);
+                    break;
+
+                case 'identification':
+                    $section->addText('    Answer: ___________________________', ['name' => 'Times New Roman', 'size' => 12]);
+                    break;
+
+                case 'matching':
+                    $pairs = $question->answerOptions->sortBy('order');
+                    $tableStyle = [
+                        'borderSize'        => 0,
+                        'borderColor'       => 'ffffff', // match page background
+                        'cellMargin'        => 80,
+                        'borderTopSize'     => 0,
+                        'borderBottomSize'  => 0,
+                        'borderLeftSize'    => 0,
+                        'borderRightSize'   => 0,
+                        'borderTopColor'    => 'ffffff',
+                        'borderBottomColor' => 'ffffff',
+                        'borderLeftColor'   => 'ffffff',
+                        'borderRightColor'  => 'ffffff',
+                    ];
+                    $table = $section->addTable($tableStyle);
+                    foreach ($pairs as $pair) {
+                        $table->addRow();
+                        $table->addCell(3000)->addText($pair->option_text, ['name' => 'Times New Roman', 'size' => 12]);
+                        $table->addCell(1000)->addText('', ['name' => 'Times New Roman', 'size' => 12]);
+                        $table->addCell(3000)->addText($pair->match_pair, ['name' => 'Times New Roman', 'size' => 12]);
+                    }
+                    break;
+            }
+
+            $section->addTextBreak(1);
+            $questionNumber++;
+        }
+
+        $filename = 'quiz_' . $quizId . '_questions.docx';
+        $tempPath = storage_path('app/' . $filename);
+
+        $writer = IOFactory::createWriter($phpWord, 'Word2007');
+        $writer->save($tempPath);
+
+        return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
+    }
+
+    public function exportQuizQuestionsPdf(Request $request, $quizId)
+    {
+        $teacher = $request->user();
+
+        $quiz = Quiz::where('teacher_id', $teacher->id)
+            ->where('id', $quizId)
+            ->with(['questions' => function ($query) {
+                $query->orderBy('order')->with('answerOptions');
+            }])
+            ->firstOrFail();
+
+        $html = view('teacher.reports.pdf.quiz_questions_pdf', compact('quiz'))->render();
+
+        $options = new Options();
+        $options->set('defaultFont', 'Times New Roman');
+        $options->set('isRemoteEnabled', true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = 'quiz_' . $quizId . '_questions.pdf';
+
+        return response($dompdf->output(), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    public function exportQuizAnswersDocx(Request $request, $quizId)
+    {
+        $teacher = $request->user();
+
+        $quiz = Quiz::where('teacher_id', $teacher->id)
+            ->where('id', $quizId)
+            ->with(['questions' => function ($query) {
+                $query->orderBy('order')->with('answerOptions');
+            }])
+            ->firstOrFail();
+
+        $phpWord = new PhpWord();
+        $phpWord->setDefaultFontName('Times New Roman');
+        $phpWord->setDefaultFontSize(12);
+
+        $section = $phpWord->addSection([
+            'marginTop'    => 1440,
+            'marginBottom' => 1440,
+            'marginLeft'   => 1440,
+            'marginRight'  => 1440,
+        ]);
+
+        // Title
+        $titleStyle = ['bold' => true, 'size' => 16, 'name' => 'Times New Roman'];
+        $section->addText($quiz->title, $titleStyle, ['alignment' => 'center']);
+        $section->addText('Answer Key', ['size' => 12, 'italic' => true, 'name' => 'Times New Roman'], ['alignment' => 'center']);
+        $section->addTextBreak(1);
+
+        $questionNumber = 1;
+
+        foreach ($quiz->questions as $question) {
+            $qLabel = $questionNumber . '. (' . $question->points . ' ' . ($question->points == 1 ? 'pt' : 'pts') . ') ' . $question->question_text;
+            $section->addText($qLabel, ['bold' => true, 'name' => 'Times New Roman', 'size' => 12]);
+
+            switch ($question->question_type) {
+                case 'multiple_choice':
+                    $correct = $question->answerOptions->firstWhere('is_correct', true);
+                    $section->addText('    Answer: ' . ($correct?->option_text ?? '—'), ['name' => 'Times New Roman', 'size' => 12, 'color' => '16A34A']);
+                    break;
+
+                case 'true_false':
+                    $correct = $question->answerOptions->firstWhere('is_correct', true);
+                    $section->addText('    Answer: ' . ($correct?->option_text ?? '—'), ['name' => 'Times New Roman', 'size' => 12, 'color' => '16A34A']);
+                    break;
+
+                case 'identification':
+                    $correct = $question->answerOptions->first();
+                    $section->addText('    Answer: ' . ($correct?->option_text ?? '—'), ['name' => 'Times New Roman', 'size' => 12, 'color' => '16A34A']);
+                    break;
+
+                case 'matching':
+                    $pairs = $question->answerOptions->sortBy('order');
+                    $tableStyle = ['borderSize' => 6, 'borderColor' => 'CCCCCC', 'cellMargin' => 80];
+                    $cellStyle  = ['bgColor' => 'F0FDF4'];
+                    $table = $section->addTable($tableStyle);
+
+                    // Header row
+                    $table->addRow();
+                    $table->addCell(3500)->addText('Premise', ['bold' => true, 'name' => 'Times New Roman', 'size' => 11]);
+                    $table->addCell(3500)->addText('Correct Match', ['bold' => true, 'name' => 'Times New Roman', 'size' => 11]);
+
+                    foreach ($pairs as $pair) {
+                        $table->addRow();
+                        $table->addCell(3500, $cellStyle)->addText($pair->option_text, ['name' => 'Times New Roman', 'size' => 12]);
+                        $table->addCell(3500, $cellStyle)->addText($pair->match_pair, ['name' => 'Times New Roman', 'size' => 12]);
+                    }
+                    break;
+            }
+
+            $section->addTextBreak(1);
+            $questionNumber++;
+        }
+
+        $filename = 'quiz_' . $quizId . '_answers.docx';
+        $tempPath = storage_path('app/' . $filename);
+
+        $writer = IOFactory::createWriter($phpWord, 'Word2007');
+        $writer->save($tempPath);
+
+        return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
+    }
+
+    public function exportQuizAnswersPdf(Request $request, $quizId)
+    {
+        $teacher = $request->user();
+
+        $quiz = Quiz::where('teacher_id', $teacher->id)
+            ->where('id', $quizId)
+            ->with(['questions' => function ($query) {
+                $query->orderBy('order')->with('answerOptions');
+            }])
+            ->firstOrFail();
+
+        $html = view('teacher.reports.pdf.quiz_answers_pdf', compact('quiz'))->render();
+
+        $options = new Options();
+        $options->set('defaultFont', 'Times New Roman');
+        $options->set('isRemoteEnabled', true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = 'quiz_' . $quizId . '_answers.pdf';
+
+        return response($dompdf->output(), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+
+
+
+
 
 
 }

@@ -71,6 +71,7 @@
                                 <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">Last name</th>
                                 <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">Quizzes taken</th>
                                 <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">Overall grade</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-50 bg-white">
@@ -110,6 +111,15 @@
                                             <span class="text-xs text-slate-300">N/A</span>
                                         @endif
                                     </td>
+                                    
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <a href="{{ route('teacher.reports.student.quiz.info', [$student->id, $class->id]) }}"
+                                            class="inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-green-700 transition">
+                                            View Quiz Info
+                                        </a>
+                                    </td>
+
+
                                 </tr>
                             @endforeach
                         </tbody>

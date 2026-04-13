@@ -51,6 +51,9 @@
                                 <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     Status
                                 </th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Actions
+                                </th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
@@ -92,6 +95,18 @@
                                                 Unpublished
                                             </span>
                                         @endif
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex flex-col gap-2">
+                                            <a href="{{ route('teacher.reports.quiz.questions', $quiz->id) }}"
+                                                class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition">
+                                                View Questions
+                                            </a>
+                                            <a href="{{ route('teacher.reports.quiz.answers', $quiz->id) }}"
+                                                class="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 transition">
+                                                View Answers
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             @endforeach

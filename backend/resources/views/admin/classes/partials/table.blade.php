@@ -70,17 +70,6 @@
 
     <td class="px-6 py-4">
         <div class="flex items-center justify-center gap-2 flex-wrap">
-            <button
-                type="button"
-                class="view-class-btn class-action-btn inline-flex items-center justify-center rounded-xl bg-sky-100 px-4 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
-                data-id="{{ $class->id }}"
-                data-loading-text="Loading..."
-            >
-                <span class="flex items-center justify-center gap-2">
-                    <span class="spinner hidden h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
-                    <span>View</span>
-                </span>
-            </button>
 
             <button
                 type="button"

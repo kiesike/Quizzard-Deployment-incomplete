@@ -203,19 +203,32 @@ class AdminQuizController extends Controller
         $passRate = $totalAttempts > 0 ? round(($passCount / $totalAttempts) * 100, 2) : 0;
 
         $resultsRows = $completedAttempts->map(function ($attempt) use ($passingPercentage) {
-            $percentage = $attempt->total_points > 0
-                ? round(($attempt->score / $attempt->total_points) * 100, 2)
-                : 0;
+    $percentage = $attempt->total_points > 0
+        ? round(($attempt->score / $attempt->total_points) * 100, 2)
+        : 0;
 
-            return [
-                'student_name' => $attempt->student->name ?? 'Unknown Student',
-                'score' => $attempt->score,
-                'total_points' => $attempt->total_points,
-                'percentage' => $percentage,
-                'status' => $percentage >= $passingPercentage ? 'Passed' : 'Failed',
-                'completed_at' => $attempt->completed_at,
-            ];
-        })->values();
+    $student = $attempt->student;
+    $profile = $student?->studentProfile;
+
+    return [
+        'student_id' => $profile->student_id ?? '-',
+        'surname' => $student->surname ?? '-',
+        'first_name' => $student->first_name ?? '-',
+        'middle_initial' => $student->middle_initial ?? '-',
+        'gender' => $profile->gender ?? '-',
+        'grade_level' => $profile->grade_level ?? '-',
+        'section' => $profile->section ?? '-',
+
+        'student_name' => $student->name ?? 'Unknown Student',
+        'score' => $attempt->score,
+        'total_points' => $attempt->total_points,
+        'percentage' => $percentage,
+        'status' => $percentage >= $passingPercentage ? 'Passed' : 'Failed',
+        'completed_at' => $attempt->completed_at,
+    ];
+})
+->sortByDesc('completed_at')
+->values();
 
         $attemptIds = $completedAttempts->pluck('id');
 

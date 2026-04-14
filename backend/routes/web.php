@@ -84,6 +84,7 @@ Route::prefix('teacher')->group(function () {
         Route::get('/reports/classes/{classId}/export', [TeacherDashboardController::class, 'exportClassDetail'])->name('teacher.reports.class.export');
         Route::get('/reports/classes/{classId}/quizzes', [TeacherDashboardController::class, 'classQuizzes'])->name('teacher.reports.class.quizzes');
         Route::get('/reports/classes/{classId}/quizzes/{quizId}', [TeacherDashboardController::class, 'classQuizDetail'])->name('teacher.reports.class.quiz.detail');
+        Route::get('/reports/classes/{classId}/quizzes/{quizId}/export', [TeacherDashboardController::class, 'exportClassQuizDetail'])->name('teacher.reports.class.quiz.detail.export');
         Route::get('/reports/quizzes', [TeacherDashboardController::class, 'quizzes'])->name('teacher.reports.quizzes');
         Route::get('/reports/quizzes/{quizId}/questions', [TeacherDashboardController::class, 'quizQuestions'])->name('teacher.reports.quiz.questions');
         Route::get('/reports/quizzes/{quizId}/questions/export-docx', [TeacherDashboardController::class, 'exportQuizQuestionsDocx'])->name('teacher.reports.quiz.questions.export.docx');

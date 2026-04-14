@@ -9,12 +9,12 @@ use App\Exports\ClassDetailExport;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\StudentsExport;
 use App\Exports\StudentQuizInfoExport;
-
+use Carbon\Carbon;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\IOFactory;
 use Dompdf\Dompdf;
 use Dompdf\Options;
-
+use App\Exports\ClassQuizDetailExport;
 
 
 class TeacherDashboardController extends Controller
@@ -159,6 +159,8 @@ class TeacherDashboardController extends Controller
             ->unique('id')
             ->map(function ($student) {
                 return [
+                    $student->first_name,
+                    $student->surname,
                     $student->studentProfile?->student_id ?? '—',
                     $student->studentProfile?->gender ? ucfirst($student->studentProfile->gender) : '—',
                     $student->studentProfile?->date_of_birth?->format('M d, Y') ?? '—',
@@ -191,14 +193,14 @@ class TeacherDashboardController extends Controller
 
         $quizzes = $class->quizzes->map(function ($quiz) use ($studentId) {
             $attempt = $quiz->attempts->first();
-            
+
             return (object) [
                 'name'           => $quiz->title,
                 'score'          => $attempt?->score ?? null,
                 'total'          => $attempt?->total_points ?? null,
-                'status'         => $attempt ? 'Taken' : 'Not Taken',
-                'date_published' => $quiz->created_at,
-                'date_completed' => $attempt?->completed_at ?? null,
+                'status'         => $attempt ? 'Taken' : 'Not Yet',
+                'date_published' => $quiz->created_at ? Carbon::parse($quiz->created_at) : null,
+                'date_completed' => $attempt?->completed_at ? Carbon::parse($attempt->completed_at) : null,
             ];
         });
 
@@ -378,6 +380,60 @@ class TeacherDashboardController extends Controller
             ->values();
 
         return view('teacher.reports.class_quiz_detail', compact('class', 'quiz', 'students', 'totalPoints'));
+    }
+
+
+
+    public function exportClassQuizDetail(Request $request, $classId, $quizId)
+    {
+        $teacher = $request->user();
+
+        $class = ClassRoom::query()
+            ->where('teacher_id', $teacher->id)
+            ->where('id', $classId)
+            ->with([
+                'students.studentProfile',
+            ])
+            ->firstOrFail();
+
+        $quiz = $class->quizzes()->where('quiz_id', $quizId)->firstOrFail();
+
+        $quiz->load([
+            'questions',
+            'attempts' => function ($query) use ($classId) {
+                $query->where('status', 'completed')
+                    ->whereIn('student_id', function ($subQuery) use ($classId) {
+                        $subQuery->select('student_id')
+                            ->from('class_students')
+                            ->where('class_id', $classId);
+                    });
+            },
+        ]);
+
+        $totalPoints = $quiz->questions->sum('points');
+
+        $students = $class->students
+            ->map(function ($student) use ($quiz, $totalPoints) {
+                $attempt = $quiz->attempts
+                    ->where('student_id', $student->id)
+                    ->sortByDesc('completed_at')
+                    ->first();
+
+                $student->quiz_score = $attempt?->score ?? null;
+                $student->quiz_total_points = $totalPoints;
+                $student->quiz_percentage = ($attempt && $totalPoints > 0)
+                    ? round(($attempt->score / $totalPoints) * 100, 2)
+                    : null;
+                $student->quiz_status = $attempt ? 'Taken' : 'Not Taken';
+
+                return $student;
+            })
+            ->sortBy(fn($s) => $s->first_name . ' ' . $s->surname)
+            ->values();
+
+        $filename = 'class_' . $classId . '_quiz_' . $quizId . '_results.xlsx';
+
+        return Excel::download(new ClassQuizDetailExport($students, $totalPoints), $filename);
     }
 
 

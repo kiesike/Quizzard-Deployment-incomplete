@@ -1,3 +1,181 @@
+===== FILE: backend\composer.json ====={
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "laravel/laravel",
+    "type": "project",
+    "description": "The skeleton application for the Laravel framework.",
+    "keywords": ["laravel", "framework"],
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^12.0",
+        "laravel/sanctum": "^4.3",
+        "laravel/tinker": "^2.10.1"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23",
+        "laravel/pail": "^1.2.2",
+        "laravel/pint": "^1.24",
+        "laravel/sail": "^1.41",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.6",
+        "phpunit/phpunit": "^11.5.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "setup": [
+            "composer install",
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
+            "@php artisan key:generate",
+            "@php artisan migrate --force",
+            "npm install",
+            "npm run build"
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+        ],
+        "test": [
+            "@php artisan config:clear --ansi",
+            "@php artisan test"
+        ],
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi",
+            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
+            "@php artisan migrate --graceful --ansi"
+        ],
+        "pre-package-uninstall": [
+            "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
+
+
+===== FILE: backend\routes\web.php =====
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AdminAuthController;
+use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\AdminActivationController;
+use App\Http\Controllers\AdminProfileController;
+use App\Http\Controllers\AdminQuizController;
+use App\Http\Controllers\TeacherAuthController;
+use App\Http\Controllers\TeacherDashboardController;
+
+Route::get('/', function () {
+    return redirect()->route('admin.login');
+});
+
+Route::get('/login', function () {
+    return redirect()->route('admin.login');
+})->name('login');
+
+Route::prefix('admin')->group(function () {
+    // Guest routes
+    Route::middleware('admin.guest')->group(function () {
+        Route::get('/login', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
+        Route::post('/login', [AdminAuthController::class, 'login'])->name('admin.login.submit');
+    });
+
+    Route::middleware(['auth', 'admin'])->group(function () {
+        Route::post('/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
+
+        Route::get('/users', [AdminUserController::class, 'index'])->name('admin.users.index');
+        Route::get('/users/create', [AdminUserController::class, 'create'])->name('admin.users.create');
+        Route::post('/users', [AdminUserController::class, 'store'])->name('admin.users.store');
+        Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('admin.users.show');
+        Route::get('/users/{user}/edit', [AdminUserController::class, 'edit'])->name('admin.users.edit');
+        Route::put('/users/{user}', [AdminUserController::class, 'update'])->name('admin.users.update');
+        Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('admin.users.destroy');
+
+        Route::get('/activation', function () {
+    return redirect()->route('admin.dashboard', [
+        'type' => 'teacher',
+        'status' => 'all',
+    ]);
+})->name('admin.activation.index');
+
+Route::patch('/activation/{user}/activate', [AdminActivationController::class, 'activate'])->name('admin.activation.activate');
+Route::patch('/activation/{user}/deactivate', [AdminActivationController::class, 'deactivate'])->name('admin.activation.deactivate');
+        Route::get('/profile', [AdminProfileController::class, 'index'])->name('admin.profile');
+        Route::post('/profile', [AdminProfileController::class, 'update'])->name('admin.profile.update');
+
+        Route::get('/classes', [AdminQuizController::class, 'index'])
+        ->name('admin.classes');
+
+        Route::post('/classes', [AdminQuizController::class, 'store'])
+            ->name('admin.classes.store');
+        
+        Route::get('/classes/{id}/details', [AdminQuizController::class, 'details'])
+            ->name('admin.classes.details');
+        
+        Route::get('/classes/{classId}/quizzes/{quizId}/details', [AdminQuizController::class, 'quizDetails'])
+            ->name('admin.classes.quizzes.details');
+
+        Route::get('/classes/{id}', [AdminQuizController::class, 'show']);
+        Route::put('/classes/{id}', [AdminQuizController::class, 'update']);
+        Route::delete('/classes/{id}', [AdminQuizController::class, 'destroy']);
+    });
+});
+
+Route::prefix('teacher')->group(function () {
+    Route::middleware('guest')->group(function () {
+        Route::get('/login', [TeacherAuthController::class, 'showLoginForm'])->name('teacher.login');
+        Route::post('/login', [TeacherAuthController::class, 'login'])->name('teacher.login.submit');
+    });
+
+    Route::middleware(['auth', 'teacher'])->group(function () {
+        Route::post('/logout', [TeacherAuthController::class, 'logout'])->name('teacher.logout');
+
+        Route::get('/dashboard', [TeacherDashboardController::class, 'index'])->name('teacher.dashboard');
+
+        Route::get('/reports/classes', [TeacherDashboardController::class, 'classes'])->name('teacher.reports.classes');
+        Route::get('/reports/quizzes', [TeacherDashboardController::class, 'quizzes'])->name('teacher.reports.quizzes');
+        Route::get('/reports/students', [TeacherDashboardController::class, 'students'])->name('teacher.reports.students');
+    });
+});
+
+===== FILE: backend\app\Http\Controllers\AdminQuizController.php =====
 <?php
 
 namespace App\Http\Controllers;
@@ -10,9 +188,6 @@ use Illuminate\Support\Str;
 use App\Models\Quiz;
 use App\Models\QuizAttempt;
 use App\Models\StudentAnswer;
-use App\Exports\QuizResultsExport;
-use App\Exports\QuizAnalyticsExport;
-use Maatwebsite\Excel\Facades\Excel;
 
 class AdminQuizController extends Controller
 {
@@ -233,30 +408,6 @@ class AdminQuizController extends Controller
 ->sortByDesc('completed_at')
 ->values();
 
-if ($request->get('export') === 'excel' && $tab === 'results') {
-    $exportRows = $resultsRows->values()->map(function ($row, $index) {
-        $row['rank'] = $index + 1;
-        return $row;
-    });
-
-    return Excel::download(
-        new QuizResultsExport($exportRows),
-        'quiz-results-report.xlsx'
-    );
-}
-
-if ($request->get('export') === 'excel' && $tab === 'results') {
-    $exportRows = $resultsRows->values()->map(function ($row, $index) {
-        $row['rank'] = $index + 1;
-        return $row;
-    });
-
-    return Excel::download(
-        new QuizResultsExport($exportRows),
-        'quiz-results-report.xlsx'
-    );
-}
-
         $attemptIds = $completedAttempts->pluck('id');
 
         $answers = $attemptIds->isNotEmpty()
@@ -292,13 +443,6 @@ if ($request->get('export') === 'excel' && $tab === 'results') {
                 'difficulty' => $difficulty,
             ];
         })->values();
-
-        if ($request->get('export') === 'excel' && $tab === 'analytics') {
-    return Excel::download(
-        new QuizAnalyticsExport($questionAnalytics),
-        'quiz-analytics-report.xlsx'
-    );
-}
 
         return view('admin.quizzes.show', [
             'class' => $class,

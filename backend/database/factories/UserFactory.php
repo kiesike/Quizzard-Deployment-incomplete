@@ -13,50 +13,65 @@ class UserFactory extends Factory
         $firstName = fake()->firstName();
         $middleInitial = strtoupper(fake()->randomLetter());
         $surname = fake()->lastName();
-
         return [
-            'name' => "{$firstName} {$surname}",
-            'first_name' => $firstName,
-            'middle_initial' => $middleInitial,
-            'surname' => $surname,
-            'email' => fake()->unique()->safeEmail(),
-            'password' => Hash::make('password'),
-            'role' => 'student',
-            'status' => 'active',
+            'name'                  => "{$firstName} {$surname}",
+            'first_name'            => $firstName,
+            'middle_initial'        => $middleInitial,
+            'surname'               => $surname,
+            'email'                 => fake()->unique()->safeEmail(),
+            'password'              => Hash::make('password'),
+            'role'                  => 'student',
+            'status'                => 'active',
             'failed_login_attempts' => 0,
-            'locked_until' => null,
-            'profile_picture' => null,
-            'profile_image' => null,
-            'bio' => null,
-            'remember_token' => Str::random(10),
+            'locked_until'          => null,
+            'profile_picture'       => null,
+            'profile_image'         => null,
+            'bio'                   => null,
+            'remember_token'        => Str::random(10),
         ];
     }
 
     public function unverified(): static
     {
-        return $this->state(fn (array $attributes) => []);
+        return $this->state(fn(array $attributes) => []);
     }
 
     public function admin(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'role' => 'admin',
+        return $this->state(fn(array $attributes) => [
+            'role'   => 'admin',
             'status' => 'active',
         ]);
     }
 
     public function superadmin(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'role' => 'superadmin',
+        return $this->state(fn(array $attributes) => [
+            'role'   => 'superadmin',
             'status' => 'active',
         ]);
     }
 
     public function inactive(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn(array $attributes) => [
             'status' => 'pending',
+        ]);
+    }
+
+    public function teacher(): static
+    {
+        return $this->state(fn(array $attributes) => [
+            'role'   => 'teacher',
+            'status' => 'active',
+        ]);
+    }
+
+    public function student(): static
+    {
+        return $this->state(fn(array $attributes) => [
+            'role'   => 'student',
+            'status' => 'active',
         ]);
     }
 }

@@ -73,6 +73,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
               const SizedBox(height: 24),
               TextFormField(
                 controller: _titleController,
+                maxLength: 100,
                 decoration: InputDecoration(
                   labelText: 'Quiz Title *',
                   hintText: 'e.g. Chapter 1: The Philippines',
@@ -88,6 +89,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _descController,
+                maxLength: 100,
                 maxLines: 4,
                 decoration: InputDecoration(
                   labelText: 'Description (optional)',

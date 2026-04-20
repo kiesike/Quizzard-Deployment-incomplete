@@ -10,10 +10,15 @@ class ClassRoomFactory extends Factory
     public function definition(): array
     {
         return [
-            'teacher_id'  => User::factory()->state(['role' => 'teacher', 'status' => 'active']),
-            'name'        => fake()->words(3, true),
+            'teacher_id' => User::factory()->teacher(),
+            'name' => fake()->words(3, true),
             'description' => fake()->sentence(),
-            'class_code'  => strtoupper(fake()->unique()->bothify('??####')),
+            'class_code' => strtoupper(fake()->unique()->bothify('??####')),
         ];
+    }
+
+    public function forTeacher(int $teacherId): static
+    {
+        return $this->state(fn($a) => ['teacher_id' => $teacherId]);
     }
 }

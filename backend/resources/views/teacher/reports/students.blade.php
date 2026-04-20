@@ -126,8 +126,65 @@
                     </table>
                 </div>
 
+                {{-- Pagination --}}
+                <div class="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p id="pagination-info" class="text-sm text-slate-500"></p>
+                    <div class="flex items-center gap-2">
+                        <button id="btn-prev"
+                            onclick="currentPage--; paginateTable('studentsTable')"
+                            class="rounded-lg border border-slate-200 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed">
+                            ← Prev
+                        </button>
+                        <div id="page-numbers" class="flex items-center gap-1"></div>
+                        <button id="btn-next"
+                            onclick="currentPage++; paginateTable('studentsTable')"
+                            class="rounded-lg border border-slate-200 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed">
+                            Next →
+                        </button>
+                    </div>
+                </div>
+
                 <script>
                     const sortState = {};
+                    let currentPage = 1;
+                    const rowsPerPage = 10;
+
+                    function paginateTable(tableId) {
+                        const table = document.getElementById(tableId);
+                        const tbody = table.querySelector('tbody');
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+                        const totalPages = Math.ceil(rows.length / rowsPerPage);
+
+                        if (currentPage > totalPages) currentPage = totalPages;
+                        if (currentPage < 1) currentPage = 1;
+
+                        rows.forEach((row, i) => {
+                            const start = (currentPage - 1) * rowsPerPage;
+                            const end = start + rowsPerPage;
+                            row.style.display = i >= start && i < end ? '' : 'none';
+                        });
+
+                        const info = document.getElementById('pagination-info');
+                        const total = rows.length;
+                        const from = Math.min((currentPage - 1) * rowsPerPage + 1, total);
+                        const to = Math.min(currentPage * rowsPerPage, total);
+                        if (info) info.textContent = `Showing ${from}–${to} of ${total} students`;
+
+                        document.getElementById('btn-prev').disabled = currentPage === 1;
+                        document.getElementById('btn-next').disabled = currentPage === totalPages || totalPages === 0;
+
+                        const pageNumbers = document.getElementById('page-numbers');
+                        pageNumbers.innerHTML = '';
+                        for (let p = 1; p <= totalPages; p++) {
+                            const btn = document.createElement('button');
+                            btn.textContent = p;
+                            btn.className = p === currentPage
+                                ? 'px-3 py-1 rounded-lg text-sm font-semibold bg-green-600 text-white'
+                                : 'px-3 py-1 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100';
+                            btn.onclick = () => { currentPage = p; paginateTable(tableId); };
+                            pageNumbers.appendChild(btn);
+                        }
+                    }
 
                     function sortTable(tableId, colIndex) {
                         const table = document.getElementById(tableId);
@@ -148,21 +205,41 @@
                             const aCell = a.querySelectorAll('td')[colIndex];
                             const bCell = b.querySelectorAll('td')[colIndex];
 
-                            const aVal = aCell.dataset.value !== undefined && aCell.dataset.value !== '' ? aCell.dataset.value : aCell.innerText.trim();
-                            const bVal = bCell.dataset.value !== undefined && bCell.dataset.value !== '' ? bCell.dataset.value : bCell.innerText.trim();
+                            const aRaw = aCell.dataset.value !== undefined && aCell.dataset.value !== '' ? aCell.dataset.value : aCell.innerText.trim();
+                            const bRaw = bCell.dataset.value !== undefined && bCell.dataset.value !== '' ? bCell.dataset.value : bCell.innerText.trim();
 
-                            const aNum = parseFloat(aVal);
-                            const bNum = parseFloat(bVal);
+                            // Extract trailing number for "Grade X" style values
+                            const gradeMatch = (v) => v.match(/^[a-zA-Z\s]+(\d+)$/);
+                            const aGrade = gradeMatch(aRaw);
+                            const bGrade = gradeMatch(bRaw);
+                            if (aGrade && bGrade) {
+                                return asc ? parseInt(aGrade[1]) - parseInt(bGrade[1]) : parseInt(bGrade[1]) - parseInt(aGrade[1]);
+                            }
 
+                            // Numeric sort
+                            // Date sort (must come BEFORE numeric sort to avoid parseFloat eating Y-m-d)
+                            const aDate = Date.parse(aRaw);
+                            const bDate = Date.parse(bRaw);
+                            if (!isNaN(aDate) && !isNaN(bDate) && /\d{4}-\d{2}-\d{2}/.test(aRaw)) {
+                                return asc ? aDate - bDate : bDate - aDate;
+                            }
+
+                            // Numeric sort
+                            const aNum = parseFloat(aRaw);
+                            const bNum = parseFloat(bRaw);
                             if (!isNaN(aNum) && !isNaN(bNum)) {
                                 return asc ? aNum - bNum : bNum - aNum;
                             }
 
-                            return asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                            return asc ? aRaw.localeCompare(bRaw) : bRaw.localeCompare(aRaw);
                         });
 
                         rows.forEach(row => tbody.appendChild(row));
+                        currentPage = 1;
+                        paginateTable(tableId);
                     }
+
+                    document.addEventListener('DOMContentLoaded', () => paginateTable('studentsTable'));
                 </script>
             @endif
         </div>
@@ -213,7 +290,7 @@
                     const btn = document.createElement('button');
                     // Updated the JS generated classes to match the cleaner theme
                     btn.className = 'flex w-full items-center justify-between rounded-lg border border-emerald-100 bg-white px-3.5 py-2.5 text-left text-sm font-semibold text-gray-700 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent';
-                    
+
                     btn.innerHTML = `
                         <span>${cls.name}</span>
                         <svg class="h-3.5 w-3.5 text-emerald-400" viewBox="0 0 20 20" fill="currentColor">

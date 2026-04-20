@@ -157,8 +157,69 @@
                     </table>
                 </div>
 
+                {{-- Pagination --}}
+                <div class="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p id="pagination-info" class="text-sm text-slate-500"></p>
+                    <div class="flex items-center gap-2">
+                        <button id="btn-prev"
+                            onclick="currentPage--; paginateTable('classDetailTable')"
+                            class="rounded-lg border border-slate-200 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed">
+                            ← Prev
+                        </button>
+                        <div id="page-numbers" class="flex items-center gap-1"></div>
+                        <button id="btn-next"
+                            onclick="currentPage++; paginateTable('classDetailTable')"
+                            class="rounded-lg border border-slate-200 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed">
+                            Next →
+                        </button>
+                    </div>
+                </div>
+
                 <script>
+
                     const sortState = {};
+                    let currentPage = 1;
+                    const rowsPerPage = 10;
+
+                    function paginateTable(tableId) {
+                        const table = document.getElementById(tableId);
+                        const tbody = table.querySelector('tbody');
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+                        const totalPages = Math.ceil(rows.length / rowsPerPage);
+
+                        if (currentPage > totalPages) currentPage = totalPages;
+                        if (currentPage < 1) currentPage = 1;
+
+                        rows.forEach((row, i) => {
+                            const start = (currentPage - 1) * rowsPerPage;
+                            const end = start + rowsPerPage;
+                            row.style.display = i >= start && i < end ? '' : 'none';
+                        });
+
+                        // Update pagination info
+                        const info = document.getElementById('pagination-info');
+                        const total = rows.length;
+                        const from = Math.min((currentPage - 1) * rowsPerPage + 1, total);
+                        const to = Math.min(currentPage * rowsPerPage, total);
+                        if (info) info.textContent = `Showing ${from}–${to} of ${total} students`;
+
+                        // Update buttons
+                        document.getElementById('btn-prev').disabled = currentPage === 1;
+                        document.getElementById('btn-next').disabled = currentPage === totalPages || totalPages === 0;
+
+                        // Render page numbers
+                        const pageNumbers = document.getElementById('page-numbers');
+                        pageNumbers.innerHTML = '';
+                        for (let p = 1; p <= totalPages; p++) {
+                            const btn = document.createElement('button');
+                            btn.textContent = p;
+                            btn.className = p === currentPage
+                                ? 'px-3 py-1 rounded-lg text-sm font-semibold bg-green-600 text-white'
+                                : 'px-3 py-1 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100';
+                            btn.onclick = () => { currentPage = p; paginateTable(tableId); };
+                            pageNumbers.appendChild(btn);
+                        }
+                    }
 
                     function sortTable(tableId, colIndex) {
                         const table = document.getElementById(tableId);
@@ -193,7 +254,11 @@
                         });
 
                         rows.forEach(row => tbody.appendChild(row));
+                        currentPage = 1;
+                        paginateTable(tableId);
                     }
+
+                    document.addEventListener('DOMContentLoaded', () => paginateTable('classDetailTable'));
                 </script>
             @endif
         </div>

@@ -707,6 +707,7 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
           children: [
             TextField(
               controller: nameController,
+                maxLength: 100,
               decoration: InputDecoration(
                 labelText: 'Quiz Title',
                 hintText: 'e.g. Chapter 1 Quiz',
@@ -717,6 +718,7 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
             const SizedBox(height: 12),
             TextField(
               controller: descController,
+                maxLength: 200,
               maxLines: 3,
               decoration: InputDecoration(
                 labelText: 'Description (optional)',

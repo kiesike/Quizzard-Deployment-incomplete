@@ -23,10 +23,10 @@
                 </div>
 
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <div class="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 backdrop-blur-md">
-                        <p class="text-xs font-semibold uppercase tracking-wider text-emerald-200/80">Overview</p>
-                        <p class="mt-1 text-sm font-medium text-white">Quiz Performance</p>
-                    </div>
+                    <a href="{{ route('teacher.quizzes.index') }}"
+                        class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+                            Manage Quizzes
+                    </a>
                 </div>
             </div>
         </div>
@@ -35,7 +35,7 @@
             <div class="border-b border-emerald-100 bg-emerald-50/50 px-6 py-6 sm:px-8">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                    
+
                         <h3 class="mt-2 text-xl font-bold text-gray-900">Quiz Performance Report</h3>
                         <p class="mt-1 text-sm text-gray-500">
                             This report only includes quizzes created by your account.

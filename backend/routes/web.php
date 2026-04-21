@@ -10,6 +10,7 @@ use App\Http\Controllers\AdminQuizController;
 use App\Http\Controllers\TeacherAuthController;
 use App\Http\Controllers\TeacherDashboardController;
 use App\Http\Controllers\TeacherQuizController;
+use App\Http\Controllers\AiQuizController;
 
 Route::get('/', function () {
     return redirect()->route('admin.login');
@@ -113,6 +114,10 @@ Route::prefix('teacher')->group(function () {
         Route::put('/quizzes/{quizId}/questions/{questionId}', [TeacherQuizController::class, 'updateQuestion'])->name('teacher.quizzes.questions.update');
         Route::delete('/quizzes/{quizId}/questions/{questionId}', [TeacherQuizController::class, 'destroyQuestion'])->name('teacher.quizzes.questions.destroy');
 
+
+                // AI Quiz Generation (Web)
+        Route::post('/quizzes/ai/generate', [AiQuizController::class, 'generate'])->name('teacher.quizzes.ai.generate');
+        Route::post('/quizzes/{quizId}/ai/save-questions', [AiQuizController::class, 'saveQuestions'])->name('teacher.quizzes.ai.save');
 
     });
 });

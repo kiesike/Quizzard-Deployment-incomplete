@@ -127,6 +127,11 @@
                        class="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow transition">
                         + Add Question
                     </a>
+
+                    <button onclick="openAiModal()"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow transition">
+                        ✨ Generate with AI
+                    </button>
                 </div>
             @else
                 <span class="text-xs text-slate-400 italic">Questions are locked — this quiz has attempts.</span>
@@ -213,4 +218,5 @@
         });
     }
 </script>
+@include('teacher.quizzes.partials.ai_generate_modal')
 @endsection

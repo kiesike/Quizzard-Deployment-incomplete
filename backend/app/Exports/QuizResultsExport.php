@@ -4,23 +4,24 @@ namespace App\Exports;
 
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class QuizResultsExport implements FromCollection, WithHeadings, ShouldAutoSize, WithStyles
+class QuizResultsExport implements FromCollection, ShouldAutoSize, WithStyles
 {
     protected $rows;
+    protected $quizTitle;
 
-    public function __construct(Collection $rows)
+    public function __construct(Collection $rows, $quizTitle)
     {
         $this->rows = $rows;
+        $this->quizTitle = $quizTitle;
     }
 
     public function collection()
     {
-        return $this->rows->map(function ($row) {
+        $data = $this->rows->map(function ($row) {
             return [
                 $row['rank'] ?? '',
                 $row['student_id'] ?? '',
@@ -35,29 +36,49 @@ class QuizResultsExport implements FromCollection, WithHeadings, ShouldAutoSize,
                 $row['percentage'] . '%',
             ];
         });
-    }
 
-    public function headings(): array
-    {
-        return [
-            'Rank',
-            'Student ID',
-            'Surname',
-            'First Name',
-            'M.I.',
-            'Gender',
-            'Grade Level',
-            'Section',
-            'Score',
-            'Total',
-            'Percentage',
-        ];
+        return collect([
+            ['QUIZ RESULTS REPORT'],
+            [$this->quizTitle],
+            [''],
+            [
+                'Rank',
+                'Student ID',
+                'Surname',
+                'First Name',
+                'M.I.',
+                'Gender',
+                'Grade Level',
+                'Section',
+                'Score',
+                'Total',
+                'Percentage',
+            ],
+        ])->merge($data);
     }
 
     public function styles(Worksheet $sheet)
-    {
-        return [
-            1 => ['font' => ['bold' => true]],
-        ];
-    }
+{
+    // Merge title across all columns (A to K = 11 columns)
+    $sheet->mergeCells('A1:K1');
+    $sheet->mergeCells('A2:K2');
+
+    return [
+        1 => [ // Title
+            'font' => ['bold' => true, 'size' => 16],
+            'alignment' => [
+                'horizontal' => 'center',
+            ],
+        ],
+        2 => [ // Quiz Title
+            'font' => ['italic' => true, 'size' => 12],
+            'alignment' => [
+                'horizontal' => 'center',
+            ],
+        ],
+        4 => [ // Headings row
+            'font' => ['bold' => true],
+        ],
+    ];
+}
 }

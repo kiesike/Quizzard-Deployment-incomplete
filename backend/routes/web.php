@@ -62,6 +62,12 @@ Route::patch('/activation/{user}/deactivate', [AdminActivationController::class,
         Route::get('/classes/{classId}/quizzes/{quizId}/details', [AdminQuizController::class, 'quizDetails'])
             ->name('admin.classes.quizzes.details');
 
+        Route::get('/classes/{classId}/quizzes/{quizId}/export-results', [AdminQuizController::class, 'exportResults'])
+            ->name('admin.classes.quizzes.export.results');
+              
+        Route::get('/classes/{classId}/quizzes/{quizId}/export-analytics', [AdminQuizController::class, 'exportAnalytics'])
+            ->name('admin.classes.quizzes.export.analytics');
+
         Route::get('/classes/{id}', [AdminQuizController::class, 'show']);
         Route::put('/classes/{id}', [AdminQuizController::class, 'update']);
         Route::delete('/classes/{id}', [AdminQuizController::class, 'destroy']);
@@ -80,7 +86,26 @@ Route::prefix('teacher')->group(function () {
         Route::get('/dashboard', [TeacherDashboardController::class, 'index'])->name('teacher.dashboard');
 
         Route::get('/reports/classes', [TeacherDashboardController::class, 'classes'])->name('teacher.reports.classes');
+        Route::get('/reports/classes/{classId}', [TeacherDashboardController::class, 'classDetail'])->name('teacher.reports.class.detail');
+        Route::get('/reports/classes/{classId}/export', [TeacherDashboardController::class, 'exportClassDetail'])->name('teacher.reports.class.export');
+        Route::get('/reports/classes/{classId}/quizzes', [TeacherDashboardController::class, 'classQuizzes'])->name('teacher.reports.class.quizzes');
+        Route::get('/reports/classes/{classId}/quizzes/{quizId}', [TeacherDashboardController::class, 'classQuizDetail'])->name('teacher.reports.class.quiz.detail');
+        Route::get('/reports/classes/{classId}/quizzes/{quizId}/export', [TeacherDashboardController::class, 'exportClassQuizDetail'])->name('teacher.reports.class.quiz.detail.export');
         Route::get('/reports/quizzes', [TeacherDashboardController::class, 'quizzes'])->name('teacher.reports.quizzes');
+        Route::get('/reports/quizzes/{quizId}/questions', [TeacherDashboardController::class, 'quizQuestions'])->name('teacher.reports.quiz.questions');
+        Route::get('/reports/quizzes/{quizId}/questions/export-docx', [TeacherDashboardController::class, 'exportQuizQuestionsDocx'])->name('teacher.reports.quiz.questions.export.docx');
+        Route::get('/reports/quizzes/{quizId}/questions/export-pdf', [TeacherDashboardController::class, 'exportQuizQuestionsPdf'])->name('teacher.reports.quiz.questions.export.pdf');
+        Route::get('/reports/quizzes/{quizId}/answers', [TeacherDashboardController::class, 'quizAnswers'])->name('teacher.reports.quiz.answers');
+        Route::get('/reports/quizzes/{quizId}/answers/export-docx', [TeacherDashboardController::class, 'exportQuizAnswersDocx'])->name('teacher.reports.quiz.answers.export.docx');
+        Route::get('/reports/quizzes/{quizId}/answers/export-pdf', [TeacherDashboardController::class, 'exportQuizAnswersPdf'])->name('teacher.reports.quiz.answers.export.pdf');
         Route::get('/reports/students', [TeacherDashboardController::class, 'students'])->name('teacher.reports.students');
+        Route::get('/reports/students/export', [TeacherDashboardController::class, 'exportStudents'])->name('teacher.reports.students.export');
+        Route::get('/reports/students/{studentId}/classes/{classId}', [TeacherDashboardController::class, 'studentQuizInfo'])->name('teacher.reports.student.quiz.info');
+        Route::get('/reports/students/{studentId}/classes/{classId}/export', [TeacherDashboardController::class, 'exportStudentQuizInfo'])->name('teacher.reports.student.quiz.info.export');
+
+
+
+        
+
     });
 });

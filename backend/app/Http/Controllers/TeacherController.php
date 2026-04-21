@@ -7,6 +7,8 @@ use App\Models\QuizAttempt;
 use Illuminate\Http\Request;
 use App\Models\StudentAnswer;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\QuizFullReportExport;
 
 class TeacherController extends Controller
 {
@@ -330,6 +332,74 @@ public function quizAnalytics(Request $request, $quizId)
         'difficulty_analysis' => $difficultyAnalysis,
         'quiz_comparison' => $quizComparison,
     ]);
+}
+
+public function exportFullReport(Request $request, $quizId)
+{
+    $teacherId = $request->user()->id;
+
+    $quiz = Quiz::where('id', $quizId)
+        ->where('teacher_id', $teacherId)
+        ->firstOrFail();
+
+    // ===== GET RESULTS DATA (same logic as results export) =====
+    $attempts = QuizAttempt::where('quiz_id', $quizId)
+        ->where('status', 'completed')
+        ->with('student')
+        ->get();
+
+    $results = $attempts->map(function ($attempt, $index) {
+        $percentage = $attempt->total_points > 0
+            ? round(($attempt->score / $attempt->total_points) * 100)
+            : 0;
+
+        return [
+            'rank' => $index + 1,
+            'student_id' => $attempt->student->id,
+            'surname' => $attempt->student->surname,
+            'first_name' => $attempt->student->first_name,
+            'middle_initial' => $attempt->student->middle_initial,
+            'gender' => $attempt->student->gender ?? '',
+            'grade_level' => $attempt->student->grade_level ?? '',
+            'section' => $attempt->student->section ?? '',
+            'score' => $attempt->score,
+            'total_points' => $attempt->total_points,
+            'percentage' => $percentage,
+        ];
+    });
+
+    // ===== GET ANALYTICS DATA (same structure as your export) =====
+    $questions = $quiz->questions;
+
+    $analytics = $questions->map(function ($question, $index) use ($attempts) {
+        $answers = StudentAnswer::where('question_id', $question->id)
+            ->whereIn('attempt_id', $attempts->pluck('id'))
+            ->get();
+
+        $attempted = $answers->count();
+        $correct = $answers->where('is_correct', true)->count();
+
+        $correctRate = $attempted > 0
+            ? round(($correct / $attempted) * 100)
+            : 0;
+
+        return [
+            'order' => $index + 1,
+            'question_text' => $question->question_text,
+            'question_type' => $question->question_type,
+            'points' => $question->points,
+            'attempted_count' => $attempted,
+            'correct_count' => $correct,
+            'correct_rate' => $correctRate,
+            'average_points' => 0, // keep as-is (your export expects it)
+            'difficulty' => $correctRate >= 80 ? 'Easy' : ($correctRate < 50 ? 'Hard' : 'Moderate'),
+        ];
+    });
+
+    return Excel::download(
+    new \App\Exports\QuizFullReportExport($results, $analytics, $quiz->title),
+    'quiz_' . $quizId . '_report.xlsx'
+);
 }
 
 

@@ -12,12 +12,17 @@ class QuizExportTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_export_results_excel()
+    private function createAdmin()
     {
-        $admin = User::factory()->create([
+        return User::factory()->create([
             'role' => 'admin',
             'status' => 'active',
         ]);
+    }
+
+    public function test_admin_can_export_results_excel()
+    {
+        $admin = $this->createAdmin();
 
         $teacher = User::factory()->create([
             'role' => 'teacher',
@@ -34,26 +39,28 @@ class QuizExportTest extends TestCase
 
         $class->quizzes()->attach($quiz->id);
 
-        $response = $this->actingAs($admin)->get(
-            route('admin.classes.quizzes.export.results', [
+        $response = $this
+            ->actingAs($admin, 'web') // 🔥 IMPORTANT FIX
+            ->get(route('admin.classes.quizzes.export.results', [
                 'classId' => $class->id,
                 'quizId' => $quiz->id,
-            ])
-        );
+            ]));
 
         $response->assertStatus(200);
-        $response->assertHeader(
-            'content-disposition',
-            fn ($value) => str_contains($value, '.xlsx')
-        );
+
+        $response->assertStatus(200);
+
+$this->assertTrue(
+    str_contains(
+        $response->headers->get('content-disposition'),
+        'quiz-results'
+    )
+);
     }
 
     public function test_admin_can_export_analytics_excel()
     {
-        $admin = User::factory()->create([
-            'role' => 'admin',
-            'status' => 'active',
-        ]);
+        $admin = $this->createAdmin();
 
         $teacher = User::factory()->create([
             'role' => 'teacher',
@@ -70,17 +77,22 @@ class QuizExportTest extends TestCase
 
         $class->quizzes()->attach($quiz->id);
 
-        $response = $this->actingAs($admin)->get(
-            route('admin.classes.quizzes.export.analytics', [
+        $response = $this
+            ->actingAs($admin, 'web') // 🔥 IMPORTANT FIX
+            ->get(route('admin.classes.quizzes.export.analytics', [
                 'classId' => $class->id,
                 'quizId' => $quiz->id,
-            ])
-        );
+            ]));
 
         $response->assertStatus(200);
-        $response->assertHeader(
-            'content-disposition',
-            fn ($value) => str_contains($value, '.xlsx')
-        );
+
+        $response->assertStatus(200);
+
+$this->assertTrue(
+    str_contains(
+        $response->headers->get('content-disposition'),
+        'quiz-analytics'
+    )
+);
     }
 }

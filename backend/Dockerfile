@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y \
     unzip
 
 # Install PHP extensions needed by Laravel
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+RUN apt-get install -y libzip-dev && \
+    docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
 
 # Install Composer (PHP package manager)
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer

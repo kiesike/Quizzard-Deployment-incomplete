@@ -18,8 +18,7 @@
                         Classes
                     </h2>
                     <p class="mt-3 max-w-2xl text-base leading-relaxed text-emerald-100">
-                        View a summary of your classes, including student count, quiz assignments,
-                        attempts, and average score.
+                        View a summary of your classes, including student count, quiz assignments, and average score.
                     </p>
                 </div>
 
@@ -84,9 +83,6 @@
                                 <th onclick="sortTable('classesTable', 3)" class="cursor-pointer whitespace-nowrap px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 hover:bg-slate-100">
                                     Quizzes <span class="sort-icon">↕</span>
                                 </th>
-                                <th onclick="sortTable('classesTable', 4)" class="cursor-pointer whitespace-nowrap px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 hover:bg-slate-100">
-                                    Attempts <span class="sort-icon">↕</span>
-                                </th>
                                 <th class="whitespace-nowrap px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-8">
                                     Actions
                                 </th>
@@ -108,9 +104,6 @@
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                                         {{ $class->quizzes_count }}
-                                    </td>
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                                        {{ $class->attempts_count }}
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-600 sm:px-8">
                                         <div class="flex flex-col gap-2 sm:flex-row">

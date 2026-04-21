@@ -10,6 +10,8 @@ class TeacherDashboardScreen extends StatefulWidget {
 }
 
 class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
+
+  
   // ─── Theme ────────────────────────────────────────────────
   static const Color _purple = Color(0xFF6C63FF);
   static const Color _green = Color(0xFF4CAF50);
@@ -17,6 +19,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   // ─── State ────────────────────────────────────────────────
   int _selectedIndex = 0;
   bool _isLoading = true;
+  bool _isExporting = false;
   String _teacherName = '';
   String _teacherEmail = '';
   List<Map<String, dynamic>> _quizzes = [];
@@ -250,15 +253,90 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
               ),
             )
           : null,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : IndexedStack(
-              index: _selectedIndex,
-              children: [
-                _buildQuizzesTab(),
-                _buildClassesTab(),
-                _buildProfileTab(),
-              ],
+          body: Stack(
+            children: [
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : IndexedStack(
+                      index: _selectedIndex,
+                      children: [
+                        _buildQuizzesTab(),
+                        _buildClassesTab(),
+                        _buildProfileTab(),
+                      ],
+                    ),
+
+              // 🔴 FULL SCREEN LOADING OVERLAY
+              if (_isExporting)
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity: _isExporting ? 1 : 0,
+                  child: Container(
+                    color: Colors.black.withOpacity(0.6),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFF6C63FF), // purple
+                              Color(0xFF4CAF50), // green
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 🔄 Animated Loader
+                            const SizedBox(
+                              width: 50,
+                              height: 50,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 4,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            ),
+
+                            const SizedBox(height: 18),
+
+                            // 🧠 Title
+                            const Text(
+                              'Generating Report',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+
+                            const SizedBox(height: 6),
+
+                            // 📝 Subtitle
+                            const Text(
+                              'Please wait while we prepare your Excel file...',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                ],
             ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
@@ -340,6 +418,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _buildStatsBar()),
+
           if (_quizzes.isEmpty)
             const SliverFillRemaining(
               child: Center(
@@ -614,6 +693,67 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                       ),
                     ),
                     const SizedBox(width: 6),
+
+                    TextButton.icon(
+                      onPressed: _isExporting
+                          ? null
+                          : () async {
+                              setState(() => _isExporting = true);
+
+                              try {
+                                final res = await AuthService.downloadFile(
+                                  '/teacher/quizzes/$quizId/export-full',
+                                  'quiz_${quizId}_report.xlsx',
+                                );
+
+                                if (!mounted) return;
+
+                                if (res['success']) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Report downloaded')),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(res['message'] ?? 'Download failed')),
+                                  );
+                                }
+                              } catch (e) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _isExporting = false);
+                                }
+                              }
+                            },
+                      style: TextButton.styleFrom(
+                        backgroundColor: Colors.orange.withOpacity(0.10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.download,
+                        size: 16,
+                        color: Colors.orange,
+                      ),
+                      label: const Text(
+                        'Export',
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+
+                                        
 
                     // Publish toggle
                     isToggling

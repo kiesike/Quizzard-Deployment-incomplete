@@ -182,6 +182,7 @@ class TeacherDashboardController extends Controller
             ->where('teacher_id', $teacher->id)
             ->where('id', $classId)
             ->with([
+                'quizzes.questions',
                 'quizzes.attempts' => function ($query) use ($studentId) {
                     $query->where('student_id', $studentId)
                         ->where('status', 'completed');
@@ -197,7 +198,7 @@ class TeacherDashboardController extends Controller
             return (object) [
                 'name'           => $quiz->title,
                 'score'          => $attempt?->score ?? null,
-                'total'          => $attempt?->total_points ?? null,
+                'total'          => $quiz->questions->sum('points'),
                 'status'         => $attempt ? 'Taken' : 'Not Yet',
                 'date_published' => $quiz->created_at ? Carbon::parse($quiz->created_at) : null,
                 'date_completed' => $attempt?->completed_at ? Carbon::parse($attempt->completed_at) : null,
@@ -306,9 +307,17 @@ class TeacherDashboardController extends Controller
             ->where('teacher_id', $teacher->id)
             ->where('id', $classId)
             ->with([
-                'quizzes.questions',
-                'quizzes.attempts' => function ($query) {
-                    $query->where('status', 'completed');
+                'quizzes' => function ($query) use ($teacher) {
+                    $query->where('teacher_id', $teacher->id)
+                        ->with('questions');
+                },
+                'quizzes.attempts' => function ($query) use ($classId) {
+                    $query->where('status', 'completed')
+                        ->whereIn('student_id', function ($sub) use ($classId) {
+                            $sub->select('student_id')
+                                ->from('class_students')
+                                ->where('class_id', $classId);
+                        });
                 },
                 'students',
             ])

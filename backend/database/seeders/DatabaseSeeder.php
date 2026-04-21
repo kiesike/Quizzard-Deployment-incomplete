@@ -15,7 +15,7 @@ class DatabaseSeeder extends Seeder
         $this->call(AdminUserSeeder::class);
         $this->call(AdminClassesTestSeeder::class);
         //$this->call(QuizReportsTestSeeder::class);
-        $this->call(AdvancedQuizzardTestSeeder::class);
+        // $this->call(AdvancedQuizzardTestSeeder::class);
         $this->call(QuizzardDemoSeeder::class);
 
         User::factory()->create([

@@ -293,10 +293,31 @@ class QuizzardDemoSeeder extends Seeder
         // ── 8. ASSIGN QUIZZES TO CLASSES (min 10 per class) ────────────
         $this->command->info('Assigning quizzes to classrooms...');
         $classQuizRows = [];
+
+        // Preload teacher_id per classroom
+        $classroomTeacherMap = DB::table('classes')
+            ->whereIn('id', $classroomIds)
+            ->pluck('teacher_id', 'id')
+            ->toArray();
+
+        // Preload quizzes grouped by teacher_id
+        $quizzesByTeacher = DB::table('quizzes')
+            ->whereIn('id', $quizIds)
+            ->select('id', 'teacher_id')
+            ->get()
+            ->groupBy('teacher_id')
+            ->map(fn($q) => $q->pluck('id')->toArray())
+            ->toArray();
+
         foreach ($classroomIds as $classId) {
-            $shuffled = $quizIds;
+            $teacherId = $classroomTeacherMap[$classId] ?? null;
+            $teacherQuizIds = $quizzesByTeacher[$teacherId] ?? [];
+
+            if (empty($teacherQuizIds)) continue;
+
+            $shuffled = $teacherQuizIds;
             shuffle($shuffled);
-            $picked = array_slice($shuffled, 0, 10);
+            $picked = array_slice($shuffled, 0, min(10, count($shuffled)));
 
             foreach ($picked as $quizId) {
                 $classQuizRows[] = [
@@ -314,7 +335,14 @@ class QuizzardDemoSeeder extends Seeder
         $this->command->info('Creating quiz attempts (50% chance)...');
         $attemptRows = [];
 
-        // Get unique class_student + class_quiz combinations
+        // Preload real total_points per quiz
+        $quizTotalPoints = DB::table('questions')
+            ->whereIn('quiz_id', $quizIds)
+            ->selectRaw('quiz_id, SUM(points) as total_points')
+            ->groupBy('quiz_id')
+            ->pluck('total_points', 'quiz_id')
+            ->toArray();
+
         $classStudents = DB::table('class_students')->get()->groupBy('class_id');
         $classQuizzes  = DB::table('class_quizzes')->get()->groupBy('class_id');
 
@@ -327,13 +355,15 @@ class QuizzardDemoSeeder extends Seeder
                 : [];
 
             foreach ($quizzesInClass as $quizId) {
+                $totalPoints = $quizTotalPoints[$quizId] ?? 20;
+
                 foreach ($studentsInClass as $studentId) {
                     if (rand(0, 1) === 1) {
                         $attemptRows[] = [
                             'quiz_id'      => $quizId,
                             'student_id'   => $studentId,
-                            'score'        => rand(0, 100),
-                            'total_points' => 100,
+                            'score'        => rand(0, $totalPoints),
+                            'total_points' => $totalPoints,
                             'status'       => 'completed',
                             'started_at'   => $now,
                             'completed_at' => $now,

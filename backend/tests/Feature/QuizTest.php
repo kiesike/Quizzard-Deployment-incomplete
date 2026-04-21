@@ -13,21 +13,35 @@ class QuizTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeTeacher()
+    // ─── HELPERS ─────────────────────────────────────────────
+
+    protected function createUser(string $role = 'teacher', array $overrides = []): User
     {
-        return User::factory()->create(['role' => 'teacher', 'status' => 'active']);
+        return User::factory()->create(array_merge([
+            'role'   => $role,
+            'status' => 'active',
+        ], $overrides));
     }
 
-    private function makeStudent()
+    protected function createQuiz(User $teacher, array $overrides = []): Quiz
     {
-        return User::factory()->create(['role' => 'student', 'status' => 'active']);
+        return Quiz::factory()->create(array_merge([
+            'teacher_id' => $teacher->id,
+        ], $overrides));
     }
 
-    private function makeAttempt($quizId, $studentId)
+    protected function createClass(User $teacher, array $overrides = []): ClassRoom
+    {
+        return ClassRoom::factory()->create(array_merge([
+            'teacher_id' => $teacher->id,
+        ], $overrides));
+    }
+
+    protected function createAttempt(Quiz $quiz, User $student): QuizAttempt
     {
         return QuizAttempt::create([
-            'quiz_id'      => $quizId,
-            'student_id'   => $studentId,
+            'quiz_id'      => $quiz->id,
+            'student_id'   => $student->id,
             'score'        => 0,
             'total_points' => 10,
             'status'       => 'completed',
@@ -35,19 +49,19 @@ class QuizTest extends TestCase
         ]);
     }
 
-    // ─── CREATE ──────────────────────────────────────────────────────────────
+    // ─── CREATE ─────────────────────────────────────────────
 
     public function test_teacher_can_create_a_quiz(): void
     {
-        $teacher = $this->makeTeacher();
+        $teacher = $this->createUser('teacher');
 
-        $response = $this->actingAs($teacher)->postJson('/api/quizzes', [
-            'title'       => 'My New Quiz',
-            'description' => 'A quiz about science.',
-        ]);
-
-        $response->assertStatus(201)
-                 ->assertJsonPath('message', 'Quiz created successfully.');
+        $this->actingAs($teacher)
+             ->postJson('/api/quizzes', [
+                 'title'       => 'My New Quiz',
+                 'description' => 'A quiz about science.',
+             ])
+             ->assertCreated()
+             ->assertJsonPath('message', 'Quiz created successfully.');
 
         $this->assertDatabaseHas('quizzes', [
             'title'      => 'My New Quiz',
@@ -57,68 +71,70 @@ class QuizTest extends TestCase
 
     public function test_quiz_creation_fails_without_title(): void
     {
-        $teacher = $this->makeTeacher();
+        $teacher = $this->createUser('teacher');
 
-        $response = $this->actingAs($teacher)->postJson('/api/quizzes', [
-            'description' => 'No title provided.',
-        ]);
-
-        $response->assertStatus(422);
+        $this->actingAs($teacher)
+             ->postJson('/api/quizzes', [
+                 'description' => 'No title provided.',
+             ])
+             ->assertUnprocessable();
     }
 
-    // ─── READ ────────────────────────────────────────────────────────────────
+    // ─── READ ───────────────────────────────────────────────
 
     public function test_teacher_can_get_all_their_quizzes(): void
     {
-        $teacher = $this->makeTeacher();
+        $teacher = $this->createUser('teacher');
 
-        Quiz::factory()->count(3)->create(['teacher_id' => $teacher->id]);
+        Quiz::factory()->count(3)->create([
+            'teacher_id' => $teacher->id
+        ]);
 
-        $response = $this->actingAs($teacher)->getJson('/api/quizzes');
-
-        $response->assertStatus(200)
-                 ->assertJsonCount(3, 'data');
+        $this->actingAs($teacher)
+             ->getJson('/api/quizzes')
+             ->assertOk()
+             ->assertJsonCount(3, 'data');
     }
 
     public function test_teacher_only_sees_their_own_quizzes(): void
     {
-        $teacher = $this->makeTeacher();
-        $other   = $this->makeTeacher();
+        $teacher = $this->createUser('teacher');
+        $other   = $this->createUser('teacher');
 
         Quiz::factory()->count(2)->create(['teacher_id' => $teacher->id]);
         Quiz::factory()->count(3)->create(['teacher_id' => $other->id]);
 
-        $response = $this->actingAs($teacher)->getJson('/api/quizzes');
-
-        $response->assertStatus(200)
-                 ->assertJsonCount(2, 'data');
+        $this->actingAs($teacher)
+             ->getJson('/api/quizzes')
+             ->assertOk()
+             ->assertJsonCount(2, 'data');
     }
 
     public function test_teacher_can_get_a_single_quiz(): void
     {
-        $teacher = $this->makeTeacher();
-        $quiz    = Quiz::factory()->create(['teacher_id' => $teacher->id]);
+        $teacher = $this->createUser('teacher');
+        $quiz    = $this->createQuiz($teacher);
 
-        $response = $this->actingAs($teacher)->getJson("/api/quizzes/{$quiz->id}");
-
-        $response->assertStatus(200)
-                 ->assertJsonPath('data.id', $quiz->id);
+        $this->actingAs($teacher)
+             ->getJson("/api/quizzes/{$quiz->id}")
+             ->assertOk()
+             ->assertJsonPath('data.id', $quiz->id);
     }
 
-    // ─── UPDATE ──────────────────────────────────────────────────────────────
+    // ─── UPDATE ─────────────────────────────────────────────
 
     public function test_teacher_can_update_a_quiz(): void
     {
-        $teacher = $this->makeTeacher();
-        $quiz    = Quiz::factory()->create(['teacher_id' => $teacher->id]);
+        $teacher = $this->createUser('teacher');
+        $quiz    = $this->createQuiz($teacher);
 
-        $response = $this->actingAs($teacher)->putJson("/api/quizzes/{$quiz->id}", [
-            'title'       => 'Updated Title',
-            'description' => 'Updated description.',
-        ]);
-
-        $response->assertStatus(200)
-                 ->assertJsonPath('message', 'Quiz updated successfully.');
+        $this->actingAs($teacher)
+             ->putJson("/api/quizzes/{$quiz->id}", [
+                 'title'       => 'Updated Title',
+                 'description' => 'Updated description.',
+             ])
+             ->assertOk()
+             ->assertJsonPath('message', 'Quiz updated successfully.');
 
         $this->assertDatabaseHas('quizzes', [
             'id'    => $quiz->id,
@@ -128,157 +144,164 @@ class QuizTest extends TestCase
 
     public function test_non_owner_teacher_cannot_update_a_quiz(): void
     {
-        $owner = $this->makeTeacher();
-        $other = $this->makeTeacher();
-        $quiz  = Quiz::factory()->create(['teacher_id' => $owner->id]);
+        $owner = $this->createUser('teacher');
+        $other = $this->createUser('teacher');
+        $quiz  = $this->createQuiz($owner);
 
-        $response = $this->actingAs($other)->putJson("/api/quizzes/{$quiz->id}", [
-            'title'       => 'Hacked Title',
-            'description' => 'Hacked.',
-        ]);
-
-        $response->assertStatus(403);
+        $this->actingAs($other)
+             ->putJson("/api/quizzes/{$quiz->id}", [
+                 'title' => 'Hacked',
+             ])
+             ->assertForbidden();
     }
 
     public function test_cannot_update_quiz_if_it_has_attempts(): void
     {
-        $teacher = $this->makeTeacher();
-        $student = $this->makeStudent();
-        $quiz    = Quiz::factory()->create(['teacher_id' => $teacher->id]);
+        $teacher = $this->createUser('teacher');
+        $student = $this->createUser('student');
+        $quiz    = $this->createQuiz($teacher);
 
-        $this->makeAttempt($quiz->id, $student->id);
+        $this->createAttempt($quiz, $student);
 
-        $response = $this->actingAs($teacher)->putJson("/api/quizzes/{$quiz->id}", [
-            'title'       => 'Updated Title',
-            'description' => 'Updated.',
-        ]);
-
-        $response->assertStatus(403)
-                 ->assertJsonPath('message', 'This quiz cannot be edited because students have already taken it.');
+        $this->actingAs($teacher)
+             ->putJson("/api/quizzes/{$quiz->id}", [
+                 'title' => 'Updated',
+             ])
+             ->assertForbidden()
+             ->assertJsonPath('message', 'This quiz cannot be edited because students have already taken it.');
     }
 
-    // ─── DELETE ──────────────────────────────────────────────────────────────
+    // ─── DELETE ─────────────────────────────────────────────
 
     public function test_teacher_can_delete_a_quiz(): void
     {
-        $teacher = $this->makeTeacher();
-        $quiz    = Quiz::factory()->create(['teacher_id' => $teacher->id]);
+        $teacher = $this->createUser('teacher');
+        $quiz    = $this->createQuiz($teacher);
 
-        $response = $this->actingAs($teacher)->deleteJson("/api/quizzes/{$quiz->id}");
+        $this->actingAs($teacher)
+             ->deleteJson("/api/quizzes/{$quiz->id}")
+             ->assertOk()
+             ->assertJsonPath('message', 'Quiz deleted successfully.');
 
-        $response->assertStatus(200)
-                 ->assertJsonPath('message', 'Quiz deleted successfully.');
-
-        $this->assertDatabaseMissing('quizzes', ['id' => $quiz->id]);
+        $this->assertDatabaseMissing('quizzes', [
+            'id' => $quiz->id
+        ]);
     }
 
     public function test_non_owner_teacher_cannot_delete_a_quiz(): void
     {
-        $owner = $this->makeTeacher();
-        $other = $this->makeTeacher();
-        $quiz  = Quiz::factory()->create(['teacher_id' => $owner->id]);
+        $owner = $this->createUser('teacher');
+        $other = $this->createUser('teacher');
+        $quiz  = $this->createQuiz($owner);
 
-        $response = $this->actingAs($other)->deleteJson("/api/quizzes/{$quiz->id}");
-
-        $response->assertStatus(403);
+        $this->actingAs($other)
+             ->deleteJson("/api/quizzes/{$quiz->id}")
+             ->assertForbidden();
     }
 
     public function test_cannot_delete_quiz_if_it_has_attempts(): void
     {
-        $teacher = $this->makeTeacher();
-        $student = $this->makeStudent();
-        $quiz    = Quiz::factory()->create(['teacher_id' => $teacher->id]);
+        $teacher = $this->createUser('teacher');
+        $student = $this->createUser('student');
+        $quiz    = $this->createQuiz($teacher);
 
-        $this->makeAttempt($quiz->id, $student->id);
+        $this->createAttempt($quiz, $student);
 
-        $response = $this->actingAs($teacher)->deleteJson("/api/quizzes/{$quiz->id}");
-
-        $response->assertStatus(403)
-                 ->assertJsonPath('message', 'This quiz cannot be deleted because students have already taken it.');
+        $this->actingAs($teacher)
+             ->deleteJson("/api/quizzes/{$quiz->id}")
+             ->assertForbidden()
+             ->assertJsonPath('message', 'This quiz cannot be deleted because students have already taken it.');
     }
 
-    // ─── PUBLISH / UNPUBLISH ─────────────────────────────────────────────────
+    // ─── PUBLISH / UNPUBLISH ────────────────────────────────
 
     public function test_teacher_can_publish_a_quiz(): void
     {
-        $teacher = $this->makeTeacher();
-        $quiz    = Quiz::factory()->create(['teacher_id' => $teacher->id, 'is_published' => false]);
+        $teacher = $this->createUser('teacher');
+        $quiz    = $this->createQuiz($teacher, ['is_published' => false]);
 
-        $response = $this->actingAs($teacher)->patchJson("/api/quizzes/{$quiz->id}/publish-toggle");
+        $this->actingAs($teacher)
+             ->patchJson("/api/quizzes/{$quiz->id}/publish-toggle")
+             ->assertOk()
+             ->assertJsonPath('message', 'Quiz published.');
 
-        $response->assertStatus(200)
-                 ->assertJsonPath('message', 'Quiz published.');
-
-        $this->assertDatabaseHas('quizzes', ['id' => $quiz->id, 'is_published' => true]);
+        $this->assertDatabaseHas('quizzes', [
+            'id' => $quiz->id,
+            'is_published' => true
+        ]);
     }
 
     public function test_teacher_can_unpublish_a_quiz(): void
     {
-        $teacher = $this->makeTeacher();
-        $quiz    = Quiz::factory()->create(['teacher_id' => $teacher->id, 'is_published' => true]);
+        $teacher = $this->createUser('teacher');
+        $quiz    = $this->createQuiz($teacher, ['is_published' => true]);
 
-        $response = $this->actingAs($teacher)->patchJson("/api/quizzes/{$quiz->id}/publish-toggle");
+        $this->actingAs($teacher)
+             ->patchJson("/api/quizzes/{$quiz->id}/publish-toggle")
+             ->assertOk()
+             ->assertJsonPath('message', 'Quiz unpublished.');
 
-        $response->assertStatus(200)
-                 ->assertJsonPath('message', 'Quiz unpublished.');
-
-        $this->assertDatabaseHas('quizzes', ['id' => $quiz->id, 'is_published' => false]);
+        $this->assertDatabaseHas('quizzes', [
+            'id' => $quiz->id,
+            'is_published' => false
+        ]);
     }
 
     public function test_non_owner_teacher_cannot_publish_or_unpublish_a_quiz(): void
     {
-        $owner = $this->makeTeacher();
-        $other = $this->makeTeacher();
-        $quiz  = Quiz::factory()->create(['teacher_id' => $owner->id, 'is_published' => false]);
+        $owner = $this->createUser('teacher');
+        $other = $this->createUser('teacher');
+        $quiz  = $this->createQuiz($owner);
 
-        $response = $this->actingAs($other)->patchJson("/api/quizzes/{$quiz->id}/publish-toggle");
-
-        $response->assertStatus(403);
+        $this->actingAs($other)
+             ->patchJson("/api/quizzes/{$quiz->id}/publish-toggle")
+             ->assertForbidden();
     }
 
-    // ─── ASSIGN TO CLASS ─────────────────────────────────────────────────────
+    // ─── ASSIGN TO CLASS ────────────────────────────────────
 
     public function test_teacher_can_assign_a_quiz_to_a_class(): void
     {
-        $teacher = $this->makeTeacher();
-        $quiz    = Quiz::factory()->create(['teacher_id' => $teacher->id]);
-        $class   = ClassRoom::factory()->create(['teacher_id' => $teacher->id]);
+        $teacher = $this->createUser('teacher');
+        $quiz    = $this->createQuiz($teacher);
+        $class   = $this->createClass($teacher);
 
-        $response = $this->actingAs($teacher)->postJson("/api/classes/{$class->id}/assign-quiz", [
-            'quiz_id' => $quiz->id,
-        ]);
-
-        $response->assertStatus(200)
-                 ->assertJsonPath('message', 'Quiz assigned to class successfully.');
+        $this->actingAs($teacher)
+             ->postJson("/api/classes/{$class->id}/assign-quiz", [
+                 'quiz_id' => $quiz->id,
+             ])
+             ->assertOk()
+             ->assertJsonPath('message', 'Quiz assigned to class successfully.');
     }
 
     public function test_cannot_assign_same_quiz_twice_to_same_class(): void
     {
-        $teacher = $this->makeTeacher();
-        $quiz    = Quiz::factory()->create(['teacher_id' => $teacher->id]);
-        $class   = ClassRoom::factory()->create(['teacher_id' => $teacher->id]);
+        $teacher = $this->createUser('teacher');
+        $quiz    = $this->createQuiz($teacher);
+        $class   = $this->createClass($teacher);
 
         $class->quizzes()->attach($quiz->id, ['assigned_at' => now()]);
 
-        $response = $this->actingAs($teacher)->postJson("/api/classes/{$class->id}/assign-quiz", [
-            'quiz_id' => $quiz->id,
-        ]);
-
-        $response->assertStatus(409)
-                 ->assertJsonPath('message', 'Quiz is already assigned to this class.');
+        $this->actingAs($teacher)
+             ->postJson("/api/classes/{$class->id}/assign-quiz", [
+                 'quiz_id' => $quiz->id,
+             ])
+             ->assertStatus(409)
+             ->assertJsonPath('message', 'Quiz is already assigned to this class.');
     }
 
     public function test_cannot_assign_another_teachers_quiz_to_class(): void
     {
-        $teacher = $this->makeTeacher();
-        $other   = $this->makeTeacher();
-        $quiz    = Quiz::factory()->create(['teacher_id' => $other->id]);
-        $class   = ClassRoom::factory()->create(['teacher_id' => $teacher->id]);
+        $teacher = $this->createUser('teacher');
+        $other   = $this->createUser('teacher');
 
-        $response = $this->actingAs($teacher)->postJson("/api/classes/{$class->id}/assign-quiz", [
-            'quiz_id' => $quiz->id,
-        ]);
+        $quiz  = $this->createQuiz($other);
+        $class = $this->createClass($teacher);
 
-        $response->assertStatus(404);
+        $this->actingAs($teacher)
+             ->postJson("/api/classes/{$class->id}/assign-quiz", [
+                 'quiz_id' => $quiz->id,
+             ])
+             ->assertNotFound();
     }
 }

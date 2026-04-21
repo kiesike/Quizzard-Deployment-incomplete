@@ -1,59 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quizzard Teacher</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>
+        /* Critical fix for sticky sidebar behavior */
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .app-sidebar {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            width: 288px;
+            /* w-72 */
+            flex-shrink: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .app-main {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Custom scrollbar for better UX */
+        .app-sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .app-sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .app-sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        .app-sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .nav-link {
+            color: white;
+        }
+
+        .nav-link:hover {
+            background-color: #16a34a;
+            /* green-600 */
+            color: white;
+        }
+
+        /* Active state */
+        .nav-link.active {
+            background-color: white;
+            color: #166534;
+            /* green-800 */
+            font-weight: 600;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+    </style>
 </head>
-<body class="min-h-screen bg-slate-100 text-slate-800">
-    <div class="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
-        <aside class="bg-green-700 text-white shadow-2xl">
-            <div class="flex h-full flex-col">
-                <div class="border-b border-green-600 px-6 py-6">
-                    <h1 class="text-2xl font-bold tracking-wide">Quizzard Teacher</h1>
-                    <p class="mt-1 text-sm text-green-100">Reporting Panel</p>
+
+<body class="min-h-screen bg-slate-50">
+    <div class="app-layout">
+        <!-- Sidebar - Clean green theme -->
+        <aside class="app-sidebar bg-green-700 shadow-2xl">
+            <div class="flex flex-col min-h-full">
+                <!-- Brand Section -->
+                <div class="border-b border-green-600 px-6 py-8 flex-shrink-0">
+                    <h1 class="text-3xl font-bold tracking-tight text-white">
+                        Quizzard Teacher
+                    </h1>
+                    <p class="mt-2 text-sm font-medium text-green-100">
+                        Analytics & Reporting Panel
+                    </p>
                 </div>
 
-                <nav class="flex-1 space-y-2 px-4 py-6">
-                    <a href="{{ route('teacher.dashboard') }}"
-                       class="block rounded-xl px-4 py-3 text-sm transition
-                       {{ request()->routeIs('teacher.dashboard')
-                            ? 'text-green-700 font-bold border border-gray-500'
-                            : 'text-green-100 hover:bg-green-800 hover:text-white' }}">
-                        Dashboard
-                    </a>
+                <!-- Navigation - Fixed contrast -->
+                <nav class="flex-shrink-0 space-y-1 px-3 py-6" style="margin-bottom: 300px">
+                    @php
+                        $navItems = [
+                            ['route' => 'teacher.dashboard', 'label' => 'Dashboard'],
+                            ['route' => 'teacher.reports.classes', 'label' => 'Classes'],
+                            ['route' => 'teacher.reports.quizzes', 'label' => 'Quizzes'],
+                            ['route' => 'teacher.reports.students', 'label' => 'Students'],
+                        ];
+                    @endphp
 
-                    <a href="{{ route('teacher.reports.classes') }}"
-                       class="block rounded-xl px-4 py-3 text-sm transition
-                       {{ request()->routeIs('teacher.reports.classes')
-                            ? 'text-green-700 font-bold border border-gray-500'
-                            : 'text-green-100 hover:bg-green-800 hover:text-white' }}">
-                        Classes
-                    </a>
-
-                    <a href="{{ route('teacher.reports.quizzes') }}"
-                       class="block rounded-xl px-4 py-3 text-sm transition
-                       {{ request()->routeIs('teacher.reports.quizzes')
-                            ? 'text-green-700 font-bold border border-gray-500'
-                            : 'text-green-100 hover:bg-green-800 hover:text-white' }}">
-                        Quizzes
-                    </a>
-
-                    <a href="{{ route('teacher.reports.students') }}"
-                       class="block rounded-xl px-4 py-3 text-sm transition
-                       {{ request()->routeIs('teacher.reports.students')
-                            ? 'text-green-700 font-bold border border-gray-500'
-                            : 'text-green-100 hover:bg-green-800 hover:text-white' }}">
-                        Students
-                    </a>
+                    @foreach ($navItems as $item)
+                        <a href="{{ route($item['route']) }}"
+                            style="margin-top: 30px"
+                            class="nav-link block rounded-lg px-4 py-4 text-sm font-medium transition-all duration-200 {{ request()->routeIs($item['route']) ? 'active' : 'text-white' }}">
+                            {{ $item['label'] }}
+                        </a>
+                    @endforeach
                 </nav>
 
-                <div class="border-t border-green-600 p-4">
+                <!-- Spacer to push user section to bottom -->
+                <div class="flex-1 min-h-[20px]"></div>
+
+                <!-- User Section - Clean design -->
+                <div class="border-t border-green-600 p-4 flex-shrink-0">
+                    <div class="mb-4 rounded-lg bg-green-800 p-3">
+                        <p class="text-sm font-medium text-white">{{ auth()->user()->name ?? 'Teacher Name' }}</p>
+                        <p class="text-xs text-green-200">Teacher</p>
+                    </div>
+
                     <form action="{{ route('teacher.logout') }}" method="POST">
                         @csrf
                         <button type="submit"
-                                class="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700">
+                            class="w-full rounded-lg bg-red-600 px-4 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-700">
                             Logout
                         </button>
                     </form>
@@ -61,12 +124,16 @@
             </div>
         </aside>
 
-        <main class="min-w-0 p-4 sm:p-6 lg:p-8">
-            @yield('content')
+        <!-- Main Content -->
+        <main class="app-main bg-white">
+            <div class="p-6 lg:p-8">
+                @yield('content')
+            </div>
         </main>
     </div>
 
     @stack('modals')
     @stack('scripts')
 </body>
+
 </html>

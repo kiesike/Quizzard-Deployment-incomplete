@@ -118,7 +118,7 @@
                                         </div>
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-600" data-value="{{ $student->quiz_score ?? -1 }}">
-                                        {{ !is_null($student->quiz_score) ? $student->quiz_score : 'N/A' }}
+                                        {{ !is_null($student->quiz_score) ? $student->quiz_score : '0' }}/ {{$totalPoints}}
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm" data-value="{{ $student->quiz_percentage ?? -1 }}">
                                         @if (!is_null($student->quiz_percentage))
@@ -131,7 +131,7 @@
                                                 {{ number_format($student->quiz_percentage, 2) }}%
                                             </span>
                                         @else
-                                            <span class="text-gray-400">N/A</span>
+                                            <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset bg-red-100 text-red-800 ring-red-500/20">0%</span>
                                         @endif
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm" data-value="{{ $student->quiz_status }}">

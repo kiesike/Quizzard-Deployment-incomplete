@@ -9,6 +9,8 @@ use App\Http\Controllers\AdminProfileController;
 use App\Http\Controllers\AdminQuizController;
 use App\Http\Controllers\TeacherAuthController;
 use App\Http\Controllers\TeacherDashboardController;
+use App\Http\Controllers\TeacherQuizController;
+use App\Http\Controllers\AiQuizController;
 
 Route::get('/', function () {
     return redirect()->route('admin.login');
@@ -55,12 +57,18 @@ Route::patch('/activation/{user}/deactivate', [AdminActivationController::class,
 
         Route::post('/classes', [AdminQuizController::class, 'store'])
             ->name('admin.classes.store');
-        
+
         Route::get('/classes/{id}/details', [AdminQuizController::class, 'details'])
             ->name('admin.classes.details');
-        
+
         Route::get('/classes/{classId}/quizzes/{quizId}/details', [AdminQuizController::class, 'quizDetails'])
             ->name('admin.classes.quizzes.details');
+
+        Route::get('/classes/{classId}/quizzes/{quizId}/export-results', [AdminQuizController::class, 'exportResults'])
+            ->name('admin.classes.quizzes.export.results');
+
+        Route::get('/classes/{classId}/quizzes/{quizId}/export-analytics', [AdminQuizController::class, 'exportAnalytics'])
+            ->name('admin.classes.quizzes.export.analytics');
 
         Route::get('/classes/{id}', [AdminQuizController::class, 'show']);
         Route::put('/classes/{id}', [AdminQuizController::class, 'update']);
@@ -99,7 +107,23 @@ Route::prefix('teacher')->group(function () {
 
 
 
-        
+        // Quiz Management
+        Route::get('/quizzes', [TeacherQuizController::class, 'index'])->name('teacher.quizzes.index');
+        Route::get('/quizzes/create', [TeacherQuizController::class, 'create'])->name('teacher.quizzes.create');
+        Route::post('/quizzes', [TeacherQuizController::class, 'store'])->name('teacher.quizzes.store');
+        Route::get('/quizzes/{quizId}/manage', [TeacherQuizController::class, 'manage'])->name('teacher.quizzes.manage');
+        Route::put('/quizzes/{quizId}', [TeacherQuizController::class, 'update'])->name('teacher.quizzes.update');
+        Route::post('/quizzes/{quizId}/toggle-publish', [TeacherQuizController::class, 'togglePublish'])->name('teacher.quizzes.toggle-publish');
+        Route::get('/quizzes/{quizId}/questions/create', [TeacherQuizController::class, 'createQuestion'])->name('teacher.quizzes.questions.create');
+        Route::post('/quizzes/{quizId}/questions', [TeacherQuizController::class, 'storeQuestion'])->name('teacher.quizzes.questions.store');
+        Route::get('/quizzes/{quizId}/questions/{questionId}/edit', [TeacherQuizController::class, 'editQuestion'])->name('teacher.quizzes.questions.edit');
+        Route::put('/quizzes/{quizId}/questions/{questionId}', [TeacherQuizController::class, 'updateQuestion'])->name('teacher.quizzes.questions.update');
+        Route::delete('/quizzes/{quizId}/questions/{questionId}', [TeacherQuizController::class, 'destroyQuestion'])->name('teacher.quizzes.questions.destroy');
+
+
+                // AI Quiz Generation (Web)
+        Route::post('/quizzes/ai/generate', [AiQuizController::class, 'generate'])->name('teacher.quizzes.ai.generate');
+        Route::post('/quizzes/{quizId}/ai/save-questions', [AiQuizController::class, 'saveQuestions'])->name('teacher.quizzes.ai.save');
 
     });
 });

@@ -155,14 +155,39 @@ class _QuizDetailScreenState extends State<QuizDetailScreen> {
         ],
       ),
       floatingActionButton: _hasAttempts
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: _navigateToAddQuestion,
-              backgroundColor: primaryColor,
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text('Add Question',
-                  style: TextStyle(color: Colors.white)),
-            ),
+        ? null
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FloatingActionButton.extended(
+                heroTag: 'ai',
+                onPressed: () async {
+                  final result = await Navigator.pushNamed(
+                    context,
+                    '/ai-quiz-generate',
+                    arguments: {
+                      'quiz_id':   widget.quizId,
+                      'quiz_title': widget.quizTitle,
+                    },
+                  );
+                  if (result == true) _loadQuiz();
+                },
+                backgroundColor: const Color(0xFF6C63FF),
+                icon: const Icon(Icons.auto_awesome, color: Colors.white),
+                label: const Text('Generate with AI',
+                    style: TextStyle(color: Colors.white)),
+              ),
+              const SizedBox(height: 10),
+              FloatingActionButton.extended(
+                heroTag: 'add',
+                onPressed: _navigateToAddQuestion,
+                backgroundColor: Colors.green,
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: const Text('Add Question',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

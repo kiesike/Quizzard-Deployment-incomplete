@@ -7,9 +7,18 @@ use Tests\TestCase;
 
 class LoginTest extends TestCase
 {
+    // ─── HELPERS ─────────────────────────────────────────────
+
+    protected function makeUser(array $overrides = []): User
+    {
+        return User::factory()->make($overrides);
+    }
+
+    // ─── NAME FORMATTING ─────────────────────────────────────
+
     public function test_name_is_formatted_from_factory(): void
     {
-        $user = User::factory()->make([
+        $user = $this->makeUser([
             'first_name' => 'John',
             'middle_initial' => 'D',
             'surname' => 'Doe',
@@ -20,7 +29,7 @@ class LoginTest extends TestCase
 
     public function test_name_without_middle_initial(): void
     {
-        $user = User::factory()->make([
+        $user = $this->makeUser([
             'first_name' => 'John',
             'middle_initial' => null,
             'surname' => 'Doe',
@@ -31,7 +40,7 @@ class LoginTest extends TestCase
 
     public function test_name_fallback_to_existing_name(): void
     {
-        $user = User::factory()->make([
+        $user = $this->makeUser([
             'name' => 'Legacy User',
             'first_name' => null,
             'surname' => null,
@@ -42,7 +51,7 @@ class LoginTest extends TestCase
 
     public function test_middle_initial_is_uppercase(): void
     {
-        $user = User::factory()->make([
+        $user = $this->makeUser([
             'first_name' => 'John',
             'middle_initial' => 'delacruz',
             'surname' => 'Doe',
@@ -51,13 +60,17 @@ class LoginTest extends TestCase
         $this->assertEquals('John D. Doe', $user->name);
     }
 
+    // ─── PASSWORD ───────────────────────────────────────────
+
     public function test_password_is_hashed(): void
     {
-        $user = User::factory()->make([
-            'password' => 'Student@1234',
+        $plainPassword = 'Student@1234';
+
+        $user = $this->makeUser([
+            'password' => $plainPassword,
         ]);
 
-        $this->assertNotEquals('Student@1234', $user->password);
-        $this->assertTrue(password_verify('Student@1234', $user->password));
+        $this->assertNotEquals($plainPassword, $user->password);
+        $this->assertTrue(password_verify($plainPassword, $user->password));
     }
 }

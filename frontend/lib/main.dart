@@ -20,6 +20,11 @@ import 'screens/class_detail_screen.dart';
 import 'screens/student_class_quizzes_screen.dart';
 import 'screens/quiz_analytics_screen.dart';
 import 'screens/student_info_screen.dart';
+import 'screens/ai_quiz_generate_screen.dart';
+
+
+
+
 
 void main() {
   runApp(const QuizzardApp());
@@ -82,6 +87,15 @@ class QuizzardApp extends StatelessWidget {
           final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return AddQuestionScreen(quizId: args['quiz_id']);
         },
+
+        '/ai-quiz-generate': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+          return AiQuizGenerateScreen(
+            quizId: args['quiz_id'],
+            quizTitle: args['quiz_title'],
+          );
+        },
+        
         '/edit-question': (context) {
           final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return EditQuestionScreen(

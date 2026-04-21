@@ -64,6 +64,12 @@ Route::patch('/activation/{user}/deactivate', [AdminActivationController::class,
         Route::get('/classes/{classId}/quizzes/{quizId}/details', [AdminQuizController::class, 'quizDetails'])
             ->name('admin.classes.quizzes.details');
 
+        Route::get('/classes/{classId}/quizzes/{quizId}/export-results', [AdminQuizController::class, 'exportResults'])
+            ->name('admin.classes.quizzes.export.results');
+
+        Route::get('/classes/{classId}/quizzes/{quizId}/export-analytics', [AdminQuizController::class, 'exportAnalytics'])
+            ->name('admin.classes.quizzes.export.analytics');
+
         Route::get('/classes/{id}', [AdminQuizController::class, 'show']);
         Route::put('/classes/{id}', [AdminQuizController::class, 'update']);
         Route::delete('/classes/{id}', [AdminQuizController::class, 'destroy']);

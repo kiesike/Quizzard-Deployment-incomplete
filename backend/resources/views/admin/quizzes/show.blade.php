@@ -156,7 +156,14 @@
     <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100">
 
         <div class="mb-4">
-            <h2 class="font-bold text-lg text-slate-800">Question Analytics</h2>
+            <div class="flex justify-between items-center mb-4">
+    <h2 class="font-bold text-lg">Question Analytics</h2>
+
+    <a href="?tab=analytics&export=excel"
+       class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+        Export Excel
+    </a>
+</div>
             <p class="text-sm text-slate-500">
                 Performance breakdown per question
             </p>

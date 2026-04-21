@@ -74,8 +74,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Analytics route
     Route::get('/teacher/quizzes/{quizId}/analytics', [TeacherController::class, 'quizAnalytics']);
 
+    Route::get('/teacher/quizzes/{quizId}/export-results', [TeacherController::class, 'exportResults']);
+    Route::get('/teacher/quizzes/{quizId}/export-analytics', [TeacherController::class, 'exportAnalytics']);
+    Route::get('/teacher/quizzes/{quizId}/export-full', [TeacherController::class, 'exportFullReport']);
+
 
     // AI Quiz Generation
     Route::post('/ai/generate-questions', [AiQuizController::class, 'generate']);
     Route::post('/ai/quizzes/{quizId}/save-questions', [AiQuizController::class, 'saveQuestions']);
+    
 });

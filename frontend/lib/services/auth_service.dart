@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:html' as html;
 
 class AuthService {
 
@@ -219,6 +220,47 @@ class AuthService {
   static Map<String, dynamic> parseJson(String body) {
     return jsonDecode(body) as Map<String, dynamic>;
   }
+
+  
+
+// ─── DOWNLOAD FILE (WEB) ───────────────────────────────────
+static Future<Map> downloadFileWeb(String endpoint, String filename) async {
+  try {
+    final token = await getToken();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final bytes = response.bodyBytes;
+
+      final blob = html.Blob([bytes]);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+
+      html.AnchorElement(href: url)
+  ..setAttribute("download", filename)
+  ..click();
+
+      html.Url.revokeObjectUrl(url);
+
+      return {'success': true};
+    } else {
+      return {
+        'success': false,
+        'message': 'Download failed (${response.statusCode})'
+      };
+    }
+  } catch (e) {
+    return {
+      'success': false,
+      'message': 'Download failed'
+    };
+  }
+}
 
 
 

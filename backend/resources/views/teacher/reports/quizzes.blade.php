@@ -35,7 +35,6 @@
             <div class="border-b border-emerald-100 bg-emerald-50/50 px-6 py-6 sm:px-8">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-
                         <h3 class="mt-2 text-xl font-bold text-gray-900">Quiz Performance Report</h3>
                         <p class="mt-1 text-sm text-gray-500">
                             This report only includes quizzes created by your account.

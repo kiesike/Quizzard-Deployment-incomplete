@@ -290,7 +290,6 @@
                     const btn = document.createElement('button');
                     // Updated the JS generated classes to match the cleaner theme
                     btn.className = 'flex w-full items-center justify-between rounded-lg border border-emerald-100 bg-white px-3.5 py-2.5 text-left text-sm font-semibold text-gray-700 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent';
-
                     btn.innerHTML = `
                         <span>${cls.name}</span>
                         <svg class="h-3.5 w-3.5 text-emerald-400" viewBox="0 0 20 20" fill="currentColor">

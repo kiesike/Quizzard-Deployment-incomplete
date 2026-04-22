@@ -1,21 +1,25 @@
 <?php
-
 namespace App\Exports;
-
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class QuizAnalyticsExport implements FromCollection, WithHeadings, ShouldAutoSize, WithStyles
+class QuizAnalyticsExport implements FromCollection, WithHeadings, ShouldAutoSize, WithStyles, WithTitle
 {
     protected $rows;
 
     public function __construct(Collection $rows)
     {
         $this->rows = $rows;
+    }
+
+    public function title(): string
+    {
+        return 'Analytics';
     }
 
     public function collection()

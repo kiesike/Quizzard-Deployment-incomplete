@@ -19,6 +19,8 @@ dependencies:
   video_player: ^2.8.6
   file_picker: ^8.0.0
   audioplayers: ^6.0.0
+  open_filex: ^4.7.0
+  win32: ^5.8.0
 
 dev_dependencies:
   flutter_test:

@@ -1,7 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:html' as html;
+import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
+import 'download_stub.dart'
+    if (dart.library.html) 'download_web.dart';
 
 class AuthService {
 
@@ -10,12 +14,10 @@ class AuthService {
   // static const String baseUrl = 'http://192.168.100.31:8000/api';
   // static const String baseUrl = 'http://172.30.160.1:8000/api';
 
-  // static const String ip = 'localhost'; 
-  static const String ip = '192.168.100.31'; 
+  // static const String ip = 'localhost';
+  static const String ip         = '192.168.100.31';
   static const String baseUrl    = 'http://$ip:8000/api';
   static const String storageUrl = 'http://$ip:8000/storage';
-
-
 
   static Future<Map> login(String email, String password) async {
     try {
@@ -147,7 +149,6 @@ class AuthService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return {'success': true, 'data': data};
       } else {
-        // Extract first validation error if present
         if (data['errors'] != null) {
           final errors = data['errors'] as Map<String, dynamic>;
           final firstError = errors.values.first as List<dynamic>;
@@ -209,13 +210,11 @@ class AuthService {
     if (url == null) return '';
     String urlStr = url.toString();
     if (urlStr.isEmpty) return '';
-    // If it's already a full URL, just replace localhost
     if (urlStr.startsWith('http')) {
       return urlStr
           .replaceAll('http://localhost', 'http://$ip')
           .replaceAll('http://127.0.0.1', 'http://$ip');
     }
-    // If it's a relative path, prepend the storage URL
     return 'http://$ip:8000/storage/$urlStr';
   }
 
@@ -223,48 +222,48 @@ class AuthService {
     return jsonDecode(body) as Map<String, dynamic>;
   }
 
-  
+  // ─── DOWNLOAD FILE (MOBILE + WEB) ─────────────────────────────
+  static Future<Map> downloadFile(String endpoint, String filename) async {
+    try {
+      final token = await getToken();
 
-// ─── DOWNLOAD FILE (WEB) ───────────────────────────────────
-static Future<Map> downloadFileWeb(String endpoint, String filename) async {
-  try {
-    final token = await getToken();
+      final response = await http.get(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
 
-    final response = await http.get(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: {
-        'Authorization': 'Bearer $token',
-      },
-    );
+      if (response.statusCode == 200) {
+        final bytes = response.bodyBytes;
 
-    if (response.statusCode == 200) {
-      final bytes = response.bodyBytes;
+        try {
+          // On web: triggers browser download
+          await downloadFileForWeb(bytes, filename);
+        } catch (_) {
+          // On mobile: save to public Downloads folder and open
+          final dir = Directory('/storage/emulated/0/Download');
+          if (!await dir.exists()) {
+            await dir.create(recursive: true);
+          }
+          final filePath = '${dir.path}/$filename';
+          final file = File(filePath);
+          await file.writeAsBytes(bytes);
+          await OpenFilex.open(filePath);
+        }
 
-      final blob = html.Blob([bytes]);
-      final url = html.Url.createObjectUrlFromBlob(blob);
-
-      html.AnchorElement(href: url)
-  ..setAttribute("download", filename)
-  ..click();
-
-      html.Url.revokeObjectUrl(url);
-
-      return {'success': true};
-    } else {
+        return {'success': true};
+      } else {
+        return {
+          'success': false,
+          'message': 'Download failed (${response.statusCode})'
+        };
+      }
+    } catch (e) {
       return {
         'success': false,
-        'message': 'Download failed (${response.statusCode})'
+        'message': 'Download failed: $e'
       };
     }
-  } catch (e) {
-    return {
-      'success': false,
-      'message': 'Download failed'
-    };
   }
-}
-
-
-
-
 }

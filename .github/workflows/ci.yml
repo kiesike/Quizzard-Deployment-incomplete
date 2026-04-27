@@ -2,7 +2,7 @@ name: Quizzard CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, DOP84-DOP85-DOP86-DOP89 ]
   pull_request:
 
 jobs:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      mysql:
+      db:   # 👈 IMPORTANT: matches DB_HOST=db
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: root
@@ -47,7 +47,7 @@ jobs:
         working-directory: backend
         run: php artisan key:generate
 
-      - name: Wait for MySQL
+      - name: Wait for DB
         run: sleep 10
 
       - name: Run migrations

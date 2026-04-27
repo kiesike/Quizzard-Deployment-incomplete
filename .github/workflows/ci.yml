@@ -1,0 +1,59 @@
+name: Quizzard CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  laravel-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: quizzard_testing
+          MYSQL_USER: quizzard_user
+          MYSQL_PASSWORD: quizzard_pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.2
+          extensions: mbstring, pdo, mysql
+
+      - name: Install dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Copy env
+        working-directory: backend
+        run: cp .env.testing .env
+
+      - name: Generate key
+        working-directory: backend
+        run: php artisan key:generate
+
+      - name: Wait for MySQL
+        run: sleep 10
+
+      - name: Run migrations
+        working-directory: backend
+        run: php artisan migrate
+
+      - name: Run tests
+        working-directory: backend
+        run: php artisan test

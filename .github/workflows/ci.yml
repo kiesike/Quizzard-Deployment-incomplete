@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      db:   # 👈 IMPORTANT: matches DB_HOST=db
+      db:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: root
@@ -33,7 +33,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: 8.4
-          extensions: mbstring, pdo, mysql
+          extensions: mbstring, pdo, mysql, dom, fileinfo, ctype, json, tokenizer, xml, gd, zip
 
       - name: Install dependencies
         working-directory: backend
@@ -47,12 +47,24 @@ jobs:
         working-directory: backend
         run: php artisan key:generate
 
-      - name: Wait for DB
-        run: sleep 10
+      - name: Wait for MySQL
+        run: |
+          for i in {1..10}; do
+            mysqladmin ping -h "db" --silent && break
+            sleep 3
+          done
+
+      - name: Ensure DB exists
+        run: |
+          mysql -h db -u quizzard_user -pquizzard_pass -e "CREATE DATABASE IF NOT EXISTS quizzard_testing;"
+
+      - name: Clear config
+        working-directory: backend
+        run: php artisan config:clear
 
       - name: Run migrations
         working-directory: backend
-        run: php artisan migrate
+        run: php artisan migrate --force
 
       - name: Run tests
         working-directory: backend

@@ -1,7 +1,45 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../widgets/profile_widget.dart';
 
+// ─── THEME ────────────────────────────────────────────────────────────────────
+class _T {
+  static const Color primary = Color(0xFF2ECC71);
+  static const Color primaryDark = Color(0xFF1BA35A);
+  static const Color primaryLight = Color(0xFFE8F8F0);
+  static const Color accent = Color(0xFF6C63FF);
+  static const Color accentLight = Color(0xFFEEEDFF);
+  static const Color bg = Color(0xFFF4F7F5);
+  static const Color surface = Colors.white;
+  static const Color textDark = Color(0xFF1A2E22);
+  static const Color textMid = Color(0xFF6B7580);
+  static const Color textLight = Color(0xFFADB5BD);
+  static const Color success = Color(0xFF22C55E);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color danger = Color(0xFFEF4444);
+  static const Color orange = Color(0xFFF97316);
+
+  static BoxDecoration get card => BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      );
+
+  static LinearGradient get headerGradient => const LinearGradient(
+        colors: [Color(0xFF2ECC71), Color(0xFF1BA35A)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+}
+
+// ─── TEACHER DASHBOARD ────────────────────────────────────────────────────────
 class TeacherDashboardScreen extends StatefulWidget {
   const TeacherDashboardScreen({super.key});
 
@@ -10,15 +48,9 @@ class TeacherDashboardScreen extends StatefulWidget {
 }
 
 class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
-
-  
-  // ─── Theme ────────────────────────────────────────────────
-  static const Color _purple = Color(0xFF6C63FF);
-  static const Color _green = Color(0xFF4CAF50);
-
-  // ─── State ────────────────────────────────────────────────
   int _selectedIndex = 0;
   bool _isLoading = true;
+  bool _isActionLoading = false;
   bool _isExporting = false;
   String _teacherName = '';
   String _teacherEmail = '';
@@ -32,7 +64,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     _loadDashboard();
   }
 
-  // ─── API ──────────────────────────────────────────────────
+  // ─── API ──────────────────────────────────────────────────────────────────
 
   Future<void> _loadDashboard() async {
     setState(() => _isLoading = true);
@@ -47,10 +79,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
           _stats = Map<String, dynamic>.from(data['stats'] ?? {});
         });
       } else {
-        _showSnackbar(
-          response['message'] ?? 'Failed to load dashboard',
-          isError: true,
-        );
+        _showSnackbar(response['message'] ?? 'Failed to load dashboard', isError: true);
       }
     } catch (e) {
       _showSnackbar('Network error: $e', isError: true);
@@ -61,8 +90,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
 
   Future<void> _togglePublish(Map<String, dynamic> quiz) async {
     final int quizId = quiz['id'];
-    final bool isPublished =
-        quiz['is_published'] == true || quiz['is_published'] == 1;
+    final bool isPublished = quiz['is_published'] == true || quiz['is_published'] == 1;
     final String quizTitle = quiz['title'] ?? 'this quiz';
 
     final confirmed = await _showPublishConfirmation(quizTitle, isPublished);
@@ -70,27 +98,18 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
 
     setState(() => _togglingIds.add(quizId));
     try {
-      final response = await AuthService.authPatch(
-        '/quizzes/$quizId/publish-toggle',
-        {},
-      );
+      final response = await AuthService.authPatch('/quizzes/$quizId/publish-toggle', {});
       if (response['success'] == true) {
         final updatedQuiz = response['data'];
         setState(() {
           final idx = _quizzes.indexWhere((q) => q['id'] == quizId);
           if (idx != -1) {
-            _quizzes[idx] = {
-              ..._quizzes[idx],
-              'is_published': updatedQuiz['is_published'],
-            };
+            _quizzes[idx] = {..._quizzes[idx], 'is_published': updatedQuiz['is_published']};
           }
         });
         _showSnackbar(response['message'] ?? 'Status updated.');
       } else {
-        _showSnackbar(
-          response['message'] ?? 'Failed to toggle.',
-          isError: true,
-        );
+        _showSnackbar(response['message'] ?? 'Failed to toggle.', isError: true);
       }
     } catch (e) {
       _showSnackbar('Network error: $e', isError: true);
@@ -103,31 +122,25 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Quiz'),
-        content: Text(
-          'Are you sure you want to delete "${quiz['title']}"? This cannot be undone.',
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Quiz', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to delete "${quiz['title']}"? This cannot be undone.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: _T.danger, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.white),
-            ),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
-
     if (confirmed != true) return;
 
+    setState(() => _isActionLoading = true);
     final result = await AuthService.authDelete('/quizzes/${quiz['id']}');
+    if (mounted) setState(() => _isActionLoading = false);
+
     if (result['success']) {
       setState(() => _quizzes.removeWhere((q) => q['id'] == quiz['id']));
       _showSnackbar('Quiz deleted.');
@@ -140,23 +153,19 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Log Out'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Log Out', style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text('Are you sure you want to log out?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel', style: TextStyle(color: _T.textMid))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: _T.danger, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Log Out', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
-
     if (confirm != true) return;
     await AuthService.authPost('/logout', {});
     await AuthService.logout();
@@ -164,48 +173,40 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     Navigator.pushReplacementNamed(context, '/login');
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────────────
 
   void _showSnackbar(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red.shade700 : _green,
+        backgroundColor: isError ? _T.danger : _T.success,
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
 
-  Future<bool> _showPublishConfirmation(
-    String quizTitle,
-    bool isCurrentlyPublished,
-  ) async {
+  Future<bool> _showPublishConfirmation(String quizTitle, bool isCurrentlyPublished) async {
     final actionLabel = isCurrentlyPublished ? 'Unpublish' : 'Publish';
-    final color = isCurrentlyPublished ? Colors.orange : _green;
-
+    final color = isCurrentlyPublished ? _T.orange : _T.success;
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('$actionLabel Quiz?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('$actionLabel Quiz?', style: const TextStyle(fontWeight: FontWeight.bold)),
         content: Text(
           isCurrentlyPublished
-              ? 'Are you sure you want to unpublish "$quizTitle"? Students will no longer be able to access it.'
-              : 'Are you sure you want to publish "$quizTitle"? Students will be able to see and take it.',
+              ? 'Students will no longer be able to access "$quizTitle".'
+              : 'Students will be able to see and take "$quizTitle".',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: color),
+            style: ElevatedButton.styleFrom(backgroundColor: color, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(
-              actionLabel,
-              style: const TextStyle(color: Colors.white),
-            ),
+            child: Text(actionLabel, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -213,295 +214,116 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     return result ?? false;
   }
 
-  // ─── Build ────────────────────────────────────────────────
+  // ─── BUILD ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        backgroundColor: _green,
-        elevation: 0,
-        title: const Text(
-          'Teacher Dashboard',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _loadDashboard,
-            tooltip: 'Refresh',
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: _logout,
-            tooltip: 'Logout',
+      backgroundColor: _T.bg,
+      body: Stack(
+        children: [
+          _buildBody(),
+          if (_isActionLoading || _isExporting) _buildBlurOverlay(
+            _isExporting ? 'Generating Report...' : 'Please wait...',
           ),
         ],
       ),
-      floatingActionButton: _selectedIndex == 0
+      floatingActionButton: _selectedIndex == 0 && !_isLoading
           ? FloatingActionButton.extended(
               onPressed: () async {
                 final result = await Navigator.pushNamed(context, '/create-quiz');
                 if (result == true) _loadDashboard();
               },
-              backgroundColor: _purple,
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text(
-                'New Quiz',
-                style: TextStyle(color: Colors.white),
-              ),
+              backgroundColor: _T.accent,
+              elevation: 4,
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              label: const Text('New Quiz', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             )
           : null,
-          body: Stack(
-            children: [
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : IndexedStack(
-                      index: _selectedIndex,
-                      children: [
-                        _buildQuizzesTab(),
-                        _buildClassesTab(),
-                        _buildProfileTab(),
-                      ],
-                    ),
-
-              // 🔴 FULL SCREEN LOADING OVERLAY
-              if (_isExporting)
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 300),
-                  opacity: _isExporting ? 1 : 0,
-                  child: Container(
-                    color: Colors.black.withOpacity(0.6),
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFF6C63FF), // purple
-                              Color(0xFF4CAF50), // green
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // 🔄 Animated Loader
-                            const SizedBox(
-                              width: 50,
-                              height: 50,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 4,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            ),
-
-                            const SizedBox(height: 18),
-
-                            // 🧠 Title
-                            const Text(
-                              'Generating Report',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-
-                            const SizedBox(height: 6),
-
-                            // 📝 Subtitle
-                            const Text(
-                              'Please wait while we prepare your Excel file...',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                ],
-            ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        selectedItemColor: _green,
-        unselectedItemColor: Colors.grey,
-        onTap: (i) => setState(() => _selectedIndex = i),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.quiz), label: 'My Quizzes'),
-          BottomNavigationBarItem(icon: Icon(Icons.class_), label: 'Classes'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-      ),
+      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  Widget _buildClassesTab() {
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          color: _green,
-          child: const Text(
-            'My Classes',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        Expanded(
+  Widget _buildBlurOverlay(String message) {
+    return Positioned.fill(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+        child: Container(
+          color: Colors.black.withOpacity(0.25),
           child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.class_, size: 80, color: Colors.grey.shade400),
-                const SizedBox(height: 16),
-                Text(
-                  'Manage your classes',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () => Navigator.pushNamed(context, '/class-list'),
-                  icon: const Icon(Icons.class_, color: Colors.white),
-                  label: const Text(
-                    'View My Classes',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _green,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.92),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 24, offset: const Offset(0, 8))],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: _T.primary, strokeWidth: 3),
+                  const SizedBox(height: 16),
+                  Text(message, style: const TextStyle(color: _T.textDark, fontWeight: FontWeight.w600, fontSize: 14)),
+                ],
+              ),
             ),
           ),
         ),
-      ],
-    );
-  }
-
-  // ─── Quizzes Tab ──────────────────────────────────────────
-
-  Widget _buildQuizzesTab() {
-    return RefreshIndicator(
-      onRefresh: _loadDashboard,
-      color: _green,
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _buildStatsBar()),
-
-          if (_quizzes.isEmpty)
-            const SliverFillRemaining(
-              child: Center(
-                child: Text(
-                  'No quizzes yet.\nTap "New Quiz" to get started!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-              ),
-            )
-          else
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildQuizCard(_quizzes[index]),
-                childCount: _quizzes.length,
-              ),
-            ),
-        ],
       ),
     );
   }
 
-  Widget _buildStatsBar() {
-    final totalQuizzes = _stats['total_quizzes'] ?? _quizzes.length;
-    final publishedQuizzes =
-        _stats['published_quizzes'] ??
-        _quizzes
-            .where((q) => q['is_published'] == true || q['is_published'] == 1)
-            .length;
-    final totalStudents = _stats['total_students'] ?? 0;
-
+  Widget _buildBottomNav() {
     return Container(
-      color: _green,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Welcome, $_teacherName 👋',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, -4))],
+      ),
+      child: SafeArea(
+        child: SizedBox(
+          height: 64,
+          child: Row(
             children: [
-              _statChip(Icons.quiz_outlined, '$totalQuizzes', 'Total Quizzes'),
-              const SizedBox(width: 10),
-              _statChip(Icons.publish, '$publishedQuizzes', 'Published'),
-              const SizedBox(width: 10),
-              _statChip(Icons.people_outline, '$totalStudents', 'Students'),
+              _buildNavItem(0, Icons.quiz_rounded, Icons.quiz_outlined, 'Quizzes'),
+              _buildNavItem(1, Icons.class_rounded, Icons.class_outlined, 'Classes'),
+              _buildNavItem(2, Icons.person_rounded, Icons.person_outlined, 'Profile'),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _statChip(IconData icon, String value, String label) {
+  Widget _buildNavItem(int index, IconData activeIcon, IconData inactiveIcon, String label) {
+    final isSelected = _selectedIndex == index;
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(12),
-        ),
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedIndex = index),
+        behavior: HitTestBehavior.opaque,
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? _T.primaryLight : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                isSelected ? activeIcon : inactiveIcon,
+                color: isSelected ? _T.primary : _T.textLight,
+                size: 22,
               ),
             ),
+            const SizedBox(height: 2),
             Text(
               label,
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                color: isSelected ? _T.primary : _T.textLight,
+              ),
             ),
           ],
         ),
@@ -509,331 +331,1170 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     );
   }
 
+  Widget _buildBody() {
+    if (_isLoading) return _buildSkeletonLoading();
+
+    switch (_selectedIndex) {
+      case 0: return _buildQuizzesTab();
+      case 1: return _TeacherClassesTab(onRefresh: _loadDashboard);
+      case 2: return ProfileWidget(onLogout: _logout);
+      default: return _buildQuizzesTab();
+    }
+  }
+
+  // ─── SKELETON LOADING ─────────────────────────────────────────────────────
+
+  Widget _buildSkeletonLoading() {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(24, 56, 24, 32),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_T.primary.withOpacity(0.85), _T.primaryDark.withOpacity(0.85)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(width: 120, height: 14, decoration: BoxDecoration(color: Colors.white.withOpacity(0.35), borderRadius: BorderRadius.circular(8))),
+              const SizedBox(height: 8),
+              Container(width: 200, height: 24, decoration: BoxDecoration(color: Colors.white.withOpacity(0.45), borderRadius: BorderRadius.circular(8))),
+              const SizedBox(height: 28),
+              Row(
+                children: List.generate(3, (_) => Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    height: 72,
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(14)),
+                  ),
+                )),
+              ),
+            ],
+          ),
+        ),
+        const Spacer(),
+        CircularProgressIndicator(color: _T.primary, strokeWidth: 3),
+        const SizedBox(height: 16),
+        const Text('Loading dashboard...', style: TextStyle(color: _T.textMid, fontSize: 14)),
+        const Spacer(),
+      ],
+    );
+  }
+
+  // ─── QUIZZES TAB ──────────────────────────────────────────────────────────
+
+  Widget _buildQuizzesTab() {
+    return _QuizzesTab(
+      quizzes: _quizzes,
+      stats: _stats,
+      teacherName: _teacherName,
+      togglingIds: _togglingIds,
+      isExporting: _isExporting,
+      onRefresh: _loadDashboard,
+      onTogglePublish: _togglePublish,
+      onDeleteQuiz: _deleteQuiz,
+      onLogout: _logout,
+      onExportStart: () => setState(() => _isExporting = true),
+      onExportEnd: () => setState(() => _isExporting = false),
+    );
+  }
+}
+
+// ─── QUIZZES TAB ─────────────────────────────────────────────────────────────
+class _QuizzesTab extends StatefulWidget {
+  final List<Map<String, dynamic>> quizzes;
+  final Map<String, dynamic> stats;
+  final String teacherName;
+  final Set<int> togglingIds;
+  final bool isExporting;
+  final VoidCallback onRefresh;
+  final Future<void> Function(Map<String, dynamic>) onTogglePublish;
+  final Future<void> Function(Map<String, dynamic>) onDeleteQuiz;
+  final VoidCallback onLogout;
+  final VoidCallback onExportStart;
+  final VoidCallback onExportEnd;
+
+  const _QuizzesTab({
+    required this.quizzes,
+    required this.stats,
+    required this.teacherName,
+    required this.togglingIds,
+    required this.isExporting,
+    required this.onRefresh,
+    required this.onTogglePublish,
+    required this.onDeleteQuiz,
+    required this.onLogout,
+    required this.onExportStart,
+    required this.onExportEnd,
+  });
+
+  @override
+  State<_QuizzesTab> createState() => _QuizzesTabState();
+}
+
+class _QuizzesTabState extends State<_QuizzesTab> {
+  final TextEditingController _searchController = TextEditingController();
+  String _filter = 'all';
+  List<Map<String, dynamic>> _filtered = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filtered = widget.quizzes;
+    _searchController.addListener(_applyFilter);
+  }
+
+  @override
+  void didUpdateWidget(_QuizzesTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.quizzes != widget.quizzes) _applyFilter();
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_applyFilter);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _applyFilter() {
+    final query = _searchController.text.trim().toLowerCase();
+    setState(() {
+      _filtered = widget.quizzes.where((q) {
+        final title = (q['title'] ?? '').toString().toLowerCase();
+        final desc = (q['description'] ?? '').toString().toLowerCase();
+        final matchesQuery = query.isEmpty || title.contains(query) || desc.contains(query);
+        final isPublished = q['is_published'] == true || q['is_published'] == 1;
+        final matchesFilter = _filter == 'all' ? true : _filter == 'published' ? isPublished : !isPublished;
+        return matchesQuery && matchesFilter;
+      }).toList();
+    });
+  }
+
+  void _setFilter(String val) {
+    setState(() => _filter = val);
+    _applyFilter();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalQuizzes = widget.stats['total_quizzes'] ?? widget.quizzes.length;
+    final publishedCount = widget.stats['published_quizzes'] ??
+        widget.quizzes.where((q) => q['is_published'] == true || q['is_published'] == 1).length;
+    final totalStudents = widget.stats['total_students'] ?? 0;
+    final draftCount = (totalQuizzes as int) - (publishedCount as int);
+
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    final firstName = widget.teacherName.split(' ').first;
+
+    return RefreshIndicator(
+      onRefresh: () async => widget.onRefresh(),
+      color: _T.primary,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // ── Header ──
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(24, 56, 24, 24),
+              decoration: BoxDecoration(
+                gradient: _T.headerGradient,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(32),
+                  bottomRight: Radius.circular(32),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('$greeting,', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                            const SizedBox(height: 2),
+                            Text(
+                              firstName,
+                              style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: widget.onLogout,
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+                          child: const Icon(Icons.logout_rounded, color: Colors.white, size: 20),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Stat cards
+                  Row(
+                    children: [
+                      _buildStatCard(Icons.quiz_rounded, '$totalQuizzes', 'Total'),
+                      const SizedBox(width: 10),
+                      _buildStatCard(Icons.visibility_rounded, '$publishedCount', 'Published'),
+                      const SizedBox(width: 10),
+                      _buildStatCard(Icons.people_rounded, '$totalStudents', 'Students'),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Search
+                  TextField(
+                    controller: _searchController,
+                    style: const TextStyle(fontSize: 14, color: _T.textDark),
+                    decoration: InputDecoration(
+                      hintText: 'Search quizzes...',
+                      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search_rounded, color: _T.primary, size: 20),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 18),
+                              color: _T.textMid,
+                              onPressed: () => _searchController.clear(),
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Filter chips ──
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+              child: Row(
+                children: [
+                  _buildFilterChip('all', 'All ($totalQuizzes)'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('published', 'Published ($publishedCount)'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('draft', 'Draft ($draftCount)'),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Count ──
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
+              child: Text('${_filtered.length} quiz${_filtered.length == 1 ? '' : 'zes'}', style: const TextStyle(color: _T.textMid, fontSize: 13)),
+            ),
+          ),
+
+          // ── List or empty ──
+          _filtered.isEmpty
+              ? SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(40),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(color: _T.primaryLight, shape: BoxShape.circle),
+                            child: Icon(Icons.quiz_outlined, size: 48, color: _T.primary.withOpacity(0.5)),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            widget.quizzes.isEmpty ? 'No quizzes yet.' : 'No quizzes found.',
+                            style: const TextStyle(color: _T.textMid, fontSize: 16, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.quizzes.isEmpty ? 'Tap "New Quiz" to get started!' : 'Try adjusting your search or filter.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: _T.textLight, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              : SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => _buildQuizCard(_filtered[index]),
+                      childCount: _filtered.length,
+                    ),
+                  ),
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(IconData icon, String value, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withOpacity(0.25)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(height: 6),
+            Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String value, String label) {
+    final isSelected = _filter == value;
+    return GestureDetector(
+      onTap: () => _setFilter(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? _T.primary : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? _T.primary : Colors.grey.shade300),
+          boxShadow: isSelected ? [BoxShadow(color: _T.primary.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 2))] : [],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : _T.textMid,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildQuizCard(Map<String, dynamic> quiz) {
     final int quizId = quiz['id'];
-    final bool isPublished =
-        quiz['is_published'] == true || quiz['is_published'] == 1;
-    final bool isToggling = _togglingIds.contains(quizId);
+    final bool isPublished = quiz['is_published'] == true || quiz['is_published'] == 1;
+    final bool isToggling = widget.togglingIds.contains(quizId);
     final String title = quiz['title'] ?? 'Untitled Quiz';
     final String description = quiz['description'] ?? '';
     final int questions = quiz['questions_count'] ?? 0;
+    final bool hasAttempts = quiz['has_attempts'] == true;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 3,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: _T.card,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () async {
           final result = await Navigator.pushNamed(
             context,
             '/quiz-detail',
-            arguments: {
-              'quiz_id': quizId,
-              'quiz_title': title,
-            },
+            arguments: {'quiz_id': quizId, 'quiz_title': title},
           );
-          if (result == true) _loadDashboard();
+          if (result == true) widget.onRefresh();
         },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Title + badge ──────────────────────────────
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Color band top ──
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              decoration: BoxDecoration(
+                color: isPublished ? _T.primaryLight : Colors.grey.shade50,
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+              ),
+              child: Row(
                 children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: isPublished ? _T.primary : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Icon(Icons.quiz_rounded, color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: _T.textDark)),
+                        if (description.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(description, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: _T.textMid)),
+                        ],
+                      ],
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _buildPublishedBadge(isPublished),
+                  // Published badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: isPublished ? _T.primary.withOpacity(0.12) : Colors.grey.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: isPublished ? _T.primary.withOpacity(0.3) : Colors.grey.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      isPublished ? 'Published' : 'Draft',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isPublished ? _T.primary : _T.textMid),
+                    ),
+                  ),
                 ],
               ),
-              if (description.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
-                ),
-              ],
-              const SizedBox(height: 8),
-              Text(
-                '$questions question${questions != 1 ? 's' : ''}',
-                style: const TextStyle(color: Colors.blueGrey, fontSize: 13),
-              ),
-              const Divider(height: 20),
+            ),
 
-              // ── Action row ────────────────────────────────
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    // Edit button — hidden if quiz has attempts
-                    if (quiz['has_attempts'] != true) ...[
-                      TextButton.icon(
-                        onPressed: () async {
-                          final result = await Navigator.pushNamed(
-                            context,
-                            '/edit-quiz',
-                            arguments: {
-                              'quiz_id': quizId,
-                              'title': title,
-                              'description': description,
-                            },
-                          );
-                          if (result == true) _loadDashboard();
-                        },
-                        icon: const Icon(
-                          Icons.edit,
-                          size: 16,
-                          color: Color(0xFF6C63FF),
-                        ),
-                        label: const Text(
-                          'Edit',
-                          style: TextStyle(color: Color(0xFF6C63FF)),
-                        ),
+            // ── Body ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Meta row
+                  Row(
+                    children: [
+                      _buildMeta(Icons.help_outline_rounded, '$questions question${questions != 1 ? 's' : ''}'),
+                      if (hasAttempts) ...[
+                        const SizedBox(width: 14),
+                        _buildMeta(Icons.lock_outline_rounded, 'Has attempts', color: _T.orange),
+                      ],
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+                  Divider(color: Colors.grey.shade100, height: 1),
+                  const SizedBox(height: 12),
+
+                  // ── Action buttons ──
+                  Row(
+                    children: [
+                      // Results
+                      _buildActionBtn(
+                        icon: Icons.bar_chart_rounded,
+                        label: 'Results',
+                        color: _T.primary,
+                        onTap: () => Navigator.pushNamed(context, '/quiz-results', arguments: {'quiz_id': quizId, 'quiz_title': title}),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 8),
+                      // Analytics
+                      _buildActionBtn(
+                        icon: Icons.analytics_outlined,
+                        label: 'Analytics',
+                        color: _T.accent,
+                        onTap: () => Navigator.pushNamed(context, '/quiz-analytics', arguments: {'quiz_id': quizId, 'quiz_title': title}),
+                      ),
+                      const Spacer(),
 
-                      // Delete button
-                      TextButton.icon(
-                        onPressed: () => _deleteQuiz(quiz),
-                        icon: const Icon(
-                          Icons.delete,
-                          size: 16,
-                          color: Colors.red,
+                      // Edit (hidden if has attempts)
+                      if (!hasAttempts) ...[
+                        _buildIconBtn(
+                          icon: Icons.edit_rounded,
+                          color: _T.accent,
+                          tooltip: 'Edit',
+                          onTap: () async {
+                            final result = await Navigator.pushNamed(
+                              context,
+                              '/edit-quiz',
+                              arguments: {'quiz_id': quizId, 'title': title, 'description': description},
+                            );
+                            if (result == true) widget.onRefresh();
+                          },
                         ),
-                        label: const Text(
-                          'Delete',
-                          style: TextStyle(color: Colors.red),
+                        const SizedBox(width: 6),
+                        _buildIconBtn(
+                          icon: Icons.delete_rounded,
+                          color: _T.danger,
+                          tooltip: 'Delete',
+                          onTap: () => widget.onDeleteQuiz(quiz),
                         ),
+                        const SizedBox(width: 6),
+                      ],
+
+                      // Export
+                      _buildIconBtn(
+                        icon: Icons.download_rounded,
+                        color: _T.orange,
+                        tooltip: 'Export',
+                        onTap: () async {
+                          widget.onExportStart();
+                          try {
+                            final res = await AuthService.downloadFile(
+                              '/teacher/quizzes/$quizId/export-full',
+                              'quiz_${quizId}_report.xlsx',
+                            );
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(res['success'] ? 'Report downloaded' : (res['message'] ?? 'Download failed')),
+                                backgroundColor: res['success'] ? _T.success : _T.danger,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                margin: const EdgeInsets.all(16),
+                              ),
+                            );
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error: $e'), backgroundColor: _T.danger, behavior: SnackBarBehavior.floating),
+                              );
+                            }
+                          } finally {
+                            widget.onExportEnd();
+                          }
+                        },
                       ),
                       const SizedBox(width: 6),
+
+                      // Publish toggle
+                      isToggling
+                          ? SizedBox(width: 36, height: 36, child: CircularProgressIndicator(strokeWidth: 2, color: _T.primary))
+                          : _buildIconBtn(
+                              icon: isPublished ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                              color: isPublished ? _T.orange : _T.primary,
+                              tooltip: isPublished ? 'Unpublish' : 'Publish',
+                              onTap: () => widget.onTogglePublish(quiz),
+                            ),
                     ],
-
-                    // Results button
-                    TextButton.icon(
-                      onPressed: () => Navigator.pushNamed(
-                        context,
-                        '/quiz-results',
-                        arguments: {
-                          'quiz_id': quizId,
-                          'quiz_title': title,
-                        },
-                      ),
-                      style: TextButton.styleFrom(
-                        backgroundColor:
-                            const Color(0xFF4CAF50).withOpacity(0.10),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: const Icon(
-                        Icons.bar_chart,
-                        size: 16,
-                        color: Color(0xFF4CAF50),
-                      ),
-                      label: const Text(
-                        'Results',
-                        style: TextStyle(
-                          color: Color(0xFF4CAF50),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-
-                    // Analytics button
-                    TextButton.icon(
-                      onPressed: () => Navigator.pushNamed(
-                        context,
-                        '/quiz-analytics',
-                        arguments: {
-                          'quiz_id': quizId,
-                          'quiz_title': title,
-                        },
-                      ),
-                      style: TextButton.styleFrom(
-                        backgroundColor:
-                            const Color(0xFF6C63FF).withOpacity(0.10),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: const Icon(
-                        Icons.analytics_outlined,
-                        size: 16,
-                        color: Color(0xFF6C63FF),
-                      ),
-                      label: const Text(
-                        'Analytics',
-                        style: TextStyle(
-                          color: Color(0xFF6C63FF),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-
-                    TextButton.icon(
-                      onPressed: _isExporting
-                          ? null
-                          : () async {
-                              setState(() => _isExporting = true);
-
-                              try {
-                                final res = await AuthService.downloadFile(
-                                  '/teacher/quizzes/$quizId/export-full',
-                                  'quiz_${quizId}_report.xlsx',
-                                );
-
-                                if (!mounted) return;
-
-                                if (res['success']) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Report downloaded')),
-                                  );
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(res['message'] ?? 'Download failed')),
-                                  );
-                                }
-                              } catch (e) {
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error: $e')),
-                                );
-                              } finally {
-                                if (mounted) {
-                                  setState(() => _isExporting = false);
-                                }
-                              }
-                            },
-                      style: TextButton.styleFrom(
-                        backgroundColor: Colors.orange.withOpacity(0.10),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: const Icon(
-                        Icons.download,
-                        size: 16,
-                        color: Colors.orange,
-                      ),
-                      label: const Text(
-                        'Export',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-
-                                        
-
-                    // Publish toggle
-                    isToggling
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : OutlinedButton.icon(
-                          onPressed: () => _togglePublish(quiz),
-                          icon: Icon(
-                            isPublished
-                                ? Icons.unpublished_outlined
-                                : Icons.publish,
-                            size: 18,
-                            color: isPublished ? Colors.orange : _green,
-                          ),
-                          label: Text(
-                            isPublished ? 'Unpublish' : 'Publish',
-                            style: TextStyle(
-                              color: isPublished ? Colors.orange : _green,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(
-                              color: isPublished ? Colors.orange : _green,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildPublishedBadge(bool isPublished) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: isPublished
-            ? _green.withOpacity(0.15)
-            : Colors.grey.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isPublished ? _green : Colors.grey,
-          width: 1,
+  Widget _buildActionBtn({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 5),
+            Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+          ],
         ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isPublished ? Icons.visibility : Icons.visibility_off,
-            size: 13,
-            color: isPublished ? _green : Colors.grey,
+    );
+  }
+
+  Widget _buildIconBtn({required IconData icon, required Color color, required String tooltip, required VoidCallback onTap}) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
           ),
-          const SizedBox(width: 4),
-          Text(
-            isPublished ? 'Published' : 'Draft',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isPublished ? _green : Colors.grey,
+          child: Icon(icon, size: 18, color: color),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeta(IconData icon, String label, {Color? color}) {
+    final c = color ?? _T.textLight;
+    return Row(
+      children: [
+        Icon(icon, size: 13, color: c),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 12, color: c)),
+      ],
+    );
+  }
+}
+
+// ─── CLASSES TAB ─────────────────────────────────────────────────────────────
+class _TeacherClassesTab extends StatefulWidget {
+  final VoidCallback onRefresh;
+  const _TeacherClassesTab({required this.onRefresh});
+
+  @override
+  State<_TeacherClassesTab> createState() => _TeacherClassesTabState();
+}
+
+class _TeacherClassesTabState extends State<_TeacherClassesTab> {
+  bool _isLoading = true;
+  bool _isActionLoading = false;
+  String? _errorMessage;
+  List<dynamic> _classes = [];
+  List<dynamic> _filtered = [];
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClasses();
+    _searchController.addListener(_applyFilter);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_applyFilter);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _applyFilter() {
+    final query = _searchController.text.trim().toLowerCase();
+    setState(() {
+      _filtered = _classes.where((c) {
+        final name = (c['name'] ?? '').toString().toLowerCase();
+        final desc = (c['description'] ?? '').toString().toLowerCase();
+        return query.isEmpty || name.contains(query) || desc.contains(query);
+      }).toList();
+    });
+  }
+
+  Future<void> _loadClasses() async {
+    setState(() { _isLoading = true; _errorMessage = null; });
+    final result = await AuthService.authGet('/classes');
+    setState(() {
+      _isLoading = false;
+      if (result['success']) {
+        _classes = result['data']['classes'] as List;
+        _filtered = _classes;
+      } else {
+        _errorMessage = result['message'];
+      }
+    });
+  }
+
+  Future<void> _createClass() async {
+    final nameController = TextEditingController();
+    final descController = TextEditingController();
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Create New Class', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              maxLength: 100,
+              decoration: InputDecoration(
+                labelText: 'Class Name',
+                hintText: 'e.g. Math 101',
+                prefixIcon: const Icon(Icons.class_rounded, color: _T.primary),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _T.primary, width: 2)),
+              ),
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: descController,
+              maxLines: 3,
+              maxLength: 200,
+              decoration: InputDecoration(
+                labelText: 'Description (optional)',
+                hintText: 'e.g. Introduction to Mathematics',
+                prefixIcon: const Icon(Icons.description_rounded, color: _T.primary),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _T.primary, width: 2)),
+                alignLabelWithHint: true,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: _T.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: const Text('Create', style: TextStyle(color: Colors.white)),
           ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    if (nameController.text.trim().isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: const Text('Class name is required!'), backgroundColor: _T.warning, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(16)),
+      );
+      return;
+    }
+
+    setState(() => _isActionLoading = true);
+    final result = await AuthService.authPost('/classes', {'name': nameController.text.trim(), 'description': descController.text.trim()});
+    if (mounted) setState(() => _isActionLoading = false);
+
+    if (result['success']) {
+      _loadClasses();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: const Text('Class created successfully!'), backgroundColor: _T.success, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(16)),
+      );
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message']), backgroundColor: _T.danger, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(16)),
+      );
+    }
+  }
+
+  Future<void> _editClass(Map<String, dynamic> cls) async {
+    final nameController = TextEditingController(text: cls['name']);
+    final descController = TextEditingController(text: cls['description'] ?? '');
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Edit Class', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              maxLength: 100,
+              decoration: InputDecoration(
+                labelText: 'Class Name',
+                prefixIcon: const Icon(Icons.class_rounded, color: _T.primary),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _T.primary, width: 2)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: descController,
+              maxLines: 3,
+              maxLength: 200,
+              decoration: InputDecoration(
+                labelText: 'Description (optional)',
+                prefixIcon: const Icon(Icons.description_rounded, color: _T.primary),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _T.primary, width: 2)),
+                alignLabelWithHint: true,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: _T.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: const Text('Save', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isActionLoading = true);
+    final result = await AuthService.authPut('/classes/${cls['id']}', {'name': nameController.text.trim(), 'description': descController.text.trim()});
+    if (mounted) setState(() => _isActionLoading = false);
+
+    if (result['success']) {
+      _loadClasses();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: const Text('Class updated successfully!'), backgroundColor: _T.success, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(16)),
+      );
+    }
+  }
+
+  Future<void> _deleteClass(Map<String, dynamic> cls) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Class', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to delete "${cls['name']}"? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: _T.danger, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isActionLoading = true);
+    final result = await AuthService.authDelete('/classes/${cls['id']}');
+    if (mounted) setState(() => _isActionLoading = false);
+
+    if (result['success']) {
+      _loadClasses();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: const Text('Class deleted successfully!'), backgroundColor: _T.success, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(16)),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _T.bg,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createClass,
+        backgroundColor: _T.primary,
+        icon: const Icon(Icons.add_rounded, color: Colors.white),
+        label: const Text('New Class', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        elevation: 4,
+      ),
+      body: Stack(
+        children: [
+          _buildBody(),
+          if (_isActionLoading)
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                child: Container(
+                  color: Colors.black.withOpacity(0.25),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 24, offset: const Offset(0, 8))],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(color: _T.primary, strokeWidth: 3),
+                          const SizedBox(height: 16),
+                          const Text('Please wait...', style: TextStyle(color: _T.textDark, fontWeight: FontWeight.w600, fontSize: 14)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  // ─── Profile Tab ──────────────────────────────────────────
+  Widget _buildBody() {
+    if (_isLoading) {
+      return Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(24, 56, 24, 32),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_T.primary.withOpacity(0.85), _T.primaryDark.withOpacity(0.85)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(32), bottomRight: Radius.circular(32)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(width: 140, height: 24, decoration: BoxDecoration(color: Colors.white.withOpacity(0.4), borderRadius: BorderRadius.circular(8))),
+                const SizedBox(height: 10),
+                Container(width: 100, height: 14, decoration: BoxDecoration(color: Colors.white.withOpacity(0.25), borderRadius: BorderRadius.circular(8))),
+                const SizedBox(height: 24),
+                Container(height: 46, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(14))),
+              ],
+            ),
+          ),
+          const Spacer(),
+          CircularProgressIndicator(color: _T.primary, strokeWidth: 3),
+          const SizedBox(height: 16),
+          const Text('Loading classes...', style: TextStyle(color: _T.textMid, fontSize: 14)),
+          const Spacer(),
+        ],
+      );
+    }
 
-  Widget _buildProfileTab() {
-    return ProfileWidget(onLogout: _logout);
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: _T.danger.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.error_outline_rounded, size: 48, color: _T.danger)),
+              const SizedBox(height: 16),
+              Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: _T.textMid)),
+              const SizedBox(height: 20),
+              ElevatedButton(onPressed: _loadClasses, style: ElevatedButton.styleFrom(backgroundColor: _T.primary), child: const Text('Retry', style: TextStyle(color: Colors.white))),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadClasses,
+      color: _T.primary,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // ── Header ──
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(24, 56, 24, 24),
+              decoration: BoxDecoration(
+                gradient: _T.headerGradient,
+                borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(32), bottomRight: Radius.circular(32)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('My Classes', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
+                  const SizedBox(height: 4),
+                  Text('${_classes.length} class${_classes.length == 1 ? '' : 'es'}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _searchController,
+                    style: const TextStyle(fontSize: 14, color: _T.textDark),
+                    decoration: InputDecoration(
+                      hintText: 'Search classes...',
+                      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search_rounded, color: _T.primary, size: 20),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(icon: const Icon(Icons.clear_rounded, size: 18), color: _T.textMid, onPressed: () => _searchController.clear())
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          _classes.isEmpty
+              ? SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(40),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: _T.primaryLight, shape: BoxShape.circle), child: Icon(Icons.class_outlined, size: 48, color: _T.primary.withOpacity(0.5))),
+                          const SizedBox(height: 16),
+                          const Text('No classes yet.', style: TextStyle(color: _T.textMid, fontSize: 16, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 4),
+                          const Text('Tap "New Class" to create your first class!', textAlign: TextAlign.center, style: TextStyle(color: _T.textLight, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              : _filtered.isEmpty
+                  ? SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(40),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: _T.primaryLight, shape: BoxShape.circle), child: Icon(Icons.search_off_rounded, size: 48, color: _T.primary.withOpacity(0.5))),
+                              const SizedBox(height: 16),
+                              const Text('No classes found.', style: TextStyle(color: _T.textMid, fontSize: 16, fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  : SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => _buildClassCard(Map<String, dynamic>.from(_filtered[index])),
+                          childCount: _filtered.length,
+                        ),
+                      ),
+                    ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClassCard(Map<String, dynamic> cls) {
+    final colors = [
+      const Color(0xFF2ECC71), const Color(0xFF6C63FF), const Color(0xFF3B82F6),
+      const Color(0xFFF59E0B), const Color(0xFFEF4444), const Color(0xFF8B5CF6),
+    ];
+    final classColor = colors[(cls['name'] as String).codeUnitAt(0) % colors.length];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: _T.card,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () async {
+          await Navigator.pushNamed(context, '/class-detail', arguments: {'class_id': cls['id'], 'class_name': cls['name']});
+          _loadClasses();
+        },
+        child: Column(
+          children: [
+            // Color band header
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              decoration: BoxDecoration(
+                color: classColor.withOpacity(0.1),
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 46, height: 46,
+                    decoration: BoxDecoration(color: classColor, borderRadius: BorderRadius.circular(13)),
+                    child: Center(child: Text((cls['name'] as String)[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20))),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(cls['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _T.textDark)),
+                        if (cls['description'] != null && (cls['description'] as String).isNotEmpty)
+                          Text(cls['description'], maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: _T.textMid)),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: classColor),
+                ],
+              ),
+            ),
+
+            // Body
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              child: Column(
+                children: [
+                  // Class code + stats
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: classColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: classColor.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.key_rounded, size: 12, color: classColor),
+                            const SizedBox(width: 5),
+                            Text(cls['class_code'] ?? '', style: TextStyle(color: classColor, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.5)),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      _buildMeta(Icons.people_rounded, '${cls['students_count']}'),
+                      const SizedBox(width: 12),
+                      _buildMeta(Icons.quiz_rounded, '${cls['quizzes_count']} quizzes'),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(color: Colors.grey.shade100, height: 1),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () => _deleteClass(cls),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(border: Border.all(color: _T.danger.withOpacity(0.3)), borderRadius: BorderRadius.circular(20)),
+                          child: Row(children: [Icon(Icons.delete_rounded, size: 13, color: _T.danger), const SizedBox(width: 4), Text('Delete', style: TextStyle(color: _T.danger, fontSize: 12, fontWeight: FontWeight.w600))]),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => _editClass(cls),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(border: Border.all(color: _T.accent.withOpacity(0.3)), borderRadius: BorderRadius.circular(20)),
+                              child: Row(children: [Icon(Icons.edit_rounded, size: 13, color: _T.accent), const SizedBox(width: 4), Text('Edit', style: TextStyle(color: _T.accent, fontSize: 12, fontWeight: FontWeight.w600))]),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () async {
+                              await Navigator.pushNamed(context, '/class-detail', arguments: {'class_id': cls['id'], 'class_name': cls['name']});
+                              _loadClasses();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                              decoration: BoxDecoration(color: classColor, borderRadius: BorderRadius.circular(20)),
+                              child: const Row(children: [Text('Manage', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), SizedBox(width: 4), Icon(Icons.arrow_forward_rounded, size: 13, color: Colors.white)]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeta(IconData icon, String label) {
+    return Row(
+      children: [
+        Icon(icon, size: 13, color: _T.textLight),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 12, color: _T.textMid)),
+      ],
+    );
   }
 }
